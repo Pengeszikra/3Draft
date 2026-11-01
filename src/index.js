@@ -5,13 +5,14 @@
 // shading yet.
 
 export const name = '3draft';
-export const version = '26.11.1006';
+export const version = '26.11.1007';
 
 export { box, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export { VIEW_ORDER, makeCamera, orbit, project, ray } from './camera.js';
 export { pick, crosshair } from './pick.js';
 export { standOn } from './place.js';
 export { paintOrder } from './order.js';
+export { createGpu, viewProjection, buildVertices, defaultLight, defaultMaterial } from './gpu.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
 export { displayVersion } from './version.js';
 

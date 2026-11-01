@@ -73,6 +73,29 @@ returns a prism standing on the picked surface along its normal (height
 defaults to 3 x base). In the viewer, Space puts one down under the cross and
 Backspace takes the last one back. Over empty space Space shoots the prism out along the cursor ray to a random distance, animated. The viewer starts empty (no table) and lays out only what you place. D deletes the prism under the cross. H toggles edges and points. Prisms get a random wood brown.
 
+### WebGPU view
+
+`createGpu(canvas)` returns a WebGPU renderer that draws the same scene through
+the same camera as the SVG renderer, so picking, framing and the cross marks stay
+valid. Faces are flat colored (the face color is the albedo) and lit by one
+material (`ambient`, `diffuse`, `specular`, `shininess`) and one global light
+(hemisphere ambient plus one directional light):
+
+```js
+import { createGpu, orbit } from '3draft';
+const gpu = await createGpu(canvas);          // rejects when WebGPU is missing
+gpu.render(mesh, orbit({ yaw, pitch }), {
+  size: 600,                                  // CSS px; the canvas is made size x size x dpr
+  fit,                                        // keep the framing fixed, as with SVG
+  light: { direction: [0.5, 0.8, 0.6] },
+  material: { diffuse: 0.8 },
+});
+```
+
+`viewProjection(camera)` is the matrix behind it; it is unit tested to land every
+point on the same pixel as `project()`. `gpu.pixels(...)` draws the same frame
+offscreen and reads it back as RGBA.
+
 ### Known limitations
 
 - Faces are painter-sorted with plane tests (Newell-Sancha style), which is
@@ -88,7 +111,7 @@ Backspace takes the last one back. Over empty space Space shoots the prism out a
 npm run app     # http://localhost:5173/app/
 ```
 
-Drag to rotate the table in front of the camera, double click to reset. A
+Drag to rotate the view, double click to reset. G switches between the SVG and the WebGPU view, L turns the light (WebGPU). A
 target cross follows the pointer and lies on the surface under it. It is a
 single `app/index.html` plus a dependency-free static server
 (`app/serve.js`, localhost only, serves `app/`, `src/` and `examples/`).

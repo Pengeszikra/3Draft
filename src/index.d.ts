@@ -113,6 +113,44 @@ export function standOn(mesh: Mesh, hit: Hit, options?: StandOptions): Mesh;
 /** Back-to-front paint order of projected faces (plane tests; depth fallback on cycles). */
 export function paintOrder(items: unknown[]): number[];
 
+export interface GpuLight {
+  /** Direction towards the light, world space. */
+  direction?: Vec3;
+  /** Hemisphere ambient colors (rgb 0..1): up and down. */
+  sky?: Vec3;
+  ground?: Vec3;
+}
+export interface GpuMaterial {
+  ambient?: number;
+  diffuse?: number;
+  specular?: number;
+  shininess?: number;
+}
+export interface GpuRenderOptions {
+  /** CSS pixels, the canvas becomes size x size (times dpr in device pixels). */
+  size?: number;
+  fit?: Fit;
+  /** Clear color, rgb 0..1. */
+  background?: Vec3;
+  light?: GpuLight;
+  material?: GpuMaterial;
+  dpr?: number;
+}
+export interface Gpu {
+  render(mesh: Mesh, view: ViewName | ViewSpec, options?: GpuRenderOptions): void;
+  /** Same frame, drawn offscreen and read back as RGBA (tests, thumbnails). */
+  pixels(mesh: Mesh, view: ViewName | ViewSpec, options?: GpuRenderOptions): Promise<{ width: number; height: number; data: Uint8ClampedArray }>;
+  destroy(): void;
+}
+/** WebGPU renderer on a canvas; rejects when WebGPU is unavailable. Same camera as the SVG renderer. */
+export function createGpu(canvas: HTMLCanvasElement, options?: { sampleCount?: number }): Promise<Gpu>;
+/** Column-major 4x4 matrix mapping world points to the same pixels as project(). */
+export function viewProjection(camera: Camera, near?: number, far?: number): Float32Array;
+/** Triangle list: position(3) normal(3) color(3) per vertex. */
+export function buildVertices(mesh: Mesh): Float32Array;
+export const defaultLight: Required<GpuLight>;
+export const defaultMaterial: Required<GpuMaterial>;
+
 export function displayVersion(version: string): string;
 
 export interface RenderOptions {

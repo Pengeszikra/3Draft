@@ -106,7 +106,15 @@
     #stage.clean svg polygon { stroke: none; }
     #stage.clean svg circle { display: none; }
     #stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    #frame { position: relative; }
+    #frame canvas { display: block; }
+    #frame canvas[hidden] { display: none; }
+    #layer { position: absolute; inset: 0; }
+    #layer:not(.over) { position: static; }
     #stage svg { display: block; max-width: 100%; }
+    /* WebGPU mode: the SVG is only the cross on top of the canvas */
+    #stage.gpu #layer { pointer-events: none; }
+    #stage.gpu svg rect, #stage.gpu svg text { display: none; }
     /* the renderer writes light-theme colors as attributes; the tokens win in either theme */
     #stage svg rect { fill: var(--panel); stroke: var(--line); }
     #stage svg text { fill: var(--muted); font-family: var(--font-mono); }
@@ -133,30 +141,37 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. D deletes the prism under the cross, H toggles edges and points, Backspace takes the last one back."></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. D deletes the prism under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <footer class="bar">
     <p class="read">
       <span>yaw <b id="yaw">–</b></span>
       <span>pitch <b id="pitch">–</b></span>
       <span>placed <b id="count">0</b></span>
+      <span>view <b id="mode">svg</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · space: place · d: delete · h: edges · backspace: undo</p>
+    <p class="hint">drag: rotate · space: place · d: delete · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
       <button id="lines" type="button">Edges</button>
+      <button id="gpuBtn" type="button">WebGPU</button>
+      <button id="light" type="button">Light</button>
       <button id="undo" type="button">Undo</button>
       <button id="reset" type="button">Reset view</button>
     </span>
   </footer>
 
   <script type="module">
-    import { bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
+    import { createGpu, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
     import { LEG } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
+    const frame = document.getElementById('frame');
+    const canvas = document.getElementById('gpu');
+    const layer = document.getElementById('layer');
+    const modeEl = document.getElementById('mode');
     const yawEl = document.getElementById('yaw');
     const pitchEl = document.getElementById('pitch');
     const countEl = document.getElementById('count');
@@ -240,13 +255,71 @@
       }
       const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
 
-      stage.innerHTML = renderView(shown, view, { size, fit, marks });
+      frame.style.width = frame.style.height = `${size}px`;
+      if (mode === 'gpu' && gpu) {
+        canvas.style.width = canvas.style.height = `${size}px`;
+        const bg = getComputedStyle(document.documentElement).getPropertyValue('--panel').trim();
+        const rgb = /^#[0-9a-f]{6}$/i.test(bg) ? [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16) / 255) : undefined;
+        const a = lightAngle;
+        renderGpu = (readback = false) =>
+          gpu[readback ? 'pixels' : 'render'](shown, view, {
+            size,
+            fit,
+            background: rgb,
+            light: { direction: [Math.sin(a) * 0.6, 0.8, Math.cos(a) * 0.6] },
+          });
+        renderGpu();
+        layer.className = 'over';
+        layer.innerHTML = renderView(nothing, view, { size, fit, marks });
+      } else {
+        layer.className = '';
+        layer.innerHTML = renderView(shown, view, { size, fit, marks });
+      }
       yawEl.textContent = deg(yaw);
       pitchEl.textContent = deg(pitch);
       countEl.textContent = String(placed.length);
       surfaceEl.innerHTML = hit
         ? `surface <b>face ${hit.face} · n ${hit.normal.map(signed).join(' ')}</b>`
         : 'surface <b>–</b>';
+    };
+    // SVG is the default view; WebGPU is set up on first use and falls back to SVG if it fails.
+    let mode = 'svg';
+    let gpu = null;
+    let lightAngle = 0.8;
+    let renderGpu = null;
+    const setMode = async (next) => {
+      if (next === 'gpu' && !gpu) {
+        try {
+          const g = await createGpu(canvas);
+          gpu = g;
+          // a lost device (driver reset, GPU process crash) drops back to the SVG view
+          g.device.lost.then((info) => {
+            if (gpu !== g) return;
+            gpu = null;
+            mode = 'svg';
+            canvas.hidden = true;
+            stage.classList.remove('gpu');
+            modeEl.textContent = 'svg (webgpu lost)';
+            modeEl.title = String(info.message ?? info.reason);
+            redraw();
+          });
+        } catch (err) {
+          modeEl.textContent = 'svg (webgpu unavailable)';
+          modeEl.title = String(err.message ?? err);
+          return;
+        }
+      }
+      mode = next;
+      canvas.hidden = mode !== 'gpu';
+      stage.classList.toggle('gpu', mode === 'gpu');
+      modeEl.textContent = mode === 'gpu' ? 'webgpu' : 'svg';
+      modeEl.title = '';
+      redraw();
+    };
+    const toggleMode = () => setMode(mode === 'gpu' ? 'svg' : 'gpu');
+    const turnLight = () => {
+      lightAngle += Math.PI / 4;
+      redraw();
     };
     const redraw = () => {
       if (!queued) {
@@ -356,6 +429,12 @@
       } else if (e.key === 'd' || e.key === 'D' || e.key === 'Delete') {
         e.preventDefault();
         remove();
+      } else if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault();
+        toggleMode();
+      } else if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        turnLight();
       } else if (e.key === 'h' || e.key === 'H') {
         e.preventDefault();
         stage.classList.toggle('clean');
@@ -370,9 +449,25 @@
     document.getElementById('place').addEventListener('click', place);
     document.getElementById('delete').addEventListener('click', remove);
     document.getElementById('lines').addEventListener('click', () => stage.classList.toggle('clean'));
+    document.getElementById('gpuBtn').addEventListener('click', toggleMode);
+    document.getElementById('light').addEventListener('click', turnLight);
     document.getElementById('undo').addEventListener('click', undo);
     document.getElementById('reset').addEventListener('click', reset);
     new ResizeObserver(redraw).observe(stage);
+
+    // ?debug: read the WebGPU frame back through an offscreen texture (a headless browser shows no canvas)
+    if (new URLSearchParams(location.search).has('debug')) {
+      globalThis.__3draft = {
+        grab: async () => {
+          const r = await renderGpu(true);
+          const o = document.createElement('canvas');
+          o.width = r.width;
+          o.height = r.height;
+          o.getContext('2d').putImageData(new ImageData(r.data, r.width, r.height), 0, 0);
+          return o.toDataURL('image/png');
+        },
+      };
+    }
 
     draw();
   </script>
