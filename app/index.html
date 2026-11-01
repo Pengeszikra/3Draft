@@ -141,7 +141,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. D deletes the prism under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. D deletes the prism under the cross, T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <footer class="bar">
     <p class="read">
@@ -152,10 +152,11 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · space: place · d: delete · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint">drag: rotate · space: place · d: delete · t: travel · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
+      <button id="travel" type="button">Travel</button>
       <button id="lines" type="button">Edges</button>
       <button id="gpuBtn" type="button">WebGPU</button>
       <button id="light" type="button">Light</button>
@@ -237,8 +238,79 @@
       return `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(2)}`;
     };
 
+    // Travel: the camera glides to a target (what to look at, how close, from which side).
+    // The view is an orbit around fit.center, so travelling means easing center, radius, yaw and pitch.
+    let travel = null;
+    let focused = false; // true while the camera sits on one object; scene updates then leave it alone
+    const TRAVEL_MS = 900;
+    const ease = (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
+    const turnBy = (a, b) => a + ((((b - a) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI)) - Math.PI; // a -> b the short way round
+    const goTo = (to) => {
+      travel = {
+        start: performance.now(),
+        from: { center: [...fit.center], radius: fit.radius, yaw, pitch },
+        to: { ...to, yaw: turnBy(yaw, to.yaw ?? yaw), pitch: to.pitch ?? pitch },
+      };
+      redraw();
+    };
+    const stepTravel = (now) => {
+      if (!travel) return;
+      const t = Math.min(1, (now - travel.start) / TRAVEL_MS);
+      const k = ease(t);
+      const { from, to } = travel;
+      const mix = (a, b) => a + (b - a) * k;
+      fit.center = from.center.map((c, i) => mix(c, to.center[i]));
+      fit.radius = mix(from.radius, to.radius);
+      yaw = mix(from.yaw, to.yaw);
+      pitch = mix(from.pitch, to.pitch);
+      if (t >= 1) travel = null;
+      else redraw();
+    };
+
+    // All faces connected to `face` through shared vertices: one object of the scene.
+    const objectAround = (mesh, face) => {
+      const at = new Map();
+      mesh.faces.forEach((f, i) => f.v.forEach((v) => (at.get(v) ?? at.set(v, []).get(v)).push(i)));
+      const seen = new Set([face]);
+      const todo = [face];
+      while (todo.length) {
+        for (const v of mesh.faces[todo.pop()].v) {
+          for (const j of at.get(v)) if (!seen.has(j)) (seen.add(j), todo.push(j));
+        }
+      }
+      const used = new Set();
+      for (const i of seen) mesh.faces[i].v.forEach((v) => used.add(v));
+      return { positions: [...used].map((v) => mesh.positions[v]), faces: [] };
+    };
+
+    // The framing that shows the whole remote scene (or the empty-scene home).
+    const overview = () => {
+      if (!remote.positions.length) return { ...HOME, center: [...HOME.center] };
+      const b = bounds(remote);
+      return { center: b.center, radius: Math.max(b.radius * 1.05, 0.25) };
+    };
+
+    // T: fly in front of the object under the cross; with nothing under it, fly back out.
+    const travelTo = () => {
+      if (hit) {
+        const b = bounds(objectAround(scene, hit.face));
+        const [nx, ny, nz] = hit.normal;
+        focused = true;
+        goTo({
+          center: b.center,
+          radius: Math.max(b.radius * 1.15, 0.12),
+          yaw: Math.atan2(-nx, nz), // the eye ends up on the side the pointed surface faces
+          pitch: Math.max(0.3, Math.min(1.1, Math.asin(Math.max(-1, Math.min(1, ny))))),
+        });
+      } else {
+        focused = false;
+        goTo({ ...overview(), yaw: START.yaw, pitch: START.pitch });
+      }
+    };
+
     const draw = () => {
       queued = false;
+      stepTravel(performance.now());
       const r = stage.getBoundingClientRect();
       const size = Math.max(160, Math.min(900, Math.floor(Math.min(r.width, r.height))));
       const view = orbit({ yaw, pitch }); // the camera orbits, the scene stays in object space
@@ -332,14 +404,14 @@
       }
     };
     const turn = (dYaw, dPitch) => {
+      travel = null; // the hand takes over from the glide
       yaw += dYaw;
       pitch = Math.max(-LIMIT, Math.min(LIMIT, pitch + dPitch));
       redraw();
     };
     const reset = () => {
-      yaw = START.yaw;
-      pitch = START.pitch;
-      redraw();
+      focused = false;
+      goTo({ ...overview(), yaw: START.yaw, pitch: START.pitch });
     };
 
     // A prism like the old table leg (same base), three times as tall as it is wide,
@@ -440,6 +512,9 @@
       } else if (e.key === 'l' || e.key === 'L') {
         e.preventDefault();
         turnLight();
+      } else if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        if (!e.repeat) travelTo();
       } else if (e.key === 'h' || e.key === 'H') {
         e.preventDefault();
         stage.classList.toggle('clean');
@@ -453,6 +528,7 @@
     });
     document.getElementById('place').addEventListener('click', place);
     document.getElementById('delete').addEventListener('click', remove);
+    document.getElementById('travel').addEventListener('click', travelTo);
     document.getElementById('lines').addEventListener('click', () => stage.classList.toggle('clean'));
     document.getElementById('gpuBtn').addEventListener('click', toggleMode);
     document.getElementById('light').addEventListener('click', turnLight);
@@ -478,13 +554,9 @@
     const applyScene = (data) => {
       const meshes = (data.objects ?? []).map((o) => o.mesh);
       remote = merge(nothing, ...meshes);
-      if (remote.positions.length) {
-        const b = bounds(remote);
-        Object.assign(fit, { center: b.center, radius: Math.max(b.radius * 1.05, 0.25) });
-      } else {
-        Object.assign(fit, HOME);
-      }
       rebuild();
+      if (!focused) Object.assign(fit, overview()); // a camera parked on an object stays there
+
       liveEl.textContent = `${meshes.length} object${meshes.length === 1 ? '' : 's'} · rev ${data.rev}`;
       redraw();
     };
