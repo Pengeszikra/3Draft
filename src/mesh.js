@@ -1,21 +1,23 @@
 // Mesh = { positions: [[x, y, z], ...], faces: [{ v: [i, j, k, ...], color }] }
 // Faces are CCW when seen from outside. No normals, UVs or textures yet.
 
-import { add, len, sub } from './vec.js';
+import { add, len, scale, sub } from './vec.js';
 
-/** Axis-aligned box: 8 points, 12 edges, 6 quad faces. */
-export const box = ({ size = [1, 1, 1], at = [0, 0, 0], color = '#c8c8c8' } = {}) => {
+/** Box: 8 points, 12 edges, 6 quad faces. Axis-aligned unless `axes` turns it. */
+export const box = ({ size = [1, 1, 1], at = [0, 0, 0], color = '#c8c8c8', axes } = {}) => {
   const [hx, hy, hz] = size.map((s) => s / 2);
-  const [x, y, z] = at;
+  // `axes` = [ex, ey, ez], an orthonormal right-handed frame (default: x, y, z)
+  const [ex, ey, ez] = axes ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const at3 = (x, y, z) => add(at, add(add(scale(ex, x), scale(ey, y)), scale(ez, z)));
   const positions = [
-    [x - hx, y - hy, z - hz], // 0
-    [x + hx, y - hy, z - hz], // 1
-    [x + hx, y + hy, z - hz], // 2
-    [x - hx, y + hy, z - hz], // 3
-    [x - hx, y - hy, z + hz], // 4
-    [x + hx, y - hy, z + hz], // 5
-    [x + hx, y + hy, z + hz], // 6
-    [x - hx, y + hy, z + hz], // 7
+    at3(-hx, -hy, -hz), // 0
+    at3(hx, -hy, -hz), // 1
+    at3(hx, hy, -hz), // 2
+    at3(-hx, hy, -hz), // 3
+    at3(-hx, -hy, hz), // 4
+    at3(hx, -hy, hz), // 5
+    at3(hx, hy, hz), // 6
+    at3(-hx, hy, hz), // 7
   ];
   const faces = [
     [4, 5, 6, 7], // +z

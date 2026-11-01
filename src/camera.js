@@ -37,6 +37,19 @@ export const makeCamera = (view, mesh, size, fit) => {
   return { name, eye, f, r, u, ortho, k, size };
 };
 
+/**
+ * Turntable rotation as a camera: the view you get from rotate(mesh, { yaw, pitch })
+ * with a fixed camera, but the mesh stays where it is. Picks and marks are then
+ * in object space.
+ */
+export const orbit = ({ yaw = 0, pitch = 0, ortho = false, name = 'orbit' } = {}) => {
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  return { name, ortho, dir: [-sy * cp, sp, cy * cp], up: [sy * sp, cp, -cy * sp] };
+};
+
 /** Ray through panel pixel (x, y), the inverse of project(): { origin, dir } in world space, dir is a unit vector. */
 export const ray = (cam, x, y) => {
   const nx = (x - cam.size / 2) / cam.k;

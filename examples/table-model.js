@@ -2,13 +2,15 @@
 
 import { box, merge } from '../src/index.js';
 
+/** The table leg: a square base and a height. The viewer's prisms use the same base and color. */
+export const LEG = { base: 0.15, height: 0.85, color: '#8a6a4a' };
+
 const TOP_FACE = 4; // box face order: +z, -z, +x, -x, +y, -y
 
 // The legs are glued under the slab, so their top face is an interior face that
-// never shows from outside. The painter's algorithm cannot tell, and would
-// draw it on top of the slab, so the model simply leaves it out.
+// never shows from outside. It is left out of the model.
 const leg = (x, z) => {
-  const b = box({ size: [0.15, 0.85, 0.15], at: [x, 0.425, z], color: '#8a6a4a' });
+  const b = box({ size: [LEG.base, LEG.height, LEG.base], at: [x, LEG.height / 2, z], color: LEG.color });
   return { ...b, faces: b.faces.filter((_, i) => i !== TOP_FACE) };
 };
 

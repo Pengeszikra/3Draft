@@ -1,9 +1,10 @@
 // Flat SVG preview: points, edges, faces. No shading, no textures.
-// Faces are painter-sorted (far first), back faces culled. The polygon stroke
+// Faces are painted far to near (see order.js), back faces culled. The polygon stroke
 // is the edge layer, so hidden edges stay hidden. Output is deterministic.
 
-import { sub, dot } from './vec.js';
+import { sub, dot, norm } from './vec.js';
 import { faceNormal } from './mesh.js';
+import { paintOrder } from './order.js';
 import { VIEW_ORDER, makeCamera, project } from './camera.js';
 
 const defaults = {
@@ -29,24 +30,31 @@ const panel = (mesh, view, o, x = 0, y = 0) => {
     const screen = face.v.map((k) => proj[k]);
     if (screen.some((s) => s.depth <= 0.01)) return; // behind the camera
     const dir = cam.ortho ? cam.f : sub(world[0], cam.eye);
-    if (o.cull && dot(faceNormal(world), dir) >= 0) return; // back face
+    const normal = faceNormal(world);
+    const facing = dot(normal, dir) < 0;
+    if (o.cull && !facing) return; // back face
     items.push({
       i,
       vs: face.v,
+      world,
+      screen,
+      n: norm(normal),
+      p: world[0],
+      eye: facing ? 1 : -1,
       color: face.color ?? '#c8c8c8',
       depth: screen.reduce((s, p) => s + p.depth, 0) / screen.length,
       pts: screen.map((p) => `${num(p.x)},${num(p.y)}`).join(' '),
     });
   });
 
-  items.sort((a, b) => b.depth - a.depth || a.i - b.i); // far first
+  const ordered = paintOrder(items); // far to near
 
   // A point is drawn right after the nearest painted face that holds it, so
   // faces painted later (closer to the camera) still cover it.
   const last = new Map();
-  items.forEach((it, idx) => it.vs.forEach((k) => last.set(k, idx)));
+  ordered.forEach((it, idx) => it.vs.forEach((k) => last.set(k, idx)));
 
-  const body = items.flatMap((it, idx) => {
+  const body = ordered.flatMap((it, idx) => {
     const polygon =
       `<polygon data-face="${it.i}" data-depth="${num(it.depth)}" points="${it.pts}" ` +
       `fill="${it.color}" stroke="${o.stroke}" stroke-width="1.5" stroke-linejoin="round"/>`;

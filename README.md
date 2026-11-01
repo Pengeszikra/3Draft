@@ -65,12 +65,20 @@ Any camera works: `renderView(mesh, { dir, up, ortho, name })` takes a custom
 view, `rotate(mesh, { yaw, pitch })` turns the mesh, and `{ fit: bounds(mesh) }`
 keeps the framing fixed while it moves.
 
+### Placing things
+
+`orbit({ yaw, pitch })` is a turntable as a camera, so the scene stays in object
+space and picks stay valid. `standOn(mesh, hit, { base, height, color })`
+returns a prism standing on the picked surface along its normal (height
+defaults to 3 x base). In the viewer, Space puts one down under the cross and
+Backspace takes the last one back.
+
 ### Known limitations
 
-- Faces are painter-sorted by their center depth. Solids that touch or
-  interpenetrate can show artifacts, so leave interior/contact faces out of the
-  model (the demo table legs have no top face). A z-buffer or face-splitting
-  pass is planned.
+- Faces are painter-sorted with plane tests (Newell-Sancha style), which is
+  exact for solids that touch or stand on each other. Interpenetrating solids
+  and cyclic overlaps fall back to center depth and can show artifacts; a
+  face-splitting pass is planned.
 - Edges are the polygon outlines, so hidden edges are not drawn.
 - Back-face culling assumes closed meshes with CCW faces seen from outside.
 

@@ -88,6 +88,7 @@
     .read b { display: inline-block; min-width: 4ch; font-weight: 500; color: var(--fg); }
     .read .surface { min-width: 34ch; }
     .read .surface b { min-width: 0; }
+    .actions { display: flex; gap: 8px; }
 
     #stage {
       flex: 1;
@@ -129,30 +130,35 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Table model. Drag, or use the arrow keys, to rotate it. The cross follows the surface under the pointer."></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Table model. Drag, or use the arrow keys, to rotate it. The cross follows the surface under the pointer. Space puts a prism down there, Backspace takes the last one back."></main>
 
   <footer class="bar">
     <p class="read">
       <span>yaw <b id="yaw">–</b></span>
       <span>pitch <b id="pitch">–</b></span>
+      <span>placed <b id="count">0</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag to rotate · double click resets</p>
-    <button id="reset" type="button">Reset</button>
+    <p class="hint">drag: rotate · space: place · backspace: undo</p>
+    <span class="actions">
+      <button id="place" type="button">Place</button>
+      <button id="undo" type="button">Undo</button>
+      <button id="reset" type="button">Reset view</button>
+    </span>
   </footer>
 
   <script type="module">
-    import { bounds, rotate, makeCamera, pick, crosshair, faceNormal, renderView, version, displayVersion } from '../src/index.js';
-    import { table } from '../examples/table-model.js';
+    import { bounds, orbit, makeCamera, pick, crosshair, standOn, merge, renderView, version, displayVersion } from '../src/index.js';
+    import { table, LEG } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
     const yawEl = document.getElementById('yaw');
     const pitchEl = document.getElementById('pitch');
+    const countEl = document.getElementById('count');
     const surfaceEl = document.getElementById('surface');
     document.getElementById('build').textContent = displayVersion(version);
 
-    const fit = bounds(table); // the camera keeps looking at the original center
-    const camera = { name: 'orbit', dir: [0, 0, 1], up: [0, 1, 0], ortho: false };
+    const fit = bounds(table); // framing stays put while prisms are added
     const START = { yaw: -0.6, pitch: 0.45 };
     const LIMIT = Math.PI / 2;
     const STEP = 0.12;
@@ -160,40 +166,42 @@
     let yaw = START.yaw;
     let pitch = START.pitch;
     let pointer = null; // last pointer position, client pixels
+    let hit = null; // the surface under the pointer in the last drawn frame
     let queued = false;
+
+    const placed = []; // prisms put down so far
+    let scene = table;
+    const rebuild = () => {
+      scene = merge(table, ...placed);
+    };
 
     const deg = (r) => `${Math.round((r * 180) / Math.PI)}°`;
     const signed = (n) => {
       const v = Math.round(n * 100) / 100 + 0;
       return `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(2)}`;
     };
-    // Normal of the face in object space, so it stays the same while the table turns.
-    const objectNormal = (face) => {
-      const n = faceNormal(table.faces[face].v.map((k) => table.positions[k]));
-      const l = Math.hypot(...n);
-      return n.map((c) => c / l);
-    };
 
     const draw = () => {
       queued = false;
       const r = stage.getBoundingClientRect();
       const size = Math.max(160, Math.min(900, Math.floor(Math.min(r.width, r.height))));
-      const mesh = rotate(table, { yaw, pitch }, fit.center);
+      const view = orbit({ yaw, pitch }); // the camera orbits, the scene stays in object space
 
-      let hit = null;
+      hit = null;
       if (pointer) {
         // the square panel is centered in the stage
         const x = pointer.x - r.left - (r.width - size) / 2;
         const y = pointer.y - r.top - (r.height - size) / 2;
-        hit = pick(mesh, makeCamera(camera, mesh, size, fit), x, y);
+        hit = pick(scene, makeCamera(view, scene, size, fit), x, y);
       }
-      const marks = hit ? [{ name: 'cursor', lines: crosshair(mesh, hit, fit.radius * 0.07) }] : [];
+      const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
 
-      stage.innerHTML = renderView(mesh, camera, { size, fit, marks });
+      stage.innerHTML = renderView(scene, view, { size, fit, marks });
       yawEl.textContent = deg(yaw);
       pitchEl.textContent = deg(pitch);
+      countEl.textContent = String(placed.length);
       surfaceEl.innerHTML = hit
-        ? `surface <b>face ${hit.face} · n ${objectNormal(hit.face).map(signed).join(' ')}</b>`
+        ? `surface <b>face ${hit.face} · n ${hit.normal.map(signed).join(' ')}</b>`
         : 'surface <b>–</b>';
     };
     const redraw = () => {
@@ -213,6 +221,21 @@
       redraw();
     };
 
+    // A prism like the table leg (same base), three times as tall as it is wide,
+    // standing on the surface under the cross.
+    const place = () => {
+      if (!hit) return;
+      placed.push(standOn(scene, hit, { base: LEG.base, color: LEG.color }));
+      rebuild();
+      redraw();
+    };
+    const undo = () => {
+      if (!placed.length) return;
+      placed.pop();
+      rebuild();
+      redraw();
+    };
+
     let last = null; // drag origin
     stage.addEventListener('pointerdown', (e) => {
       last = { x: e.clientX, y: e.clientY };
@@ -227,11 +250,9 @@
       turn((e.clientX - last.x) * 0.008, (e.clientY - last.y) * 0.008);
       last = { x: e.clientX, y: e.clientY };
     });
-    const release = (e) => {
+    const release = () => {
       last = null;
       stage.classList.remove('drag');
-      if (e.pointerType === 'touch') pointer = null; // no hover on touch screens
-      redraw();
     };
     stage.addEventListener('pointerup', release);
     stage.addEventListener('pointercancel', release);
@@ -241,17 +262,28 @@
       redraw();
     });
     stage.addEventListener('dblclick', reset);
-    stage.addEventListener('keydown', (e) => {
-      const moves = {
-        ArrowLeft: [-STEP, 0],
-        ArrowRight: [STEP, 0],
-        ArrowUp: [0, -STEP],
-        ArrowDown: [0, STEP],
-      };
-      if (!moves[e.key]) return;
-      e.preventDefault();
-      turn(...moves[e.key]);
+
+    const moves = {
+      ArrowLeft: [-STEP, 0],
+      ArrowRight: [STEP, 0],
+      ArrowUp: [0, -STEP],
+      ArrowDown: [0, STEP],
+    };
+    document.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLButtonElement) return; // Space and Enter belong to a focused button
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (!e.repeat) place();
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        undo();
+      } else if (moves[e.key]) {
+        e.preventDefault();
+        turn(...moves[e.key]);
+      }
     });
+    document.getElementById('place').addEventListener('click', place);
+    document.getElementById('undo').addEventListener('click', undo);
     document.getElementById('reset').addEventListener('click', reset);
     new ResizeObserver(redraw).observe(stage);
 

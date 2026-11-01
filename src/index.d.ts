@@ -18,6 +18,8 @@ export interface BoxOptions {
   size?: Vec3;
   at?: Vec3;
   color?: string;
+  /** Orthonormal local x/y/z axes (default: the world axes). */
+  axes?: [Vec3, Vec3, Vec3];
 }
 
 export function box(options?: BoxOptions): Mesh;
@@ -95,6 +97,22 @@ export interface Mark {
 }
 
 /** '26.11.1001' -> '26.11.01.001' */
+/** Turntable as a camera: the object stays put, the eye orbits (radians). */
+export function orbit(angles?: { yaw?: number; pitch?: number; ortho?: boolean; name?: string }): ViewSpec;
+
+export interface StandOptions {
+  /** Square base edge (default 0.15). */
+  base?: number;
+  /** Height (default 3 x base). */
+  height?: number;
+  color?: string;
+}
+/** A prism standing on the picked surface, along its normal. */
+export function standOn(mesh: Mesh, hit: Hit, options?: StandOptions): Mesh;
+
+/** Back-to-front paint order of projected faces (plane tests; depth fallback on cycles). */
+export function paintOrder(items: unknown[]): number[];
+
 export function displayVersion(version: string): string;
 
 export interface RenderOptions {
