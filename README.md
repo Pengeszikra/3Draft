@@ -9,11 +9,43 @@ Minimalist AI first 3D engine.
 npm install 3draft
 ```
 
-```js
-import { info } from '3draft';
+## Usage (v0.1: points, edges, flat faces, SVG)
 
-console.log(info());
+```js
+import { writeFileSync } from 'node:fs';
+import { box, merge, renderSheet, renderViews } from '3draft';
+
+const table = merge(
+  box({ size: [2, 0.15, 1.2], at: [0, 0.925, 0], color: '#c8a27a' }),
+  box({ size: [0.15, 0.85, 0.15], at: [-0.85, 0.425, -0.45], color: '#8a6a4a' }),
+  // ...more legs
+);
+
+writeFileSync('table.svg', renderSheet(table)); // 2x2 sheet
+
+for (const { name, svg } of renderViews(table)) {
+  // one after another: 'front', 'side', 'top', 'persp'
+  writeFileSync(`table.${name}.svg`, svg);
+}
 ```
+
+`npm run example` writes the table above to `examples/out/`:
+
+![table sheet](examples/out/table.sheet.svg)
+
+Views: `front` (eye on +z), `side` (eye on +x), `top` (eye on +y), all
+orthographic with the same scale, and a perspective `persp` view. Every
+`<polygon>` carries `data-face` and `data-depth`, every `<circle>` carries
+`data-v`, so the output can be inspected as plain text.
+
+### Known limitations
+
+- Faces are painter-sorted by their center depth. Solids that touch or
+  interpenetrate can show artifacts (e.g. the top faces of the table legs
+  poke through the slab in the perspective view). A z-buffer or face-splitting
+  pass is planned.
+- Edges are the polygon outlines, so hidden edges are not drawn.
+- Back-face culling assumes closed meshes with CCW faces seen from outside.
 
 ## Idea
 

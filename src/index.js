@@ -1,9 +1,13 @@
 // 3Draft: minimalist AI first 3D engine.
-// Early placeholder release: the real engine (palette-texture meshes,
-// WASM core, WebGPU/WebGL2 renderer, SVG preview) is built on top of this.
+// Current stage: points, edges and flat faces rendered to deterministic SVG
+// from four fixed cameras. No textures, no shading yet.
 
 export const name = '3draft';
-export const version = '0.0.1';
+export const version = '0.1.0';
+
+export { box, merge, bounds, faceNormal, faceCenter } from './mesh.js';
+export { VIEW_ORDER, makeCamera, project } from './camera.js';
+export { renderView, renderViews, renderSheet } from './svg.js';
 
 /** Short, machine-readable description of the current state of the package. */
 export const info = () => ({
