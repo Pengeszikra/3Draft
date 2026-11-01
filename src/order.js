@@ -8,7 +8,7 @@
 
 import { dot, sub } from './vec.js';
 
-const EPS = 1e-6; // plane test tolerance, world units
+const PLANE_EPS = 1e-6; // plane test tolerance, world units
 const PX = 0.01; // overlaps thinner than this are treated as touching
 
 // Do two convex screen polygons overlap by more than a sliver? (separating axis test)
@@ -66,8 +66,8 @@ export const paintOrder = (items) => {
       if (!overlaps(A.screen, B.screen)) continue;
       const a = distances(A.world, B); // A against B's plane
       const b = distances(B.world, A); // B against A's plane
-      const aAfterB = a.every((d) => d >= -EPS) || b.every((d) => d <= EPS);
-      const bAfterA = b.every((d) => d >= -EPS) || a.every((d) => d <= EPS);
+      const aAfterB = a.every((d) => d >= -PLANE_EPS) || b.every((d) => d <= PLANE_EPS);
+      const bAfterA = b.every((d) => d >= -PLANE_EPS) || a.every((d) => d <= PLANE_EPS);
       if (aAfterB && !bAfterA) link(j, i);
       else if (bAfterA && !aAfterB) link(i, j);
     }
