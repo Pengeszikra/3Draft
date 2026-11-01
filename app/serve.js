@@ -3,7 +3,7 @@
 // Serves only app/, src/ and examples/, and only on 127.0.0.1.
 
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -36,6 +36,15 @@ export const createViewerServer = (extra) =>
     if (path === '/') {
       res.writeHead(302, { location: '/app/' });
       return res.end();
+    }
+    if (!path.endsWith('/') && !extname(path)) {
+      // a folder without its trailing slash (/app): send the browser to the folder so relative paths work
+      const dir = resolve(join(root, normalize(path)));
+      const top = relative(root, dir).split(sep)[0];
+      if (allowed.has(top) && (await stat(dir).catch(() => null))?.isDirectory()) {
+        res.writeHead(302, { location: `${path}/` });
+        return res.end();
+      }
     }
     if (path.endsWith('/')) path += 'index.html';
     const file = resolve(join(root, normalize(path)));
