@@ -71,7 +71,7 @@ keeps the framing fixed while it moves.
 space and picks stay valid. `standOn(mesh, hit, { base, height, color })`
 returns a prism standing on the picked surface along its normal (height
 defaults to 3 x base). In the viewer, Space puts one down under the cross and
-Backspace takes the last one back. Over empty space Space shoots the prism out under the cursor to a random distance, animated, flying exactly along the camera axis (it lies along that axis like a bullet). The viewer starts empty (no table) and lays out only what you place. D deletes the prism under the cross. H toggles edges and points. T flies the camera, animated, to the object under the cross and in front of the surface you point at (the whole scene is framed again when T is pressed over nothing, or with Reset view). Prisms get a random wood brown.
+Backspace takes the last one back. Over empty space Space shoots the prism out under the cursor to a random distance, animated, flying exactly along the camera axis (it lies along that axis like a bullet). The viewer starts empty (no table) and lays out only what you place. D deletes the prism under the cross. H toggles edges and points. T flies the camera, animated, to the object under the cross and in front of the surface you point at (the whole scene is framed again when T is pressed over nothing, or with Reset view). Prisms get a random wood brown. On a phone or tablet the stage fills the screen with no text: drag orbits, and four round translucent buttons do T, Space, D and the SVG/WebGPU switch (the cross starts in the middle and stays where you last touched).
 
 ### WebGPU view
 
