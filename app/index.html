@@ -428,16 +428,15 @@
       const { origin, dir } = ray(cam, cam.at.x, cam.at.y);
       const D = Math.hypot(...origin.map((c, i) => c - fit.center[i])); // eye to scene center
       const reach = (k) => origin.map((c, i) => c + dir[i] * D * k);
-      const end = reach(0.6 + Math.random() * (SHOT_MAX - 0.6));
-      // Lying like a bullet: the long axis is horizontal and points along the shot.
-      let h = [dir[0], 0, dir[2]];
-      h = Math.hypot(...h) < 1e-3 ? [cam.r[0], 0, cam.r[2]] : h;
-      const hl = Math.hypot(...h);
-      h = h.map((c) => c / hl);
-      const side = [UP[1] * h[2] - UP[2] * h[1], UP[2] * h[0] - UP[0] * h[2], UP[0] * h[1] - UP[1] * h[0]];
-      const mesh = box({ size: [LEG.base, 3 * LEG.base, LEG.base], at: end, color: brown(), axes: [UP, h, side] });
-      const start = reach(0.2);
-      placed.push({ mesh, from: start.map((c, i) => c - end[i]), start: performance.now() });
+      const k = 0.6 + Math.random() * (SHOT_MAX - 0.6);
+      const end = reach(k); // lands under the cursor, on the cursor ray
+      // Flies exactly along the camera axis, so on screen it stays under the cursor and only grows or shrinks.
+      const f = cam.f;
+      const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      // Lying like a bullet: the long axis is the camera axis.
+      const mesh = box({ size: [LEG.base, 3 * LEG.base, LEG.base], at: end, color: brown(), axes: [cam.u, f, cross(cam.u, f)] });
+      const back = (k - 0.2) * D * (dir[0] * f[0] + dir[1] * f[1] + dir[2] * f[2]); // distance along the axis to the start depth
+      placed.push({ mesh, from: f.map((c) => -c * back), start: performance.now() });
       redraw();
     };
     // Which landed prism owns a face of the pick scene .
