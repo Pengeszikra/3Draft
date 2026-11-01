@@ -184,3 +184,35 @@ test('export and import round-trip, in memory and through a file', () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('get_mesh, extrude_face and move_vertices shape an object', () => {
+  const s = createScene();
+  ok(s, 'add_box', { name: 'tower', size: [2, 3, 2], at: [0, 1.5, 0], color: '#cccccc' });
+  const m = json(ok(s, 'get_mesh', { name: 'tower' }));
+  assert.equal(m.vertices.length, 8);
+  assert.equal(m.faces.length, 6);
+  const top = m.faces.find((f) => f.normal[1] === 1);
+  assert.deepEqual(top.center, [0, 3, 0]);
+
+  const roof = json(ok(s, 'extrude_face', { name: 'tower', face: top.i, distance: 1.2, scale: 0.05, color: '#aa3333' }));
+  assert.equal(roof.ok, true, roof.notes.join('; '));
+  assert.equal(roof.cap_face, top.i);
+  assert.equal(roof.side_faces.length, 4);
+  assert.equal(roof.max[1], 4.2);
+
+  const dent = json(ok(s, 'extrude_face', { name: 'tower', face: 0, scale: 0.4 }));
+  assert.equal(dent.ok, true);
+  const door = json(ok(s, 'extrude_face', { name: 'tower', face: dent.cap_face, distance: -0.3, color: '#553311' }));
+  assert.equal(door.ok, true, door.notes.join('; '));
+
+  assert.match(s.call('extrude_face', { name: 'tower', face: 99, distance: 1 }).text, /no face 99/);
+  assert.match(s.call('extrude_face', { name: 'tower', face: 0 }).text, /nothing to do/);
+  assert.match(s.call('move_vertices', { name: 'tower', indices: [99], by: [0, 0, 0] }).text, /vertex 99/);
+
+  ok(s, 'add_box', { name: 'slab' });
+  const lean = json(ok(s, 'move_vertices', { name: 'slab', indices: [2, 3, 6, 7], by: [0.5, 0, 0] }));
+  assert.equal(lean.ok, true, 'the top four corners move together and stay flat');
+  const twist = json(ok(s, 'move_vertices', { name: 'slab', indices: [0], by: [0, 0.5, 0] }));
+  assert.equal(twist.ok, false);
+  assert.match(twist.notes.join(' '), /non-planar/);
+});

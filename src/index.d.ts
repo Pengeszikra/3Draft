@@ -173,6 +173,10 @@ export interface Validation {
 /** Geometry checks: closed shell, CCW from outside, planar, convex faces. */
 export function validate(mesh: Mesh): Validation;
 
+/** Extrude / taper / inset / dent a face; returns the new mesh, the cap face index and the new side quads. */
+export function extrudeFace(mesh: Mesh, face: number, options?: { distance?: number; scale?: number; color?: string }): { mesh: Mesh; cap: number; sides: number[] };
+export function moveVertices(mesh: Mesh, indices: number[], delta: Vec3): Mesh;
+
 export function displayVersion(version: string): string;
 
 export interface RenderOptions {

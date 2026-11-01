@@ -125,6 +125,7 @@ delete your own prisms on top. Loopback only, other `Host` headers are refused.
 | --- | --- |
 | `add_box`, `add_extrusion`, `add_mesh` | boxes, prisms from a convex footprint, raw faces |
 | `transform`, `recolor`, `remove`, `clear` | scale / rotate Y / move, colors, deleting |
+| `get_mesh`, `extrude_face`, `move_vertices` | shape an object: push, taper, inset or dent a face, move vertices |
 | `list`, `inspect` | objects and bounds; closed shell, winding, planar and convex faces, as text notes |
 | `render` | SVG: a 2x2 sheet (front, side, top, persp) or one view, also `orbit` with yaw/pitch |
 | `pick` | pixel of a render -> object, face, 3D point, normal |

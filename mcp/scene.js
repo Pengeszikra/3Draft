@@ -4,7 +4,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, relative, isAbsolute, extname } from 'node:path';
-import { box, extrude, merge, rotate, bounds, makeCamera, orbit, pick, renderView, renderSheet, validate, VIEW_ORDER } from '../src/index.js';
+import { box, extrude, extrudeFace, moveVertices, faceNormal, faceCenter, merge, rotate, bounds, makeCamera, orbit, pick, renderView, renderSheet, validate, VIEW_ORDER } from '../src/index.js';
 
 export class ToolError extends Error {}
 const fail = (message) => {
@@ -200,6 +200,65 @@ export const createScene = () => {
         }
         objects.set(a.name, mesh);
         return summary(a.name, mesh);
+      },
+    },
+    {
+      name: 'get_mesh',
+      description: 'Read an object\'s geometry so you can shape it: the vertices (index = position in the list) and the faces with their vertex indices, color, center and outward normal. Use it to find the face or vertex indices for extrude_face and move_vertices.',
+      inputSchema: { type: 'object', properties: { name: nameSchema }, required: ['name'] },
+      annotations: { readOnlyHint: true },
+      run: (a) => {
+        const mesh = need(a.name);
+        return {
+          name: a.name,
+          vertices: mesh.positions.map(rv),
+          faces: mesh.faces.map((f, i) => {
+            const pts = f.v.map((k) => mesh.positions[k]);
+            const n = faceNormal(pts);
+            const l = Math.hypot(...n) || 1;
+            return { i, v: f.v, color: f.color, center: rv(faceCenter(pts)), normal: rv(n.map((c) => c / l)) };
+          }),
+        };
+      },
+    },
+    {
+      name: 'extrude_face',
+      description: 'Shape an object by pushing one of its faces out, like a modeller. The face is replaced (same index) by a copy moved `distance` along its outward normal and scaled by `scale` about its center, joined to the old edges by new side faces. distance > 0 and scale 1: a prism grows out (a wing, a chimney, a step). distance > 0 and scale < 1: a taper (roof, tower top, frustum). distance 0 and scale < 1: an inset (a panel or window frame; extrude it again, negative, for a recess). distance < 0: a dent into the solid (a niche, a door recess). The result is a closed solid again; chain calls on the returned `cap` face.',
+      inputSchema: {
+        type: 'object',
+        properties: { name: nameSchema, face: { type: 'integer', description: 'face index inside the object (see get_mesh)' }, distance: { type: 'number', description: 'along the outward normal, default 0' }, scale: { type: 'number', description: 'about the face center, > 0, default 1' }, color: { ...colorSchema, description: 'color for the new faces (default: the face color)' } },
+        required: ['name', 'face'],
+      },
+      run: (a) => {
+        const mesh = need(a.name);
+        if (!Number.isInteger(a.face)) fail('face must be an integer');
+        let out;
+        try {
+          out = extrudeFace(mesh, a.face, { distance: number(a.distance, 'distance', { fallback: 0 }), scale: number(a.scale, 'scale', { min: 1e-9, fallback: 1 }), color: a.color === undefined ? undefined : color(a.color) });
+        } catch (e) {
+          fail(e.message);
+        }
+        objects.set(a.name, out.mesh);
+        const c = validate(out.mesh);
+        return { ...summary(a.name, out.mesh), cap_face: out.cap, side_faces: out.sides, ok: c.ok, notes: c.notes };
+      },
+    },
+    {
+      name: 'move_vertices',
+      description: 'Move the vertices with the given indices by [dx, dy, dz] (see get_mesh for the indices): shear, lean, pinch a roof ridge, raise a corner. Faces keep their vertices, so moving only some corners of a face can make it non-planar; the result reports that. Move all the corners of a face together to keep it flat.',
+      inputSchema: { type: 'object', properties: { name: nameSchema, indices: { type: 'array', items: { type: 'integer' }, minItems: 1 }, by: { ...vec3Schema, description: '[dx, dy, dz]' } }, required: ['name', 'indices', 'by'] },
+      run: (a) => {
+        const mesh = need(a.name);
+        if (!Array.isArray(a.indices) || !a.indices.length) fail('indices must be a non-empty list of vertex indices');
+        let moved;
+        try {
+          moved = moveVertices(mesh, a.indices, vec3(a.by, 'by'));
+        } catch (e) {
+          fail(e.message);
+        }
+        objects.set(a.name, moved);
+        const c = validate(moved);
+        return { ...summary(a.name, moved), ok: c.ok, notes: c.notes };
       },
     },
     {
