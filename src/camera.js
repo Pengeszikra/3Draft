@@ -37,6 +37,16 @@ export const makeCamera = (view, mesh, size, fit) => {
   return { name, eye, f, r, u, ortho, k, size };
 };
 
+/** Ray through panel pixel (x, y), the inverse of project(): { origin, dir } in world space, dir is a unit vector. */
+export const ray = (cam, x, y) => {
+  const nx = (x - cam.size / 2) / cam.k;
+  const ny = -(y - cam.size / 2) / cam.k;
+  const lateral = add(scale(cam.r, nx), scale(cam.u, ny));
+  return cam.ortho
+    ? { origin: add(cam.eye, lateral), dir: cam.f }
+    : { origin: cam.eye, dir: norm(add(cam.f, lateral)) };
+};
+
 /** World point -> { x, y } in panel pixels (y down) and depth along the view direction. */
 export const project = (cam, p) => {
   const d = sub(p, cam.eye);

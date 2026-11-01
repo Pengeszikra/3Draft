@@ -11,6 +11,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { displayVersion } from '../src/version.js';
 
 /** Next version for `date` given the current version. */
 export const nextVersion = (current, date = new Date()) => {
@@ -24,12 +25,8 @@ export const nextVersion = (current, date = new Date()) => {
   return `${yy}.${mm}.${dd * 1000 + build}`;
 };
 
-/** '26.11.1001' -> '26.11.01.001' (the readable form). */
-export const display = (version) => {
-  const [yy, mm, p] = version.split('.').map(Number);
-  const pad = (n, w) => String(n).padStart(w, '0');
-  return `${pad(yy, 2)}.${pad(mm, 2)}.${pad(Math.floor(p / 1000), 2)}.${pad(p % 1000, 3)}`;
-};
+/** '26.11.1001' -> '26.11.01.001' (the readable form, shared with the viewer). */
+export const display = displayVersion;
 
 const run = () => {
   const pkgUrl = new URL('../package.json', import.meta.url);

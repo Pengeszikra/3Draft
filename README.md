@@ -38,6 +38,29 @@ orthographic with the same scale, and a perspective `persp` view. Every
 `<polygon>` carries `data-face` and `data-depth`, every `<circle>` carries
 `data-v`, so the output can be inspected as plain text.
 
+### Surfaces: what is under the cursor
+
+The engine senses surfaces, not just pixels. `pick` casts a real ray from a
+screen pixel into the geometry and returns the face, the hit point, the
+surface normal and the distance. `crosshair` builds a target cross that lies
+flat on that surface (perpendicular to its normal), aligned to the face, so it
+turns with the object. Marks are drawn on top by `renderView`.
+
+```js
+import { makeCamera, pick, crosshair, renderView } from '3draft';
+
+const cam = makeCamera('persp', mesh, 400);
+const hit = pick(mesh, cam, x, y); // { face, point, normal, distance, color } or null
+
+const marks = hit ? [{ name: 'cursor', lines: crosshair(mesh, hit, 0.08) }] : [];
+const svg = renderView(mesh, 'persp', { marks });
+```
+
+Picking uses the geometry, not the painter's drawing order, so it stays exact
+where the drawing has artifacts. `ray(cam, x, y)` is the inverse of
+`project`. The viewer shows the cross under the pointer and reads out the face
+and its object-space normal.
+
 Any camera works: `renderView(mesh, { dir, up, ortho, name })` takes a custom
 view, `rotate(mesh, { yaw, pitch })` turns the mesh, and `{ fit: bounds(mesh) }`
 keeps the framing fixed while it moves.
@@ -57,8 +80,9 @@ keeps the framing fixed while it moves.
 npm run app     # http://localhost:5173/app/
 ```
 
-Drag to rotate the table in front of the camera, double click to reset. It is
-a single `app/index.html` plus a dependency-free static server
+Drag to rotate the table in front of the camera, double click to reset. A
+target cross follows the pointer and lies on the surface under it. It is a
+single `app/index.html` plus a dependency-free static server
 (`app/serve.js`, localhost only, serves `app/`, `src/` and `examples/`).
 
 ## Versioning

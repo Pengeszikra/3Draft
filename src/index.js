@@ -1,13 +1,17 @@
 // 3Draft: minimalist AI first 3D engine.
 // Current stage: points, edges and flat faces rendered to deterministic SVG
-// from four fixed cameras. No textures, no shading yet.
+// from four fixed cameras, plus surface picking (point, normal, distance) and
+// a target cross that lies on the surface under the cursor. No textures, no
+// shading yet.
 
 export const name = '3draft';
-export const version = '26.11.1001';
+export const version = '26.11.1002';
 
 export { box, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
-export { VIEW_ORDER, makeCamera, project } from './camera.js';
+export { VIEW_ORDER, makeCamera, project, ray } from './camera.js';
+export { pick, crosshair } from './pick.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
+export { displayVersion } from './version.js';
 
 /** Short, machine-readable description of the current state of the package. */
 export const info = () => ({

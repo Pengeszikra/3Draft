@@ -2,37 +2,199 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>3Draft viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>3Draft Viewer</title>
   <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600&family=DM+Mono:wght@400;500&display=swap">
   <style>
-    html, body { margin: 0; height: 100%; background: #fafafa; font-family: monospace; color: #555; }
-    #view { position: fixed; inset: 0; display: grid; place-items: center; cursor: grab; user-select: none; touch-action: none; }
-    #view.drag { cursor: grabbing; }
-    #hint { position: fixed; left: 12px; bottom: 10px; font-size: 12px; pointer-events: none; }
+    /* Layout: one-screen instrument. Slim title bar, one square drawing stage, readout bar below. */
+    :root {
+      --bg: #f3f4f1;
+      --panel: #fbfbf9;
+      --fg: #1c1f1d;
+      --muted: #656b66;
+      --line: #d3d7d0;
+      --edge: #1d1d1f;
+      --point: #d6336c;
+      --cursor: #0b7285;
+      --accent: #c2255c;
+      --font-display: 'Barlow Semi Condensed', 'Arial Narrow', system-ui, sans-serif;
+      --font-mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #141614;
+        --panel: #1b1e1b;
+        --fg: #e8eae5;
+        --muted: #9aa19a;
+        --line: #2f342f;
+        --edge: #efe9df;
+        --point: #ff6b9a;
+        --cursor: #3bc9db;
+        --accent: #ff7aa6;
+        color-scheme: dark;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #141614;
+      --panel: #1b1e1b;
+      --fg: #e8eae5;
+      --muted: #9aa19a;
+      --line: #2f342f;
+      --edge: #efe9df;
+      --point: #ff6b9a;
+      --cursor: #3bc9db;
+      --accent: #ff7aa6;
+      color-scheme: dark;
+    }
+
+    html, body { height: 100%; }
+    body {
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 0;
+      padding-block: 12px;
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px));
+      background: var(--bg);
+      color: var(--fg);
+      font: 14px/1.4 var(--font-mono);
+    }
+
+    .bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px 20px;
+    }
+    h1 {
+      margin: 0;
+      font: 600 22px/1 var(--font-display);
+      letter-spacing: 0.02em;
+    }
+    h1 span {
+      margin-left: 8px;
+      font: 400 12px/1 var(--font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .build, .hint, .read { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .read { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+    .read b { display: inline-block; min-width: 4ch; font-weight: 500; color: var(--fg); }
+    .read .surface { min-width: 34ch; }
+    .read .surface b { min-width: 0; }
+
+    #stage {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    #stage.drag { cursor: grabbing; }
+    #stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    #stage svg { display: block; max-width: 100%; }
+    /* the renderer writes light-theme colors as attributes; the tokens win in either theme */
+    #stage svg rect { fill: var(--panel); stroke: var(--line); }
+    #stage svg text { fill: var(--muted); font-family: var(--font-mono); }
+    #stage svg polygon { stroke: var(--edge); }
+    #stage svg circle { fill: var(--point); }
+    #stage svg polyline { stroke: var(--cursor); }
+
+    button {
+      font: 500 13px/1 var(--font-mono);
+      color: var(--fg);
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--muted); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   </style>
 </head>
 <body>
-  <div id="view"></div>
-  <div id="hint">drag: rotate · double click: reset</div>
+  <header class="bar">
+    <h1>3Draft<span>viewer</span></h1>
+    <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
+  </header>
+
+  <main id="stage" tabindex="0" role="img" aria-label="Table model. Drag, or use the arrow keys, to rotate it. The cross follows the surface under the pointer."></main>
+
+  <footer class="bar">
+    <p class="read">
+      <span>yaw <b id="yaw">–</b></span>
+      <span>pitch <b id="pitch">–</b></span>
+      <span class="surface" id="surface">surface <b>–</b></span>
+    </p>
+    <p class="hint">drag to rotate · double click resets</p>
+    <button id="reset" type="button">Reset</button>
+  </footer>
 
   <script type="module">
-    import { bounds, rotate, renderView } from '../src/index.js';
+    import { bounds, rotate, makeCamera, pick, crosshair, faceNormal, renderView, version, displayVersion } from '../src/index.js';
     import { table } from '../examples/table-model.js';
 
-    const view = document.getElementById('view');
+    const stage = document.getElementById('stage');
+    const yawEl = document.getElementById('yaw');
+    const pitchEl = document.getElementById('pitch');
+    const surfaceEl = document.getElementById('surface');
+    document.getElementById('build').textContent = displayVersion(version);
+
     const fit = bounds(table); // the camera keeps looking at the original center
     const camera = { name: 'orbit', dir: [0, 0, 1], up: [0, 1, 0], ortho: false };
     const START = { yaw: -0.6, pitch: 0.45 };
     const LIMIT = Math.PI / 2;
+    const STEP = 0.12;
 
-    let { yaw, pitch } = START;
+    let yaw = START.yaw;
+    let pitch = START.pitch;
+    let pointer = null; // last pointer position, client pixels
     let queued = false;
+
+    const deg = (r) => `${Math.round((r * 180) / Math.PI)}°`;
+    const signed = (n) => {
+      const v = Math.round(n * 100) / 100 + 0;
+      return `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(2)}`;
+    };
+    // Normal of the face in object space, so it stays the same while the table turns.
+    const objectNormal = (face) => {
+      const n = faceNormal(table.faces[face].v.map((k) => table.positions[k]));
+      const l = Math.hypot(...n);
+      return n.map((c) => c / l);
+    };
 
     const draw = () => {
       queued = false;
-      const size = Math.floor(Math.min(innerWidth, innerHeight));
-      view.innerHTML = renderView(rotate(table, { yaw, pitch }, fit.center), camera, { size, fit });
+      const r = stage.getBoundingClientRect();
+      const size = Math.max(160, Math.min(900, Math.floor(Math.min(r.width, r.height))));
+      const mesh = rotate(table, { yaw, pitch }, fit.center);
+
+      let hit = null;
+      if (pointer) {
+        // the square panel is centered in the stage
+        const x = pointer.x - r.left - (r.width - size) / 2;
+        const y = pointer.y - r.top - (r.height - size) / 2;
+        hit = pick(mesh, makeCamera(camera, mesh, size, fit), x, y);
+      }
+      const marks = hit ? [{ name: 'cursor', lines: crosshair(mesh, hit, fit.radius * 0.07) }] : [];
+
+      stage.innerHTML = renderView(mesh, camera, { size, fit, marks });
+      yawEl.textContent = deg(yaw);
+      pitchEl.textContent = deg(pitch);
+      surfaceEl.innerHTML = hit
+        ? `surface <b>face ${hit.face} · n ${objectNormal(hit.face).map(signed).join(' ')}</b>`
+        : 'surface <b>–</b>';
     };
     const redraw = () => {
       if (!queued) {
@@ -40,31 +202,58 @@
         requestAnimationFrame(draw);
       }
     };
-
-    let last = null;
-    view.addEventListener('pointerdown', (e) => {
-      last = { x: e.clientX, y: e.clientY };
-      view.setPointerCapture(e.pointerId);
-      view.classList.add('drag');
-    });
-    view.addEventListener('pointermove', (e) => {
-      if (!last) return;
-      yaw += (e.clientX - last.x) * 0.008;
-      pitch = Math.max(-LIMIT, Math.min(LIMIT, pitch + (e.clientY - last.y) * 0.008));
-      last = { x: e.clientX, y: e.clientY };
+    const turn = (dYaw, dPitch) => {
+      yaw += dYaw;
+      pitch = Math.max(-LIMIT, Math.min(LIMIT, pitch + dPitch));
       redraw();
-    });
-    const stop = () => {
-      last = null;
-      view.classList.remove('drag');
     };
-    view.addEventListener('pointerup', stop);
-    view.addEventListener('pointercancel', stop);
-    view.addEventListener('dblclick', () => {
-      ({ yaw, pitch } = START);
+    const reset = () => {
+      yaw = START.yaw;
+      pitch = START.pitch;
+      redraw();
+    };
+
+    let last = null; // drag origin
+    stage.addEventListener('pointerdown', (e) => {
+      last = { x: e.clientX, y: e.clientY };
+      pointer = { x: e.clientX, y: e.clientY };
+      stage.setPointerCapture(e.pointerId);
+      stage.classList.add('drag');
       redraw();
     });
-    addEventListener('resize', redraw);
+    stage.addEventListener('pointermove', (e) => {
+      pointer = { x: e.clientX, y: e.clientY };
+      if (!last) return redraw();
+      turn((e.clientX - last.x) * 0.008, (e.clientY - last.y) * 0.008);
+      last = { x: e.clientX, y: e.clientY };
+    });
+    const release = (e) => {
+      last = null;
+      stage.classList.remove('drag');
+      if (e.pointerType === 'touch') pointer = null; // no hover on touch screens
+      redraw();
+    };
+    stage.addEventListener('pointerup', release);
+    stage.addEventListener('pointercancel', release);
+    stage.addEventListener('pointerleave', () => {
+      if (last) return;
+      pointer = null;
+      redraw();
+    });
+    stage.addEventListener('dblclick', reset);
+    stage.addEventListener('keydown', (e) => {
+      const moves = {
+        ArrowLeft: [-STEP, 0],
+        ArrowRight: [STEP, 0],
+        ArrowUp: [0, -STEP],
+        ArrowDown: [0, STEP],
+      };
+      if (!moves[e.key]) return;
+      e.preventDefault();
+      turn(...moves[e.key]);
+    });
+    document.getElementById('reset').addEventListener('click', reset);
+    new ResizeObserver(redraw).observe(stage);
 
     draw();
   </script>

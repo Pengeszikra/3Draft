@@ -58,6 +58,45 @@ export interface Camera {
 export function makeCamera(view: ViewName | ViewSpec, mesh: Mesh, size: number, fit?: Fit): Camera;
 export function project(camera: Camera, p: Vec3): { x: number; y: number; depth: number };
 
+/** Ray through a panel pixel, the inverse of `project`. `dir` is a unit vector. */
+export function ray(camera: Camera, x: number, y: number): { origin: Vec3; dir: Vec3 };
+
+export interface Hit {
+  /** Index into `mesh.faces`. */
+  face: number;
+  /** Distance along the ray. */
+  distance: number;
+  point: Vec3;
+  /** Unit normal, facing the camera. */
+  normal: Vec3;
+  /** Whether the face itself faces the camera. */
+  front: boolean;
+  color?: string;
+}
+
+/** The nearest surface under panel pixel (x, y), or null. */
+export function pick(
+  mesh: Mesh,
+  camera: Camera,
+  x: number,
+  y: number,
+  options?: { cull?: boolean },
+): Hit | null;
+
+/** A target cross lying on the picked surface: 4 arms and a ring, as 3D polylines. */
+export function crosshair(mesh: Mesh, hit: Hit, radius?: number): Vec3[][];
+
+/** 3D polylines drawn on top of the view. */
+export interface Mark {
+  name?: string;
+  lines: Vec3[][];
+  color?: string;
+  width?: number;
+}
+
+/** '26.11.1001' -> '26.11.01.001' */
+export function displayVersion(version: string): string;
+
 export interface RenderOptions {
   /** Panel size in px (default 400). */
   size?: number;
@@ -70,6 +109,8 @@ export interface RenderOptions {
   background?: string;
   /** Keep the camera target/framing fixed while the mesh moves. */
   fit?: Fit;
+  /** 3D polylines drawn on top, e.g. the surface cursor. */
+  marks?: Mark[];
 }
 
 export function renderView(mesh: Mesh, view: ViewName | ViewSpec, options?: RenderOptions): string;

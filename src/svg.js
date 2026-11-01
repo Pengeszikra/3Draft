@@ -62,11 +62,25 @@ const panel = (mesh, view, o, x = 0, y = 0) => {
     return [polygon, ...dots];
   });
 
+  // 3D polylines (e.g. a surface cursor) drawn on top of everything else.
+  const marks = (o.marks ?? []).flatMap((m) =>
+    m.lines.flatMap((line) => {
+      const pts = line.map((p) => project(cam, p));
+      if (pts.some((p) => p.depth <= 0.01)) return [];
+      return [
+        `<polyline data-mark="${esc(m.name ?? 'mark')}" points="${pts.map((p) => `${num(p.x)},${num(p.y)}`).join(' ')}" ` +
+          `fill="none" stroke="${m.color ?? '#0b7285'}" stroke-width="${m.width ?? 2}" ` +
+          `stroke-linecap="round" stroke-linejoin="round"/>`,
+      ];
+    }),
+  );
+
   return [
     `<g data-view="${name}" transform="translate(${x} ${y})">`,
     `<rect width="${o.size}" height="${o.size}" fill="${o.background}" stroke="#cfcfd4"/>`,
     `<text x="10" y="20" font-family="monospace" font-size="13" fill="#555">${name}</text>`,
     ...body,
+    ...marks,
     '</g>',
   ].join('\n');
 };
