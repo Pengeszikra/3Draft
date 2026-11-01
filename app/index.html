@@ -102,6 +102,9 @@
       touch-action: none;
     }
     #stage.drag { cursor: grabbing; }
+    /* H: faces only, no edges and no points */
+    #stage.clean svg polygon { stroke: none; }
+    #stage.clean svg circle { display: none; }
     #stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     #stage svg { display: block; max-width: 100%; }
     /* the renderer writes light-theme colors as attributes; the tokens win in either theme */
@@ -130,7 +133,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Table model. Drag, or use the arrow keys, to rotate it. The cross follows the surface under the pointer. Space puts a prism down there, D deletes the prism under the cross, Backspace takes the last one back."></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. D deletes the prism under the cross, H toggles edges and points, Backspace takes the last one back."></main>
 
   <footer class="bar">
     <p class="read">
@@ -139,10 +142,11 @@
       <span>placed <b id="count">0</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · space: place · d: delete · backspace: undo</p>
+    <p class="hint">drag: rotate · space: place · d: delete · h: edges · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
+      <button id="lines" type="button">Edges</button>
       <button id="undo" type="button">Undo</button>
       <button id="reset" type="button">Reset view</button>
     </span>
@@ -150,7 +154,7 @@
 
   <script type="module">
     import { bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
-    import { table, LEG } from '../examples/table-model.js';
+    import { LEG } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
     const yawEl = document.getElementById('yaw');
@@ -159,7 +163,8 @@
     const surfaceEl = document.getElementById('surface');
     document.getElementById('build').textContent = displayVersion(version);
 
-    const fit = bounds(table); // framing stays put while prisms are added
+    const fit = { center: [0, 0.5, 0], radius: 1.6 }; // fixed framing, there is no model to fit
+    const nothing = { positions: [], faces: [] };
     const START = { yaw: -0.6, pitch: 0.45 };
     const LIMIT = Math.PI / 2;
     const STEP = 0.12;
@@ -172,10 +177,9 @@
 
     // Prisms put down so far: { mesh, from, start }. `from` is the start offset of a
     // flight that ends at the mesh's own position; null once it has landed.
-    // The table is never in this list, so it always stays.
     const placed = [];
     const FLIGHT_MS = 650;
-    const SHOT_MAX = 6.4; // farthest shot, in eye-to-table distances
+    const SHOT_MAX = 6.4; // farthest shot, in eye-to-center distances
     const UP = [0, 1, 0];
 
     // A random wood brown, as #rrggbb.
@@ -191,10 +195,10 @@
       };
       return `#${f(0)}${f(8)}${f(4)}`;
     };
-    let scene = table; // what picking sees: the table and the landed prisms
+    let scene = nothing; // what picking sees: the landed prisms
     let cam = null; // camera of the last drawn frame
     const rebuild = () => {
-      scene = merge(table, ...placed.filter((p) => !p.from).map((p) => p.mesh));
+      scene = merge(nothing, ...placed.filter((p) => !p.from).map((p) => p.mesh));
     };
     const shifted = (mesh, d) => ({ ...mesh, positions: mesh.positions.map((q) => [q[0] + d[0], q[1] + d[1], q[2] + d[2]]) });
     const flying = (p, now) => {
@@ -221,7 +225,7 @@
       const view = orbit({ yaw, pitch }); // the camera orbits, the scene stays in object space
 
       const now = performance.now();
-      const shown = merge(table, ...placed.map((p) => flying(p, now)));
+      const shown = merge(nothing, ...placed.map((p) => flying(p, now)));
       if (placed.some((p) => p.from)) redraw();
       else rebuild();
 
@@ -261,7 +265,7 @@
       redraw();
     };
 
-    // A prism like the table leg (same base), three times as tall as it is wide,
+    // A prism like the old table leg (same base), three times as tall as it is wide,
     // standing on the surface under the cross.
     const place = () => {
       if (hit) {
@@ -273,7 +277,7 @@
       // Empty space under the cursor: shoot the prism out along the cursor ray,
       // to a random distance, and let it fly there.
       const { origin, dir } = ray(cam, cam.at.x, cam.at.y);
-      const D = Math.hypot(...origin.map((c, i) => c - fit.center[i])); // eye to table center
+      const D = Math.hypot(...origin.map((c, i) => c - fit.center[i])); // eye to scene center
       const reach = (k) => origin.map((c, i) => c + dir[i] * D * k);
       const end = reach(0.6 + Math.random() * (SHOT_MAX - 0.6));
       // Lying like a bullet: the long axis is horizontal and points along the shot.
@@ -287,10 +291,9 @@
       placed.push({ mesh, from: start.map((c, i) => c - end[i]), start: performance.now() });
       redraw();
     };
-    // Which landed prism owns a face of the pick scene (null for the table).
+    // Which landed prism owns a face of the pick scene .
     const owner = (face) => {
-      let o = table.faces.length;
-      if (face < o) return null;
+      let o = 0;
       for (const p of placed) {
         if (p.from) continue;
         o += p.mesh.faces.length;
@@ -300,7 +303,7 @@
     };
     const remove = () => {
       const p = hit && owner(hit.face);
-      if (!p) return; // the table stays
+      if (!p) return;
       placed.splice(placed.indexOf(p), 1);
       rebuild();
       redraw();
@@ -353,6 +356,9 @@
       } else if (e.key === 'd' || e.key === 'D' || e.key === 'Delete') {
         e.preventDefault();
         remove();
+      } else if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        stage.classList.toggle('clean');
       } else if (e.key === 'Backspace') {
         e.preventDefault();
         undo();
@@ -363,6 +369,7 @@
     });
     document.getElementById('place').addEventListener('click', place);
     document.getElementById('delete').addEventListener('click', remove);
+    document.getElementById('lines').addEventListener('click', () => stage.classList.toggle('clean'));
     document.getElementById('undo').addEventListener('click', undo);
     document.getElementById('reset').addEventListener('click', reset);
     new ResizeObserver(redraw).observe(stage);

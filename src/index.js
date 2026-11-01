@@ -5,7 +5,7 @@
 // shading yet.
 
 export const name = '3draft';
-export const version = '26.11.1005';
+export const version = '26.11.1006';
 
 export { box, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export { VIEW_ORDER, makeCamera, orbit, project, ray } from './camera.js';

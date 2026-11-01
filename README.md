@@ -71,7 +71,7 @@ keeps the framing fixed while it moves.
 space and picks stay valid. `standOn(mesh, hit, { base, height, color })`
 returns a prism standing on the picked surface along its normal (height
 defaults to 3 x base). In the viewer, Space puts one down under the cross and
-Backspace takes the last one back. Over empty space Space shoots the prism out along the cursor ray to a random distance, animated; the table itself is never removed. D deletes the prism under the cross. Prisms get a random wood brown.
+Backspace takes the last one back. Over empty space Space shoots the prism out along the cursor ray to a random distance, animated. The viewer starts empty (no table) and lays out only what you place. D deletes the prism under the cross. H toggles edges and points. Prisms get a random wood brown.
 
 ### Known limitations
 
