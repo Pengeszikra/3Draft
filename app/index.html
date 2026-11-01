@@ -105,7 +105,7 @@
     /* H: faces only, no edges and no points */
     #stage.clean svg polygon { stroke: none; }
     #stage.clean svg circle { display: none; }
-    #stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    #stage, #stage:focus, #stage:focus-visible { outline: none; }
     #frame { position: relative; }
     #frame canvas { display: block; }
     #frame canvas[hidden] { display: none; }
@@ -132,7 +132,7 @@
       cursor: pointer;
     }
     button:hover { border-color: var(--muted); }
-    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button:focus, button:focus-visible { outline: none; }
   </style>
 </head>
 <body>
