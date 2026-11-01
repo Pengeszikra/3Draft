@@ -130,7 +130,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Table model. Drag, or use the arrow keys, to rotate it. The cross follows the surface under the pointer. Space puts a prism down there, Backspace takes the last one back."></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Table model. Drag, or use the arrow keys, to rotate it. The cross follows the surface under the pointer. Space puts a prism down there, D deletes the prism under the cross, Backspace takes the last one back."></main>
 
   <footer class="bar">
     <p class="read">
@@ -139,9 +139,10 @@
       <span>placed <b id="count">0</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · space: place · backspace: undo</p>
+    <p class="hint">drag: rotate · space: place · d: delete · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
+      <button id="delete" type="button">Delete</button>
       <button id="undo" type="button">Undo</button>
       <button id="reset" type="button">Reset view</button>
     </span>
@@ -174,6 +175,22 @@
     // The table is never in this list, so it always stays.
     const placed = [];
     const FLIGHT_MS = 650;
+    const SHOT_MAX = 6.4; // farthest shot, in eye-to-table distances
+    const UP = [0, 1, 0];
+
+    // A random wood brown, as #rrggbb.
+    const brown = () => {
+      const h = 18 + Math.random() * 16;
+      const sat = (30 + Math.random() * 25) / 100;
+      const l = (24 + Math.random() * 24) / 100;
+      const a = sat * Math.min(l, 1 - l);
+      const f = (n) => {
+        const k = (n + h / 30) % 12;
+        const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+        return Math.round(c * 255).toString(16).padStart(2, '0');
+      };
+      return `#${f(0)}${f(8)}${f(4)}`;
+    };
     let scene = table; // what picking sees: the table and the landed prisms
     let cam = null; // camera of the last drawn frame
     const rebuild = () => {
@@ -248,7 +265,7 @@
     // standing on the surface under the cross.
     const place = () => {
       if (hit) {
-        placed.push({ mesh: standOn(scene, hit, { base: LEG.base, color: LEG.color }), from: null });
+        placed.push({ mesh: standOn(scene, hit, { base: LEG.base, color: brown() }), from: null });
         rebuild();
         return redraw();
       }
@@ -258,10 +275,34 @@
       const { origin, dir } = ray(cam, cam.at.x, cam.at.y);
       const D = Math.hypot(...origin.map((c, i) => c - fit.center[i])); // eye to table center
       const reach = (k) => origin.map((c, i) => c + dir[i] * D * k);
-      const end = reach(0.6 + Math.random());
-      const mesh = box({ size: [LEG.base, 3 * LEG.base, LEG.base], at: end, color: LEG.color });
+      const end = reach(0.6 + Math.random() * (SHOT_MAX - 0.6));
+      // Lying like a bullet: the long axis is horizontal and points along the shot.
+      let h = [dir[0], 0, dir[2]];
+      h = Math.hypot(...h) < 1e-3 ? [cam.r[0], 0, cam.r[2]] : h;
+      const hl = Math.hypot(...h);
+      h = h.map((c) => c / hl);
+      const side = [UP[1] * h[2] - UP[2] * h[1], UP[2] * h[0] - UP[0] * h[2], UP[0] * h[1] - UP[1] * h[0]];
+      const mesh = box({ size: [LEG.base, 3 * LEG.base, LEG.base], at: end, color: brown(), axes: [UP, h, side] });
       const start = reach(0.2);
       placed.push({ mesh, from: start.map((c, i) => c - end[i]), start: performance.now() });
+      redraw();
+    };
+    // Which landed prism owns a face of the pick scene (null for the table).
+    const owner = (face) => {
+      let o = table.faces.length;
+      if (face < o) return null;
+      for (const p of placed) {
+        if (p.from) continue;
+        o += p.mesh.faces.length;
+        if (face < o) return p;
+      }
+      return null;
+    };
+    const remove = () => {
+      const p = hit && owner(hit.face);
+      if (!p) return; // the table stays
+      placed.splice(placed.indexOf(p), 1);
+      rebuild();
       redraw();
     };
     const undo = () => {
@@ -309,6 +350,9 @@
       if (e.key === ' ') {
         e.preventDefault();
         if (!e.repeat) place();
+      } else if (e.key === 'd' || e.key === 'D' || e.key === 'Delete') {
+        e.preventDefault();
+        remove();
       } else if (e.key === 'Backspace') {
         e.preventDefault();
         undo();
@@ -318,6 +362,7 @@
       }
     });
     document.getElementById('place').addEventListener('click', place);
+    document.getElementById('delete').addEventListener('click', remove);
     document.getElementById('undo').addEventListener('click', undo);
     document.getElementById('reset').addEventListener('click', reset);
     new ResizeObserver(redraw).observe(stage);
