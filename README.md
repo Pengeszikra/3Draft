@@ -113,6 +113,14 @@ claude mcp add 3draft -- node /absolute/path/to/3Draft/mcp/server.js
 
 (that JSON goes into `claude_desktop_config.json` for Claude Desktop.)
 
+**Live viewer.** The same process serves the viewer and pushes every change to it
+(Server-Sent Events). Ask the AI for the `viewer` tool's URL (default
+`http://localhost:5173/app/`, next free port if that is taken, `3DRAFT_PORT` to
+change it, `3DRAFT_LIVE=0` to turn it off), open it in a browser and watch the
+model grow while the AI builds. The view re-frames to the scene; the objects are
+read-only in the viewer, but you can still rotate, switch to WebGPU, and place or
+delete your own prisms on top. Loopback only, other `Host` headers are refused.
+
 | tool | what it does |
 | --- | --- |
 | `add_box`, `add_extrusion`, `add_mesh` | boxes, prisms from a convex footprint, raw faces |
@@ -121,6 +129,7 @@ claude mcp add 3draft -- node /absolute/path/to/3Draft/mcp/server.js
 | `render` | SVG: a 2x2 sheet (front, side, top, persp) or one view, also `orbit` with yaw/pitch |
 | `pick` | pixel of a render -> object, face, 3D point, normal |
 | `export`, `import` | scene as JSON, optionally a `.json` file under the working directory |
+| `viewer` | URL of the live viewer |
 
 Y is up, the ground is y = 0, faces are counter-clockwise seen from outside.
 Everything is deterministic, so the same calls give the same SVG.

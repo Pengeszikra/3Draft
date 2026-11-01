@@ -5,6 +5,7 @@
 import { createInterface } from 'node:readline';
 import { pathToFileURL } from 'node:url';
 import { createScene } from './scene.js';
+import { startLive } from './live.js';
 import { version } from '../src/index.js';
 
 const SUPPORTED = ['2025-06-18', '2025-03-26', '2024-11-05'];
@@ -14,14 +15,24 @@ const INSTRUCTIONS = [
   'Y is up, the ground is y = 0, units are arbitrary. Faces are counter-clockwise seen from outside.',
   'Build with add_box / add_extrusion (add_mesh for raw geometry), then ALWAYS look: call render (a sheet of four views by default),',
   'read the SVG, then fix. inspect checks the geometry, pick turns a pixel of a render into a 3D point and a surface normal.',
+  'The user can watch the scene live: call the viewer tool for the URL and tell them to open it (it updates after every change).',
   'Name objects after what they are ("seat", "leg_fl") so you can transform, recolor and remove them later.',
 ].join(' ');
 
 const reply = (msg) => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...msg })}\n`);
 const error = (id, code, message) => reply({ id, error: { code, message } });
 
-export const serve = (input = process.stdin) => {
+export const serve = (input = process.stdin, { live = process.env['3DRAFT_LIVE'] !== '0', port = Number(process.env['3DRAFT_PORT']) || 5173 } = {}) => {
   const scene = createScene();
+  let liveServer = null;
+  if (live) {
+    startLive(scene, { port }).then((l) => {
+      if (!l) return console.error('3draft-mcp: no free port for the live viewer');
+      liveServer = l;
+      scene.info.live = l;
+      console.error(`3draft-mcp: live viewer at ${l.url}`);
+    });
+  }
 
   const handle = (req) => {
     const { id, method, params } = req;
@@ -73,6 +84,7 @@ export const serve = (input = process.stdin) => {
       if (req.id !== undefined && req.id !== null) error(req.id, -32603, 'internal error');
     }
   });
+  rl.on('close', () => liveServer?.close());
   return rl;
 };
 

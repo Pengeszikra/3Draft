@@ -89,6 +89,11 @@ const viewProps = {
 
 export const createScene = () => {
   const objects = new Map();
+  const listeners = new Set();
+  let rev = 0; // grows with every change, so a viewer can tell it is up to date
+  const info = { live: null }; // set by the server: { url, clients() }
+
+  const data = () => ({ format: '3draft-scene', version: 1, rev, objects: [...objects].map(([n, mesh]) => ({ name: n, mesh })) });
 
   const need = (n) => objects.get(name(n)) ?? fail(`no object named "${n}". Use list to see the objects.`);
   const put = (n, mesh, replace) => {
@@ -275,9 +280,8 @@ export const createScene = () => {
       inputSchema: { type: 'object', properties: { path: { type: 'string' } } },
       annotations: { readOnlyHint: true },
       run: (a) => {
-        const data = { format: '3draft-scene', version: 1, objects: [...objects].map(([n, mesh]) => ({ name: n, mesh })) };
-        if (a.path === undefined) return { text: JSON.stringify(data) };
-        writeFileSync(safePath(a.path), JSON.stringify(data));
+        if (a.path === undefined) return { text: JSON.stringify(data()) };
+        writeFileSync(safePath(a.path), JSON.stringify(data()));
         return { written: a.path, objects: objects.size };
       },
     },
@@ -287,15 +291,15 @@ export const createScene = () => {
       inputSchema: { type: 'object', properties: { json: { type: 'string' }, path: { type: 'string' } } },
       run: (a) => {
         if ((a.json === undefined) === (a.path === undefined)) fail('give exactly one of json or path');
-        let data;
+        let parsed;
         try {
-          data = JSON.parse(a.json ?? readFileSync(safePath(a.path), 'utf8'));
+          parsed = JSON.parse(a.json ?? readFileSync(safePath(a.path), 'utf8'));
         } catch (e) {
           fail(`could not read the scene: ${e.message}`);
         }
-        if (data?.format !== '3draft-scene' || !Array.isArray(data.objects)) fail('not a 3draft scene (format, objects)');
+        if (parsed?.format !== '3draft-scene' || !Array.isArray(parsed.objects)) fail('not a 3draft scene (format, objects)');
         const next = new Map();
-        for (const o of data.objects) {
+        for (const o of parsed.objects) {
           name(o?.name);
           next.set(o.name, parseMesh(o.mesh?.positions, o.mesh?.faces));
         }
@@ -303,6 +307,13 @@ export const createScene = () => {
         for (const [k, v] of next) objects.set(k, v);
         return { objects: objects.size };
       },
+    },
+    {
+      name: 'viewer',
+      description: 'The URL of the live viewer: a browser page that shows this scene and updates after every change you make. Tell the user to open it. Returns null when the live viewer is off.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      run: () => (info.live ? { url: info.live.url, open_tabs: info.live.clients() } : { url: null, note: 'the live viewer is off (3DRAFT_LIVE=0) or could not bind a port' }),
     },
   ];
 
@@ -313,6 +324,10 @@ export const createScene = () => {
     if (args === null || typeof args !== 'object' || Array.isArray(args)) return { isError: true, text: 'arguments must be an object' };
     try {
       const out = tool.run(args);
+      if (!tool.annotations?.readOnlyHint) {
+        rev += 1;
+        for (const fn of listeners) fn(rev);
+      }
       return { isError: false, text: out?.text ?? JSON.stringify(out, null, 1) };
     } catch (e) {
       return { isError: true, text: e instanceof ToolError ? e.message : `internal error: ${e.message}` };
@@ -321,5 +336,11 @@ export const createScene = () => {
 
   const list = () => tools.map(({ name: n, description, inputSchema, annotations }) => ({ name: n, description, inputSchema, ...(annotations ? { annotations } : {}) }));
 
-  return { call, list, objects };
+  /** fn(rev) runs after every successful change. Returns an unsubscribe function. */
+  const subscribe = (fn) => {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  };
+
+  return { call, list, objects, data, subscribe, info };
 };

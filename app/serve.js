@@ -5,10 +5,9 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const port = Number(process.env.PORT) || 5173;
 const allowed = new Set(['app', 'src', 'examples']);
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -18,9 +17,22 @@ const types = {
   '.css': 'text/css; charset=utf-8',
 };
 
-const server = createServer(async (req, res) => {
+// Only answer requests addressed to the loopback host (blocks DNS rebinding).
+const localHost = (req) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(req.headers.host ?? '');
+
+/**
+ * The viewer's static server. `extra(req, res, pathname)` may answer a request first
+ * (return true when it did), e.g. the live scene endpoints of the MCP server.
+ */
+export const createViewerServer = (extra) =>
+  createServer(async (req, res) => {
   try {
+    if (!localHost(req)) {
+      res.writeHead(403);
+      return res.end('forbidden');
+    }
     let path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+    if (extra?.(req, res, path)) return;
     if (path === '/') {
       res.writeHead(302, { location: '/app/' });
       return res.end();
@@ -44,6 +56,9 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(port, '127.0.0.1', () => {
-  console.log(`3Draft viewer: http://localhost:${port}/app/`);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const port = Number(process.env.PORT) || 5173;
+  createViewerServer().listen(port, '127.0.0.1', () => {
+    console.log(`3Draft viewer: http://localhost:${port}/app/`);
+  });
+}

@@ -149,6 +149,7 @@
       <span>pitch <b id="pitch">–</b></span>
       <span>placed <b id="count">0</b></span>
       <span>view <b id="mode">svg</b></span>
+      <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
     <p class="hint">drag: rotate · space: place · d: delete · h: edges · g: svg/gpu · l: light · backspace: undo</p>
@@ -164,7 +165,7 @@
   </footer>
 
   <script type="module">
-    import { createGpu, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
+    import { createGpu, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
     import { LEG } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -172,13 +173,15 @@
     const canvas = document.getElementById('gpu');
     const layer = document.getElementById('layer');
     const modeEl = document.getElementById('mode');
+    const liveEl = document.getElementById('live');
     const yawEl = document.getElementById('yaw');
     const pitchEl = document.getElementById('pitch');
     const countEl = document.getElementById('count');
     const surfaceEl = document.getElementById('surface');
     document.getElementById('build').textContent = displayVersion(version);
 
-    const fit = { center: [0, 0.5, 0], radius: 1.6 }; // fixed framing, there is no model to fit
+    const HOME = { center: [0, 0.5, 0], radius: 1.6 }; // framing of an empty scene
+    const fit = { ...HOME }; // follows the scene the MCP server sends
     const nothing = { positions: [], faces: [] };
     const START = { yaw: -0.6, pitch: 0.45 };
     const LIMIT = Math.PI / 2;
@@ -210,10 +213,11 @@
       };
       return `#${f(0)}${f(8)}${f(4)}`;
     };
-    let scene = nothing; // what picking sees: the landed prisms
+    let remote = nothing; // the scene pushed by the MCP server (read-only here)
+    let scene = nothing; // what picking sees: the remote scene and the landed prisms
     let cam = null; // camera of the last drawn frame
     const rebuild = () => {
-      scene = merge(nothing, ...placed.filter((p) => !p.from).map((p) => p.mesh));
+      scene = merge(remote, ...placed.filter((p) => !p.from).map((p) => p.mesh));
     };
     const shifted = (mesh, d) => ({ ...mesh, positions: mesh.positions.map((q) => [q[0] + d[0], q[1] + d[1], q[2] + d[2]]) });
     const flying = (p, now) => {
@@ -240,7 +244,7 @@
       const view = orbit({ yaw, pitch }); // the camera orbits, the scene stays in object space
 
       const now = performance.now();
-      const shown = merge(nothing, ...placed.map((p) => flying(p, now)));
+      const shown = merge(remote, ...placed.map((p) => flying(p, now)));
       if (placed.some((p) => p.from)) redraw();
       else rebuild();
 
@@ -366,7 +370,8 @@
     };
     // Which landed prism owns a face of the pick scene .
     const owner = (face) => {
-      let o = 0;
+      let o = remote.faces.length; // the remote scene's faces come first and are not deletable
+      if (face < o) return null;
       for (const p of placed) {
         if (p.from) continue;
         o += p.mesh.faces.length;
@@ -466,6 +471,35 @@
           o.getContext('2d').putImageData(new ImageData(r.data, r.width, r.height), 0, 0);
           return o.toDataURL('image/png');
         },
+      };
+    }
+
+    // Live link: when served by the MCP server (`/events` exists), show what the AI builds.
+    const applyScene = (data) => {
+      const meshes = (data.objects ?? []).map((o) => o.mesh);
+      remote = merge(nothing, ...meshes);
+      if (remote.positions.length) {
+        const b = bounds(remote);
+        Object.assign(fit, { center: b.center, radius: Math.max(b.radius * 1.05, 0.25) });
+      } else {
+        Object.assign(fit, HOME);
+      }
+      rebuild();
+      liveEl.textContent = `${meshes.length} object${meshes.length === 1 ? '' : 's'} · rev ${data.rev}`;
+      redraw();
+    };
+    if (['localhost', '127.0.0.1'].includes(location.hostname) && typeof EventSource !== 'undefined') {
+      const events = new EventSource('/events');
+      events.addEventListener('scene', (e) => {
+        try {
+          applyScene(JSON.parse(e.data));
+        } catch (err) {
+          liveEl.textContent = 'bad scene';
+          liveEl.title = String(err.message ?? err);
+        }
+      });
+      events.onerror = () => {
+        liveEl.textContent = events.readyState === EventSource.CLOSED ? 'off' : 'reconnecting…';
       };
     }
 

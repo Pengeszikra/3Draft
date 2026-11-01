@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const SERVER = fileURLToPath(new URL('./server.js', import.meta.url));
 
 const start = () => {
-  const child = spawn(process.execPath, [SERVER], { stdio: ['pipe', 'pipe', 'ignore'] });
+  const child = spawn(process.execPath, [SERVER], { stdio: ['pipe', 'pipe', 'ignore'], env: { ...process.env, '3DRAFT_LIVE': '0' } });
   const lines = [];
   const waiting = [];
   createInterface({ input: child.stdout }).on('line', (l) => {
