@@ -148,7 +148,7 @@
   </footer>
 
   <script type="module">
-    import { bounds, orbit, makeCamera, pick, crosshair, standOn, merge, renderView, version, displayVersion } from '../src/index.js';
+    import { bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
     import { table, LEG } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -169,10 +169,26 @@
     let hit = null; // the surface under the pointer in the last drawn frame
     let queued = false;
 
-    const placed = []; // prisms put down so far
-    let scene = table;
+    // Prisms put down so far: { mesh, from, start }. `from` is the start offset of a
+    // flight that ends at the mesh's own position; null once it has landed.
+    // The table is never in this list, so it always stays.
+    const placed = [];
+    const FLIGHT_MS = 650;
+    let scene = table; // what picking sees: the table and the landed prisms
+    let cam = null; // camera of the last drawn frame
     const rebuild = () => {
-      scene = merge(table, ...placed);
+      scene = merge(table, ...placed.filter((p) => !p.from).map((p) => p.mesh));
+    };
+    const shifted = (mesh, d) => ({ ...mesh, positions: mesh.positions.map((q) => [q[0] + d[0], q[1] + d[1], q[2] + d[2]]) });
+    const flying = (p, now) => {
+      if (!p.from) return p.mesh;
+      const t = Math.min(1, (now - p.start) / FLIGHT_MS);
+      if (t >= 1) {
+        p.from = null;
+        return p.mesh;
+      }
+      const k = (1 - t) ** 3; // ease out: fast at the start, settles softly
+      return shifted(p.mesh, p.from.map((c) => c * k));
     };
 
     const deg = (r) => `${Math.round((r * 180) / Math.PI)}°`;
@@ -187,16 +203,23 @@
       const size = Math.max(160, Math.min(900, Math.floor(Math.min(r.width, r.height))));
       const view = orbit({ yaw, pitch }); // the camera orbits, the scene stays in object space
 
+      const now = performance.now();
+      const shown = merge(table, ...placed.map((p) => flying(p, now)));
+      if (placed.some((p) => p.from)) redraw();
+      else rebuild();
+
       hit = null;
       if (pointer) {
         // the square panel is centered in the stage
         const x = pointer.x - r.left - (r.width - size) / 2;
         const y = pointer.y - r.top - (r.height - size) / 2;
-        hit = pick(scene, makeCamera(view, scene, size, fit), x, y);
+        cam = makeCamera(view, scene, size, fit);
+        hit = pick(scene, cam, x, y);
+        cam.at = { x, y };
       }
       const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
 
-      stage.innerHTML = renderView(scene, view, { size, fit, marks });
+      stage.innerHTML = renderView(shown, view, { size, fit, marks });
       yawEl.textContent = deg(yaw);
       pitchEl.textContent = deg(pitch);
       countEl.textContent = String(placed.length);
@@ -224,9 +247,21 @@
     // A prism like the table leg (same base), three times as tall as it is wide,
     // standing on the surface under the cross.
     const place = () => {
-      if (!hit) return;
-      placed.push(standOn(scene, hit, { base: LEG.base, color: LEG.color }));
-      rebuild();
+      if (hit) {
+        placed.push({ mesh: standOn(scene, hit, { base: LEG.base, color: LEG.color }), from: null });
+        rebuild();
+        return redraw();
+      }
+      if (!pointer || !cam?.at) return;
+      // Empty space under the cursor: shoot the prism out along the cursor ray,
+      // to a random distance, and let it fly there.
+      const { origin, dir } = ray(cam, cam.at.x, cam.at.y);
+      const D = Math.hypot(...origin.map((c, i) => c - fit.center[i])); // eye to table center
+      const reach = (k) => origin.map((c, i) => c + dir[i] * D * k);
+      const end = reach(0.6 + Math.random());
+      const mesh = box({ size: [LEG.base, 3 * LEG.base, LEG.base], at: end, color: LEG.color });
+      const start = reach(0.2);
+      placed.push({ mesh, from: start.map((c, i) => c - end[i]), start: performance.now() });
       redraw();
     };
     const undo = () => {
