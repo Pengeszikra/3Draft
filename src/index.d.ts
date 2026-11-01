@@ -23,6 +23,8 @@ export interface BoxOptions {
 }
 
 export function box(options?: BoxOptions): Mesh;
+/** Prism from a convex footprint [[x, z], ...] (any winding), extruded up from `y` by `height`. */
+export function extrude(options: { polygon: [number, number][]; height?: number; y?: number; color?: string }): Mesh;
 export function merge(...meshes: Mesh[]): Mesh;
 /** Turntable rotation (radians): yaw around Y, then pitch around X, around `center`. */
 export function rotate(mesh: Mesh, angles?: { yaw?: number; pitch?: number }, center?: Vec3): Mesh;
@@ -150,6 +152,26 @@ export function viewProjection(camera: Camera, near?: number, far?: number): Flo
 export function buildVertices(mesh: Mesh): Float32Array;
 export const defaultLight: Required<GpuLight>;
 export const defaultMaterial: Required<GpuMaterial>;
+
+export interface Validation {
+  vertices: number;
+  faces: number;
+  /** Every edge is shared by two faces, wound consistently. */
+  closed: boolean;
+  openEdges: number;
+  /** Signed volume; null unless closed. */
+  volume: number | null;
+  /** Closed, but the faces point inward. */
+  inside_out: boolean;
+  degenerateFaces: number[];
+  nonPlanarFaces: number[];
+  nonConvexFaces: number[];
+  ok: boolean;
+  /** Plain-text findings. */
+  notes: string[];
+}
+/** Geometry checks: closed shell, CCW from outside, planar, convex faces. */
+export function validate(mesh: Mesh): Validation;
 
 export function displayVersion(version: string): string;
 

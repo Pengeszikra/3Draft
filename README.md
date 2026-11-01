@@ -96,6 +96,35 @@ gpu.render(mesh, orbit({ yaw, pitch }), {
 point on the same pixel as `project()`. `gpu.pixels(...)` draws the same frame
 offscreen and reads it back as RGBA.
 
+### MCP server: let an AI build the models
+
+`mcp/server.js` is an MCP server (stdio, no dependencies) that holds a scene of
+named objects and edits it through tool calls. The AI looks at the SVG preview,
+fixes what is wrong and renders again, so it never needs a screenshot.
+
+```sh
+# Claude Code
+claude mcp add 3draft -- node /absolute/path/to/3Draft/mcp/server.js
+```
+
+```json
+{ "mcpServers": { "3draft": { "command": "node", "args": ["/absolute/path/to/3Draft/mcp/server.js"] } } }
+```
+
+(that JSON goes into `claude_desktop_config.json` for Claude Desktop.)
+
+| tool | what it does |
+| --- | --- |
+| `add_box`, `add_extrusion`, `add_mesh` | boxes, prisms from a convex footprint, raw faces |
+| `transform`, `recolor`, `remove`, `clear` | scale / rotate Y / move, colors, deleting |
+| `list`, `inspect` | objects and bounds; closed shell, winding, planar and convex faces, as text notes |
+| `render` | SVG: a 2x2 sheet (front, side, top, persp) or one view, also `orbit` with yaw/pitch |
+| `pick` | pixel of a render -> object, face, 3D point, normal |
+| `export`, `import` | scene as JSON, optionally a `.json` file under the working directory |
+
+Y is up, the ground is y = 0, faces are counter-clockwise seen from outside.
+Everything is deterministic, so the same calls give the same SVG.
+
 ### Known limitations
 
 - Faces are painter-sorted with plane tests (Newell-Sancha style), which is

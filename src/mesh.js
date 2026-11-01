@@ -97,3 +97,31 @@ export const faceCenter = (pts) => {
   const s = pts.reduce((acc, p) => add(acc, p), [0, 0, 0]);
   return [s[0] / pts.length, s[1] / pts.length, s[2] / pts.length];
 };
+
+/**
+ * Prism from a convex footprint: `polygon` is [[x, z], ...] on the ground plane (any
+ * winding), it is extruded up from `y` by `height`. Faces: top, bottom, then one
+ * quad per footprint edge, all CCW from outside.
+ */
+export const extrude = ({ polygon, height = 1, y = 0, color = '#c8c8c8' } = {}) => {
+  if (!Array.isArray(polygon) || polygon.length < 3) throw new Error('polygon needs at least 3 [x, z] points');
+  if (!(height > 0)) throw new Error('height must be positive');
+  let pts = polygon.map((p) => [p[0], p[1]]);
+  const n = pts.length;
+  const turn = (a, b, c) => (b[1] - a[1]) * (c[0] - b[0]) - (b[0] - a[0]) * (c[1] - b[1]); // y of edge cross, + is CCW from above
+  let area = 0;
+  for (let i = 0; i < n; i++) area += pts[i][1] * pts[(i + 1) % n][0] - pts[i][0] * pts[(i + 1) % n][1];
+  if (Math.abs(area) < 1e-12) throw new Error('polygon has no area');
+  if (area < 0) pts = pts.reverse();
+  for (let i = 0; i < n; i++) {
+    if (turn(pts[i], pts[(i + 1) % n], pts[(i + 2) % n]) < -1e-12) throw new Error('polygon must be convex');
+  }
+  const positions = [...pts.map(([x, z]) => [x, y, z]), ...pts.map(([x, z]) => [x, y + height, z])];
+  const ring = [...Array(n).keys()];
+  const faces = [
+    { v: ring.map((i) => n + i), color },
+    { v: [...ring].reverse(), color },
+    ...ring.map((i) => ({ v: [i, (i + 1) % n, n + ((i + 1) % n), n + i], color })),
+  ];
+  return { positions, faces };
+};

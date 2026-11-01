@@ -1,6 +1,6 @@
 {
   "name": "3draft",
-  "version": "26.11.1007",
+  "version": "26.11.1008",
   "description": "Minimalist AI first 3D engine: palette-texture, WASM core, WebGPU/WebGL2 renderer.",
   "type": "module",
   "main": "./src/index.js",
@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "test": "node --test",
+    "mcp": "node mcp/server.js",
     "example": "node examples/table.js",
     "app": "node app/serve.js",
     "bump": "node scripts/bump.js"
