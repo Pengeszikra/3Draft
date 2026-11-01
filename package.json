@@ -1,0 +1,54 @@
+{
+  "name": "3draft",
+  "version": "0.0.1",
+  "description": "Minimalist AI first 3D engine: palette-texture, WASM core, WebGPU/WebGL2 renderer.",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "3d",
+    "webgpu",
+    "webgl2",
+    "wasm",
+    "hexaw",
+    "minimalist",
+    "engine",
+    "ai-first",
+    "mcp"
+  ],
+  "author": {
+    "name": "Vívó Péter",
+    "url": "https://github.com/Pengeszikra"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pengeszikra/3Draft.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pengeszikra/3Draft/issues"
+  },
+  "homepage": "https://github.com/Pengeszikra/3Draft#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
