@@ -2,26 +2,6 @@
 <g data-view="top" transform="translate(0 0)">
 <rect width="400" height="400" fill="#fafafa" stroke="#cfcfd4"/>
 <text x="10" y="20" font-family="monospace" font-size="13" fill="#555">top</text>
-<polygon data-face="10" data-depth="4.73" points="83.36,133.8 83.36,152.71 102.27,152.71 102.27,133.8" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
-<circle data-v="10" cx="102.27" cy="133.8" r="3" fill="#d6336c"/>
-<circle data-v="11" cx="83.36" cy="133.8" r="3" fill="#d6336c"/>
-<circle data-v="14" cx="102.27" cy="152.71" r="3" fill="#d6336c"/>
-<circle data-v="15" cx="83.36" cy="152.71" r="3" fill="#d6336c"/>
-<polygon data-face="16" data-depth="4.73" points="83.36,247.29 83.36,266.2 102.27,266.2 102.27,247.29" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
-<circle data-v="18" cx="102.27" cy="247.29" r="3" fill="#d6336c"/>
-<circle data-v="19" cx="83.36" cy="247.29" r="3" fill="#d6336c"/>
-<circle data-v="22" cx="102.27" cy="266.2" r="3" fill="#d6336c"/>
-<circle data-v="23" cx="83.36" cy="266.2" r="3" fill="#d6336c"/>
-<polygon data-face="22" data-depth="4.73" points="297.73,133.8 297.73,152.71 316.64,152.71 316.64,133.8" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
-<circle data-v="26" cx="316.64" cy="133.8" r="3" fill="#d6336c"/>
-<circle data-v="27" cx="297.73" cy="133.8" r="3" fill="#d6336c"/>
-<circle data-v="30" cx="316.64" cy="152.71" r="3" fill="#d6336c"/>
-<circle data-v="31" cx="297.73" cy="152.71" r="3" fill="#d6336c"/>
-<polygon data-face="28" data-depth="4.73" points="297.73,247.29 297.73,266.2 316.64,266.2 316.64,247.29" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
-<circle data-v="34" cx="316.64" cy="247.29" r="3" fill="#d6336c"/>
-<circle data-v="35" cx="297.73" cy="247.29" r="3" fill="#d6336c"/>
-<circle data-v="38" cx="316.64" cy="266.2" r="3" fill="#d6336c"/>
-<circle data-v="39" cx="297.73" cy="266.2" r="3" fill="#d6336c"/>
 <polygon data-face="4" data-depth="4.58" points="73.9,124.34 73.9,275.66 326.1,275.66 326.1,124.34" fill="#c8a27a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
 <circle data-v="2" cx="326.1" cy="124.34" r="3" fill="#d6336c"/>
 <circle data-v="3" cx="73.9" cy="124.34" r="3" fill="#d6336c"/>

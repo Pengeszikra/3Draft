@@ -7,6 +7,8 @@ import {
   info,
   box,
   merge,
+  rotate,
+  makeCamera,
   bounds,
   faceNormal,
   faceCenter,
@@ -93,6 +95,45 @@ test('points of a hidden face are drawn before the face that covers them', () =>
   const at = (s) => svg.indexOf(s);
   assert.ok(at('data-v="4"') < at('data-face="6"'), 'far point must be under the near face');
   assert.ok(at('data-v="12"') > at('data-face="6"'), 'near point must be over its own face');
+});
+
+test('rotate keeps the mesh intact: same radius, outward normals, identity at 0', () => {
+  const b = box({ size: [2, 1, 3], at: [1, 2, 3] });
+  const { center, radius } = bounds(b);
+  const r = rotate(b, { yaw: 0.7, pitch: -0.4 }, center);
+  const d = (p) => Math.hypot(p[0] - center[0], p[1] - center[1], p[2] - center[2]);
+  assert.ok(r.positions.every((p, i) => Math.abs(d(p) - d(b.positions[i])) < 1e-9));
+  assert.ok(Math.abs(radius - Math.max(...r.positions.map(d))) < 1e-9);
+  for (const f of r.faces) {
+    const pts = f.v.map((i) => r.positions[i]);
+    const n = faceNormal(pts);
+    const c = faceCenter(pts);
+    assert.ok(n[0] * (c[0] - center[0]) + n[1] * (c[1] - center[1]) + n[2] * (c[2] - center[2]) > 0);
+  }
+  const same = rotate(b, {}, center);
+  assert.ok(same.positions.every((p, i) => p.every((v, a) => Math.abs(v - b.positions[i][a]) < 1e-12)));
+});
+
+test('yaw of 90 degrees turns +z towards +x', () => {
+  const m = { positions: [[0, 0, 1]], faces: [] };
+  const [p] = rotate(m, { yaw: Math.PI / 2 }, [0, 0, 0]).positions;
+  assert.ok(Math.abs(p[0] - 1) < 1e-9 && Math.abs(p[2]) < 1e-9);
+});
+
+test('custom view spec renders, and fit keeps the framing while the mesh rotates', () => {
+  const b = box();
+  const fit = bounds(b);
+  const spec = { name: 'orbit', dir: [0, 0, 1], up: [0, 1, 0], ortho: false };
+  const svg = renderView(rotate(b, { yaw: 0.5, pitch: 0.3 }, fit.center), spec, { fit });
+  assert.ok(svg.includes('data-view="orbit"'));
+  assert.ok(!/NaN|Infinity/.test(svg));
+  const a = makeCamera(spec, b, 400, fit);
+  const c = makeCamera(spec, rotate(b, { yaw: 1 }, fit.center), 400, fit);
+  assert.deepEqual(a, c);
+});
+
+test('unknown view name throws', () => {
+  assert.throws(() => renderView(box(), 'nope'), /unknown view/);
 });
 
 test('painter order: farther faces are drawn first', () => {

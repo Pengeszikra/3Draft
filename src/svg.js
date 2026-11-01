@@ -16,9 +16,11 @@ const defaults = {
 };
 
 const num = (n) => String(Math.round(n * 100) / 100 + 0); // +0 turns -0 into 0
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
-const panel = (mesh, name, o, x = 0, y = 0) => {
-  const cam = makeCamera(name, mesh, o.size);
+const panel = (mesh, view, o, x = 0, y = 0) => {
+  const cam = makeCamera(view, mesh, o.size, o.fit);
+  const name = esc(cam.name);
   const proj = mesh.positions.map((p) => project(cam, p));
   const items = [];
 
@@ -72,10 +74,13 @@ const panel = (mesh, name, o, x = 0, y = 0) => {
 const root = (w, h, body) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">\n${body}\n</svg>\n`;
 
-/** One standalone SVG for a single view ('front' | 'side' | 'top' | 'persp'). */
-export const renderView = (mesh, name, opts = {}) => {
+/**
+ * One standalone SVG for a single view: 'front' | 'side' | 'top' | 'persp',
+ * or a custom { dir, up, ortho, name? } spec.
+ */
+export const renderView = (mesh, view, opts = {}) => {
   const o = { ...defaults, ...opts };
-  return root(o.size, o.size, panel(mesh, name, o));
+  return root(o.size, o.size, panel(mesh, view, o));
 };
 
 /** The four views one after another: [{ name, svg }, ...]. */

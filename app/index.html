@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3Draft viewer</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; background: #fafafa; font-family: monospace; color: #555; }
+    #view { position: fixed; inset: 0; display: grid; place-items: center; cursor: grab; user-select: none; touch-action: none; }
+    #view.drag { cursor: grabbing; }
+    #hint { position: fixed; left: 12px; bottom: 10px; font-size: 12px; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="view"></div>
+  <div id="hint">drag: rotate · double click: reset</div>
+
+  <script type="module">
+    import { bounds, rotate, renderView } from '../src/index.js';
+    import { table } from '../examples/table-model.js';
+
+    const view = document.getElementById('view');
+    const fit = bounds(table); // the camera keeps looking at the original center
+    const camera = { name: 'orbit', dir: [0, 0, 1], up: [0, 1, 0], ortho: false };
+    const START = { yaw: -0.6, pitch: 0.45 };
+    const LIMIT = Math.PI / 2;
+
+    let { yaw, pitch } = START;
+    let queued = false;
+
+    const draw = () => {
+      queued = false;
+      const size = Math.floor(Math.min(innerWidth, innerHeight));
+      view.innerHTML = renderView(rotate(table, { yaw, pitch }, fit.center), camera, { size, fit });
+    };
+    const redraw = () => {
+      if (!queued) {
+        queued = true;
+        requestAnimationFrame(draw);
+      }
+    };
+
+    let last = null;
+    view.addEventListener('pointerdown', (e) => {
+      last = { x: e.clientX, y: e.clientY };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add('drag');
+    });
+    view.addEventListener('pointermove', (e) => {
+      if (!last) return;
+      yaw += (e.clientX - last.x) * 0.008;
+      pitch = Math.max(-LIMIT, Math.min(LIMIT, pitch + (e.clientY - last.y) * 0.008));
+      last = { x: e.clientX, y: e.clientY };
+      redraw();
+    });
+    const stop = () => {
+      last = null;
+      view.classList.remove('drag');
+    };
+    view.addEventListener('pointerup', stop);
+    view.addEventListener('pointercancel', stop);
+    view.addEventListener('dblclick', () => {
+      ({ yaw, pitch } = START);
+      redraw();
+    });
+    addEventListener('resize', redraw);
+
+    draw();
+  </script>
+</body>
+</html>

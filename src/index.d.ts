@@ -22,6 +22,8 @@ export interface BoxOptions {
 
 export function box(options?: BoxOptions): Mesh;
 export function merge(...meshes: Mesh[]): Mesh;
+/** Turntable rotation (radians): yaw around Y, then pitch around X, around `center`. */
+export function rotate(mesh: Mesh, angles?: { yaw?: number; pitch?: number }, center?: Vec3): Mesh;
 export function bounds(mesh: Mesh): { center: Vec3; radius: number };
 export function faceNormal(points: Vec3[]): Vec3;
 export function faceCenter(points: Vec3[]): Vec3;
@@ -29,8 +31,21 @@ export function faceCenter(points: Vec3[]): Vec3;
 export type ViewName = 'front' | 'side' | 'top' | 'persp';
 export const VIEW_ORDER: readonly ViewName[];
 
+/** Custom camera: `dir` points from the target towards the eye. */
+export interface ViewSpec {
+  dir: Vec3;
+  up: Vec3;
+  ortho?: boolean;
+  name?: string;
+}
+
+export interface Fit {
+  center: Vec3;
+  radius: number;
+}
+
 export interface Camera {
-  name: ViewName;
+  name: string;
   eye: Vec3;
   f: Vec3;
   r: Vec3;
@@ -40,7 +55,7 @@ export interface Camera {
   size: number;
 }
 
-export function makeCamera(name: ViewName, mesh: Mesh, size: number): Camera;
+export function makeCamera(view: ViewName | ViewSpec, mesh: Mesh, size: number, fit?: Fit): Camera;
 export function project(camera: Camera, p: Vec3): { x: number; y: number; depth: number };
 
 export interface RenderOptions {
@@ -53,9 +68,11 @@ export interface RenderOptions {
   stroke?: string;
   pointColor?: string;
   background?: string;
+  /** Keep the camera target/framing fixed while the mesh moves. */
+  fit?: Fit;
 }
 
-export function renderView(mesh: Mesh, name: ViewName, options?: RenderOptions): string;
+export function renderView(mesh: Mesh, view: ViewName | ViewSpec, options?: RenderOptions): string;
 export function renderViews(mesh: Mesh, options?: RenderOptions): { name: ViewName; svg: string }[];
 export function renderSheet(mesh: Mesh, options?: RenderOptions): string;
 

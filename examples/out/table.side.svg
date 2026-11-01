@@ -7,17 +7,17 @@
 <circle data-v="10" cx="266.2" cy="155.87" r="3" fill="#d6336c"/>
 <circle data-v="13" cx="247.29" cy="263.05" r="3" fill="#d6336c"/>
 <circle data-v="14" cx="247.29" cy="155.87" r="3" fill="#d6336c"/>
-<polygon data-face="14" data-depth="5.85" points="152.71,263.05 152.71,155.87 133.8,155.87 133.8,263.05" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon data-face="13" data-depth="5.85" points="152.71,263.05 152.71,155.87 133.8,155.87 133.8,263.05" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
 <circle data-v="17" cx="152.71" cy="263.05" r="3" fill="#d6336c"/>
 <circle data-v="18" cx="152.71" cy="155.87" r="3" fill="#d6336c"/>
 <circle data-v="21" cx="133.8" cy="263.05" r="3" fill="#d6336c"/>
 <circle data-v="22" cx="133.8" cy="155.87" r="3" fill="#d6336c"/>
-<polygon data-face="20" data-depth="4.15" points="266.2,263.05 266.2,155.87 247.29,155.87 247.29,263.05" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon data-face="18" data-depth="4.15" points="266.2,263.05 266.2,155.87 247.29,155.87 247.29,263.05" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
 <circle data-v="25" cx="266.2" cy="263.05" r="3" fill="#d6336c"/>
 <circle data-v="26" cx="266.2" cy="155.87" r="3" fill="#d6336c"/>
 <circle data-v="29" cx="247.29" cy="263.05" r="3" fill="#d6336c"/>
 <circle data-v="30" cx="247.29" cy="155.87" r="3" fill="#d6336c"/>
-<polygon data-face="26" data-depth="4.15" points="152.71,263.05 152.71,155.87 133.8,155.87 133.8,263.05" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon data-face="23" data-depth="4.15" points="152.71,263.05 152.71,155.87 133.8,155.87 133.8,263.05" fill="#8a6a4a" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round"/>
 <circle data-v="33" cx="152.71" cy="263.05" r="3" fill="#d6336c"/>
 <circle data-v="34" cx="152.71" cy="155.87" r="3" fill="#d6336c"/>
 <circle data-v="37" cx="133.8" cy="263.05" r="3" fill="#d6336c"/>

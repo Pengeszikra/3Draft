@@ -3,9 +3,9 @@
 // from four fixed cameras. No textures, no shading yet.
 
 export const name = '3draft';
-export const version = '0.1.0';
+export const version = '26.11.1001';
 
-export { box, merge, bounds, faceNormal, faceCenter } from './mesh.js';
+export { box, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export { VIEW_ORDER, makeCamera, project } from './camera.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
 

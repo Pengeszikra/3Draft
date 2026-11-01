@@ -38,14 +38,43 @@ orthographic with the same scale, and a perspective `persp` view. Every
 `<polygon>` carries `data-face` and `data-depth`, every `<circle>` carries
 `data-v`, so the output can be inspected as plain text.
 
+Any camera works: `renderView(mesh, { dir, up, ortho, name })` takes a custom
+view, `rotate(mesh, { yaw, pitch })` turns the mesh, and `{ fit: bounds(mesh) }`
+keeps the framing fixed while it moves.
+
 ### Known limitations
 
 - Faces are painter-sorted by their center depth. Solids that touch or
-  interpenetrate can show artifacts (e.g. the top faces of the table legs
-  poke through the slab in the perspective view). A z-buffer or face-splitting
+  interpenetrate can show artifacts, so leave interior/contact faces out of the
+  model (the demo table legs have no top face). A z-buffer or face-splitting
   pass is planned.
 - Edges are the polygon outlines, so hidden edges are not drawn.
 - Back-face culling assumes closed meshes with CCW faces seen from outside.
+
+## Viewer app (repo only, not part of the npm package)
+
+```sh
+npm run app     # http://localhost:5173/app/
+```
+
+Drag to rotate the table in front of the camera, double click to reset. It is
+a single `app/index.html` plus a dependency-free static server
+(`app/serve.js`, localhost only, serves `app/`, `src/` and `examples/`).
+
+## Versioning
+
+Date based, written `YY.MM.DD.NNN`. npm needs valid semver (three numbers, no
+leading zeros), so the published form is `YY.M.DNNN` where the last number is
+day * 1000 + build:
+
+| readable       | package version |
+| -------------- | --------------- |
+| `26.11.01.001` | `26.11.1001`    |
+| `26.11.01.002` | `26.11.1002`    |
+| `26.11.15.012` | `26.11.15012`   |
+
+`npm run bump` sets the next version for today's date in `package.json` and
+`src/index.js` (`node scripts/bump.js --dry` only prints it).
 
 ## Idea
 

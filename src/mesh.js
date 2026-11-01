@@ -57,6 +57,26 @@ export const bounds = (mesh) => {
   return { center, radius };
 };
 
+/**
+ * Turntable rotation: yaw around Y first, then pitch around X (radians),
+ * both around `center` (default: bounding-box center). Faces are shared.
+ */
+export const rotate = (mesh, { yaw = 0, pitch = 0 } = {}, center = bounds(mesh).center) => {
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  const positions = mesh.positions.map((p) => {
+    const x = p[0] - center[0];
+    const y = p[1] - center[1];
+    const z = p[2] - center[2];
+    const x1 = cy * x + sy * z;
+    const z1 = -sy * x + cy * z;
+    return [x1 + center[0], cp * y - sp * z1 + center[1], sp * y + cp * z1 + center[2]];
+  });
+  return { positions, faces: mesh.faces };
+};
+
 /** Face normal (not normalized) by Newell's method; points CCW => outward. */
 export const faceNormal = (pts) => {
   const n = [0, 0, 0];
