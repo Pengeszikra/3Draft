@@ -22,7 +22,7 @@ const decode = (b64) => {
 export const initKernel = async () => {
   if (typeof WebAssembly === 'undefined') throw new Error('WebAssembly is not available');
   const { instance } = await WebAssembly.instantiate(decode(KERNEL_BYTES));
-  const { pick: kPick, setf, seti, getf, grow, size } = instance.exports;
+  const { pick: kPick, memory } = instance.exports;
 
   let uploaded = null; // the mesh now in the kernel's memory
   let triBase = 0;
@@ -34,22 +34,26 @@ export const initKernel = async () => {
     for (const f of mesh.faces) nt += Math.max(0, f.v.length - 2);
     triBase = (POS + nv * 24 + 7) & ~7;
     const need = Math.ceil((triBase + nt * 16 + 8) / 65536);
-    if (need > size()) grow(need - size());
+    const have = memory.buffer.byteLength / 65536;
+    if (need > have) memory.grow(need - have);
+    // grow() detaches the old buffer, so the views are made after it
+    const f64 = new Float64Array(memory.buffer, POS, nv * 3);
     for (let i = 0; i < nv; i++) {
       const p = mesh.positions[i];
-      setf(POS + i * 24, p[0]);
-      setf(POS + i * 24 + 8, p[1]);
-      setf(POS + i * 24 + 16, p[2]);
+      f64[i * 3] = p[0];
+      f64[i * 3 + 1] = p[1];
+      f64[i * 3 + 2] = p[2];
     }
     // faces are fanned into triangles (v0, vj, vj+1), each remembering its face number
-    let at = triBase;
+    const i32 = new Int32Array(memory.buffer, triBase, nt * 4);
+    let at = 0;
     mesh.faces.forEach((f, face) => {
       for (let j = 1; j < f.v.length - 1; j++) {
-        seti(at, f.v[0]);
-        seti(at + 4, f.v[j]);
-        seti(at + 8, f.v[j + 1]);
-        seti(at + 12, face);
-        at += 16;
+        i32[at] = f.v[0];
+        i32[at + 1] = f.v[j];
+        i32[at + 2] = f.v[j + 1];
+        i32[at + 3] = face;
+        at += 4;
       }
     });
     triCount = nt;
@@ -65,7 +69,7 @@ export const initKernel = async () => {
     const { origin: o, dir: d } = ray(cam, x, y);
     const face = kPick(o[0], o[1], o[2], d[0], d[1], d[2], POS, triBase, triCount, cull ? 1 : 0);
     if (face < 0) return null;
-    const distance = getf(0);
+    const distance = new Float64Array(memory.buffer, 0, 1)[0];
     const f = mesh.faces[face];
     const outward = norm(faceNormal(f.v.map((k) => mesh.positions[k])));
     const front = dot(outward, d) < 0;

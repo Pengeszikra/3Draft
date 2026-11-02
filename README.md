@@ -203,10 +203,10 @@ MIT
 The picking hot loop (ray against every triangle, Moller-Trumbore, the same arithmetic as `src/pick.js`) is also written in
 [HEXAW](https://github.com/Pengeszikra/hexaw), the byte-visible WebAssembly assembly dialect:
 
-- `kernel/pick.hexaw` is the source (664 bytes of WebAssembly once assembled).
+- `kernel/pick.hexaw` is the source (569 bytes of WebAssembly once assembled).
 - `npm run kernel` assembles it with `hexaw-core.js` (found through `HEXAW_CORE`, a checkout next to this repo, or the `hexaw` package) and writes `src/kernel-bytes.js`, the module as base64. The engine needs neither HEXAW nor a file fetch at runtime. `node scripts/build-kernel.mjs --check` fails when the generated file is out of date.
 - `initKernel()` starts it; `kernel.pick(mesh, camera, x, y)` returns exactly what `pick()` returns. The mesh is copied into the kernel's linear memory once for as long as it is the same object.
 - The viewer uses the kernel as soon as it has started (the footer shows `pick hexaw`), and plain `pick()` before that.
 - Measured on 1200 prisms (7200 faces): 1.7 ms per pick in JavaScript, 0.14 ms with the kernel.
 
-HEXAW exports only functions, so the kernel exposes `setf`, `seti` and `getf` as the doors into its linear memory (a memory export would remove them).
+The kernel exports its linear memory (`EXPM "memory"`, needs hexaw with JS-compatible memory), so the mesh is written straight into it with `Float64Array` / `Int32Array` views and the distance is read back from address 0; the former `setf`/`seti`/`getf`/`grow`/`size` helper functions are gone.

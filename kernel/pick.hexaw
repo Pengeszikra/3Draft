@@ -1,22 +1,18 @@
 ; 3Draft kernel, written in HEXAW (https://github.com/Pengeszikra/hexaw).
 ; Ray against a triangle soup: Moller-Trumbore, the same arithmetic as src/pick.js.
 ;
-; Memory layout (the JS side fills it with setf/seti):
+; Memory layout (the JS side fills it through the exported memory):
 ;   0        f64   distance of the nearest hit (written by pick)
 ;   64 ...   f64   x y z of every vertex      (24 bytes each)
 ;   ... ...  i32   a b c face of every triangle (16 bytes each, a b c are vertex numbers)
 ;
-; Every function is exported by name below. There is no memory export in HEXAW yet, so
-; setf / seti / getf are the doors into the linear memory.
+; The linear memory is exported as "memory" (EXPM), so JavaScript writes the vertices and
+; triangles straight into it with typed arrays, and reads the distance from address 0.
 
 MEM 1 256
 
+EXPM "memory"
 EXP "pick" 0
-EXP "setf" 1
-EXP "seti" 2
-EXP "getf" 3
-EXP "grow" 4
-EXP "size" 5
 
 ; pick(ox oy oz dx dy dz, pos, tri, count, cull) -> face index of the nearest hit, or -1
 FN 0
@@ -339,44 +335,4 @@ FN 0
   GET 16
   DSTORE
   GET 15
-END
-
-; setf(address, value): write an f64
-FN 1
-  PAR 0
-  DPAR 1
-  GET 0
-  GET 1
-  DSTORE
-END
-
-; seti(address, value): write an i32
-FN 2
-  PAR 0
-  PAR 1
-  GET 0
-  GET 1
-  STORE
-END
-
-; getf(address) -> f64
-FN 3
-  PAR 0
-  DRES
-  GET 0
-  DLOAD
-END
-
-; grow(pages) -> previous size in pages, or -1
-FN 4
-  PAR 0
-  RES
-  GET 0
-  MGROW
-END
-
-; size() -> pages
-FN 5
-  RES
-  MSIZE
 END
