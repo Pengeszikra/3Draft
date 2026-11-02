@@ -178,7 +178,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. X deletes the prism under the cross, W A S D R F fly, Shift steers towards the pointer, T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. P joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the prism under the cross, W A S D R F fly, Shift steers towards the pointer, T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <div class="fab" aria-label="Controls">
     <button id="fabTravel" type="button" aria-label="Travel to the object under the cross (T)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
@@ -197,7 +197,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · shift: steer to the pointer · space: place · x: delete · t: travel · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · shift: steer to the pointer · space: place · p: spider bar (two points) · x: delete · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -251,10 +251,10 @@
     const UP = [0, 1, 0];
 
     // A random wood brown, as #rrggbb.
-    const brown = () => {
+    const brown = (dark = false) => {
       const h = 18 + Math.random() * 16;
       const sat = (30 + Math.random() * 25) / 100;
-      const l = (24 + Math.random() * 24) / 100;
+      const l = (dark ? 14 + Math.random() * 14 : 24 + Math.random() * 24) / 100;
       const a = sat * Math.min(l, 1 - l);
       const f = (n) => {
         const k = (n + h / 30) % 12;
@@ -350,6 +350,8 @@
     const level = { f: 0, r: 0, u: 0 }; // forward, right, up
     const UNIT = 0.5; // world units per second per level
     const FLY_DIST = 0.05;
+    // The speed grows faster than the level: 1, 2.7, 5.6, 9.9, 16, ... (times UNIT), forwards or backwards.
+    const pace = (l) => Math.sign(l) * (1.7 ** Math.abs(l) - 1) / 0.7;
     const STEER = 3; // 1/s: how fast shift turns the view towards the pointer
     let shiftDown = false;
     let lastFrame = performance.now();
@@ -388,7 +390,7 @@
       const sp = Math.sin(pitch);
       const forward = [sy * cp, -sp, -cy * cp];
       const right = [cy, 0, sy];
-      const v = forward.map((c, i) => c * level.f + right[i] * level.r + (i === 1 ? level.u : 0));
+      const v = forward.map((c, i) => c * pace(level.f) + right[i] * pace(level.r) + (i === 1 ? pace(level.u) : 0));
       fit.center = fit.center.map((c, i) => c + v[i] * UNIT * dt);
       if (level.f || level.r || level.u || steer) redraw();
     };
@@ -416,21 +418,19 @@
       return { center: b.center, radius: Math.max(b.radius * 1.05, 0.25) };
     };
 
-    // T: fly in front of the object under the cross; with nothing under it, fly back out.
+    // T: fly straight to the front of the object under the cross; T on nothing stops the movement.
     const travelTo = () => {
       if (hit) {
         const b = bounds(objectAround(scene, hit.face));
-        const [nx, ny, nz] = hit.normal;
         focused = true;
         goTo({
           center: b.center,
           radius: Math.max(b.radius * 1.15, 0.12),
-          yaw: Math.atan2(-nx, nz), // the eye ends up on the side the pointed surface faces
-          pitch: Math.max(0.3, Math.min(1.1, Math.asin(Math.max(-1, Math.min(1, ny))))),
+          // no yaw/pitch: the view keeps its direction and the eye flies in a straight line
         });
       } else {
-        focused = false;
-        goTo({ ...overview(), yaw: START.yaw, pitch: START.pitch });
+        stop(); // T on nothing: zero the speed
+        redraw();
       }
     };
 
@@ -463,6 +463,11 @@
         cam.at = { x, y };
       }
       const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
+      if (spiderFrom) {
+        const [x, y, z] = spiderFrom;
+        const e = fit.radius * 0.05;
+        marks.push({ name: 'spider', color: '#e8590c', width: 3, lines: [[[x - e, y, z], [x + e, y, z]], [[x, y - e, z], [x, y + e, z]], [[x, y, z - e], [x, y, z + e]]] });
+      }
 
       frame.style.width = frame.style.height = `${size}px`;
       if (mode === 'gpu' && gpu) {
@@ -579,6 +584,43 @@
       placed.push({ mesh, inst: { at: end, axes: frame.axes, color }, from: f.map((c) => -c * back), start: performance.now() });
       redraw();
     };
+    // P: the Spider bar. The first P remembers the surface point under the cross, the second one
+    // joins the two points with a thin prism (half the base of a shot prism, a bit darker brown).
+    // P over empty space forgets a pending first point.
+    let spiderFrom = null;
+    const spider = () => {
+      if (!hit) {
+        spiderFrom = null;
+        return redraw();
+      }
+      if (!spiderFrom) {
+        spiderFrom = [...hit.point];
+        return redraw();
+      }
+      const a = spiderFrom;
+      const b = hit.point;
+      const d = b.map((c, i) => c - a[i]);
+      const length = Math.hypot(...d);
+      if (length < 1e-3) return; // the same point twice: keep waiting for another one
+      spiderFrom = null;
+      const ey = d.map((c) => c / length);
+      const side = Math.abs(ey[1]) > 0.95 ? [1, 0, 0] : UP; // anything not parallel to the bar
+      const ez0 = [ey[1] * side[2] - ey[2] * side[1], ey[2] * side[0] - ey[0] * side[2], ey[0] * side[1] - ey[1] * side[0]];
+      const zl = Math.hypot(...ez0);
+      const ez = ez0.map((c) => c / zl);
+      const ex = [ey[1] * ez[2] - ey[2] * ez[1], ey[2] * ez[0] - ey[0] * ez[2], ey[0] * ez[1] - ey[1] * ez[0]];
+      const base = LEG.base / 2;
+      const at = a.map((c, i) => c + d[i] / 2);
+      const color = brown(true);
+      const mesh = box({ size: [base, length, base], at, axes: [ex, ey, ez], color });
+      // the shared prototype is base x 3*base x base: scaled axes turn it into this bar
+      const sx = base / LEG.base;
+      const sy = length / (3 * LEG.base);
+      const scaled = [ex.map((c) => c * sx), ey.map((c) => c * sy), ez.map((c) => c * sx)];
+      placed.push({ mesh, inst: { at, axes: scaled, color }, from: null });
+      rebuild();
+      redraw();
+    };
     // Which landed prism owns a face of the pick scene .
     const owner = (face) => {
       let o = remote.faces.length; // the remote scene's faces come first and are not deletable
@@ -651,6 +693,9 @@
       } else if (e.key === ' ') {
         e.preventDefault();
         if (!e.repeat) place();
+      } else if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        if (!e.repeat) spider();
       } else if (e.key === 'x' || e.key === 'X' || e.key === 'Delete') {
         e.preventDefault();
         remove();
@@ -691,6 +736,7 @@
     // ?debug: read the WebGPU frame back through an offscreen texture (a headless browser shows no canvas)
     if (new URLSearchParams(location.search).has('debug')) {
       globalThis.__3draft = {
+        load: (data) => applyScene(data),
         state: () => ({ center: fit.center, dist: fit.dist, radius: fit.radius, level: { ...level }, yaw, pitch, fly, placed: placed.length }),
         grab: async () => {
           const r = await renderGpu(true);

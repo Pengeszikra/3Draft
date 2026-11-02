@@ -101,12 +101,13 @@ struct IIn {
   @location(7) col : vec3<f32>,
 };
 
-// the same prototype drawn many times: its frame (ex, ey, ez) and position come per instance
+// the same prototype drawn many times: its frame (ex, ey, ez, scaled axes scale it) and position come per instance
 @vertex fn vsi(i : IIn) -> VOut {
   var o : VOut;
   let w = i.at + i.ex * i.pos.x + i.ey * i.pos.y + i.ez * i.pos.z;
   o.p = u.vp * vec4<f32>(w, 1.0);
-  o.n = i.ex * i.nrm.x + i.ey * i.nrm.y + i.ez * i.nrm.z;
+  // the axes may be scaled (a thin long bar from the same prototype): normals follow the unit axes
+  o.n = normalize(i.ex) * i.nrm.x + normalize(i.ey) * i.nrm.y + normalize(i.ez) * i.nrm.z;
   o.c = i.col;
   o.w = w;
   return o;
