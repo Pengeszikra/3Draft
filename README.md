@@ -197,3 +197,16 @@ MIT
 
 - `examples/table.js`: the table demo (`npm run example`).
 - `examples/bridge.js`: a stone arch bridge of 50 named objects (`npm run bridge`). It writes `examples/bridge.scene.json`, a scene file you can load with the MCP `import` tool (`path: "examples/bridge.scene.json"`).
+
+## HEXAW kernel (branch `hexaw`)
+
+The picking hot loop (ray against every triangle, Moller-Trumbore, the same arithmetic as `src/pick.js`) is also written in
+[HEXAW](https://github.com/Pengeszikra/hexaw), the byte-visible WebAssembly assembly dialect:
+
+- `kernel/pick.hexaw` is the source (664 bytes of WebAssembly once assembled).
+- `npm run kernel` assembles it with `hexaw-core.js` (found through `HEXAW_CORE`, a checkout next to this repo, or the `hexaw` package) and writes `src/kernel-bytes.js`, the module as base64. The engine needs neither HEXAW nor a file fetch at runtime. `node scripts/build-kernel.mjs --check` fails when the generated file is out of date.
+- `initKernel()` starts it; `kernel.pick(mesh, camera, x, y)` returns exactly what `pick()` returns. The mesh is copied into the kernel's linear memory once for as long as it is the same object.
+- The viewer uses the kernel as soon as it has started (the footer shows `pick hexaw`), and plain `pick()` before that.
+- Measured on 1200 prisms (7200 faces): 1.7 ms per pick in JavaScript, 0.14 ms with the kernel.
+
+HEXAW exports only functions, so the kernel exposes `setf`, `seti` and `getf` as the doors into its linear memory (a memory export would remove them).

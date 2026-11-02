@@ -1,0 +1,382 @@
+; 3Draft kernel, written in HEXAW (https://github.com/Pengeszikra/hexaw).
+; Ray against a triangle soup: Moller-Trumbore, the same arithmetic as src/pick.js.
+;
+; Memory layout (the JS side fills it with setf/seti):
+;   0        f64   distance of the nearest hit (written by pick)
+;   64 ...   f64   x y z of every vertex      (24 bytes each)
+;   ... ...  i32   a b c face of every triangle (16 bytes each, a b c are vertex numbers)
+;
+; Every function is exported by name below. There is no memory export in HEXAW yet, so
+; setf / seti / getf are the doors into the linear memory.
+
+MEM 1 256
+
+EXP "pick" 0
+EXP "setf" 1
+EXP "seti" 2
+EXP "getf" 3
+EXP "grow" 4
+EXP "size" 5
+
+; pick(ox oy oz dx dy dz, pos, tri, count, cull) -> face index of the nearest hit, or -1
+FN 0
+  DPAR 0   ; ox
+  DPAR 1   ; oy
+  DPAR 2   ; oz
+  DPAR 3   ; dx
+  DPAR 4   ; dy
+  DPAR 5   ; dz
+  PAR 6    ; pos   byte address of the vertices
+  PAR 7    ; tri   byte address of the triangles
+  PAR 8    ; count number of triangles
+  PAR 9    ; cull  1: skip triangles that face away from the ray
+  RES
+  LOC 10   ; i     triangle number
+  LOC 11   ; tp    address of triangle i
+  LOC 12   ; ia    address of vertex a
+  LOC 13   ; ib
+  LOC 14   ; ic
+  LOC 15   ; best  face of the nearest hit so far
+  DLOC 16  ; bestT
+  DLOC 17  ; ax
+  DLOC 18  ; ay
+  DLOC 19  ; az
+  DLOC 20  ; e1x  b - a
+  DLOC 21  ; e1y
+  DLOC 22  ; e1z
+  DLOC 23  ; e2x  c - a
+  DLOC 24  ; e2y
+  DLOC 25  ; e2z
+  DLOC 26  ; hx   d x e2
+  DLOC 27  ; hy
+  DLOC 28  ; hz
+  DLOC 29  ; det
+  DLOC 30  ; inv
+  DLOC 31  ; sx   o - a
+  DLOC 32  ; sy
+  DLOC 33  ; sz
+  DLOC 34  ; u
+  DLOC 35  ; qx   s x e1
+  DLOC 36  ; qy
+  DLOC 37  ; qz
+  DLOC 38  ; v
+  DLOC 39  ; t
+
+  CONST 0
+  SET 10
+  CONST -1
+  SET 15
+  DCONST 1e300
+  SET 16
+
+  BLOCK
+    LOOP
+      GET 10
+      GET 8
+      GES
+      BRIF 1            ; all triangles done
+
+      GET 7
+      GET 10
+      CONST 4
+      SHL
+      ADD
+      SET 11            ; tp = tri + i * 16
+      GET 11
+      LOAD 0
+      CONST 24
+      MUL
+      GET 6
+      ADD
+      SET 12            ; ia = pos + a * 24
+      GET 11
+      LOAD 4
+      CONST 24
+      MUL
+      GET 6
+      ADD
+      SET 13
+      GET 11
+      LOAD 8
+      CONST 24
+      MUL
+      GET 6
+      ADD
+      SET 14
+
+      BLOCK             ; a rejected triangle jumps to the end of this block
+        GET 12
+        DLOAD 0
+        SET 17
+        GET 12
+        DLOAD 8
+        SET 18
+        GET 12
+        DLOAD 16
+        SET 19
+
+        GET 13
+        DLOAD 0
+        GET 17
+        DSUB
+        SET 20
+        GET 13
+        DLOAD 8
+        GET 18
+        DSUB
+        SET 21
+        GET 13
+        DLOAD 16
+        GET 19
+        DSUB
+        SET 22
+
+        GET 14
+        DLOAD 0
+        GET 17
+        DSUB
+        SET 23
+        GET 14
+        DLOAD 8
+        GET 18
+        DSUB
+        SET 24
+        GET 14
+        DLOAD 16
+        GET 19
+        DSUB
+        SET 25
+
+        ; h = d x e2
+        GET 4
+        GET 25
+        DMUL
+        GET 5
+        GET 24
+        DMUL
+        DSUB
+        SET 26
+        GET 5
+        GET 23
+        DMUL
+        GET 3
+        GET 25
+        DMUL
+        DSUB
+        SET 27
+        GET 3
+        GET 24
+        DMUL
+        GET 4
+        GET 23
+        DMUL
+        DSUB
+        SET 28
+
+        ; det = e1 . h
+        GET 20
+        GET 26
+        DMUL
+        GET 21
+        GET 27
+        DMUL
+        DADD
+        GET 22
+        GET 28
+        DMUL
+        DADD
+        SET 29
+
+        GET 29
+        DABS
+        DCONST 1e-9
+        DLT
+        BRIF 0          ; parallel to the triangle
+
+        GET 9
+        GET 29
+        DCONST 0
+        DLE
+        AND
+        BRIF 0          ; culling: facing away
+
+        DCONST 1
+        GET 29
+        DDIV
+        SET 30
+
+        ; s = o - a
+        GET 0
+        GET 17
+        DSUB
+        SET 31
+        GET 1
+        GET 18
+        DSUB
+        SET 32
+        GET 2
+        GET 19
+        DSUB
+        SET 33
+
+        ; u = inv * (s . h)
+        GET 30
+        GET 31
+        GET 26
+        DMUL
+        GET 32
+        GET 27
+        DMUL
+        DADD
+        GET 33
+        GET 28
+        DMUL
+        DADD
+        DMUL
+        SET 34
+        GET 34
+        DCONST 0
+        DLT
+        GET 34
+        DCONST 1
+        DGT
+        OR
+        BRIF 0
+
+        ; q = s x e1
+        GET 32
+        GET 22
+        DMUL
+        GET 33
+        GET 21
+        DMUL
+        DSUB
+        SET 35
+        GET 33
+        GET 20
+        DMUL
+        GET 31
+        GET 22
+        DMUL
+        DSUB
+        SET 36
+        GET 31
+        GET 21
+        DMUL
+        GET 32
+        GET 20
+        DMUL
+        DSUB
+        SET 37
+
+        ; v = inv * (d . q)
+        GET 30
+        GET 3
+        GET 35
+        DMUL
+        GET 4
+        GET 36
+        DMUL
+        DADD
+        GET 5
+        GET 37
+        DMUL
+        DADD
+        DMUL
+        SET 38
+        GET 38
+        DCONST 0
+        DLT
+        GET 34
+        GET 38
+        DADD
+        DCONST 1
+        DGT
+        OR
+        BRIF 0
+
+        ; t = inv * (e2 . q)
+        GET 30
+        GET 23
+        GET 35
+        DMUL
+        GET 24
+        GET 36
+        DMUL
+        DADD
+        GET 25
+        GET 37
+        DMUL
+        DADD
+        DMUL
+        SET 39
+        GET 39
+        DCONST 1e-9
+        DLE
+        BRIF 0          ; behind the ray origin
+
+        GET 39
+        GET 16
+        DGE
+        BRIF 0          ; not nearer than the best so far
+
+        GET 39
+        SET 16
+        GET 11
+        LOAD 12
+        SET 15          ; best = this triangle's face
+      END
+
+      GET 10
+      CONST 1
+      ADD
+      SET 10
+      BR 0
+    END
+  END
+
+  CONST 0
+  GET 16
+  DSTORE
+  GET 15
+END
+
+; setf(address, value): write an f64
+FN 1
+  PAR 0
+  DPAR 1
+  GET 0
+  GET 1
+  DSTORE
+END
+
+; seti(address, value): write an i32
+FN 2
+  PAR 0
+  PAR 1
+  GET 0
+  GET 1
+  STORE
+END
+
+; getf(address) -> f64
+FN 3
+  PAR 0
+  DRES
+  GET 0
+  DLOAD
+END
+
+; grow(pages) -> previous size in pages, or -1
+FN 4
+  PAR 0
+  RES
+  GET 0
+  MGROW
+END
+
+; size() -> pages
+FN 5
+  RES
+  MSIZE
+END
