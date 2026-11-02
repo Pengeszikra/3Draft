@@ -3,29 +3,31 @@
   "version": "26.11.2005",
   "description": "Minimalist AI first 3D engine: palette-texture, WASM core, WebGPU/WebGL2 renderer.",
   "type": "module",
-  "main": "./src/index.js",
-  "types": "./src/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.d.ts",
-      "default": "./src/index.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
   },
   "files": [
-    "src",
-    "!src/**/*.test.js",
+    "dist",
+    "!dist/**/*.test.*",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test",
+    "test": "node scripts/build.mjs && node --test \"dist/**/*.test.js\" \"examples/**/*.test.js\" \"mcp/**/*.test.js\" \"scripts/**/*.test.js\"",
     "mcp": "node mcp/server.js",
     "example": "node examples/table.js",
     "bridge": "node examples/bridge.js",
     "kernel": "node scripts/build-kernel.mjs",
     "app": "node app/serve.js",
-    "bump": "node scripts/bump.js"
+    "bump": "node scripts/bump.js",
+    "build": "node scripts/build.mjs",
+    "build:check": "node scripts/build.mjs --check"
   },
   "keywords": [
     "3d",
@@ -57,5 +59,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "@types/node": "^22.0.0"
   }
 }

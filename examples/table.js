@@ -2,7 +2,7 @@
 // Writes the 2x2 sheet and the four single views to examples/out/.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { renderSheet, renderViews } from '../src/index.js';
+import { renderSheet, renderViews } from '../dist/index.js';
 import { table } from './table-model.js';
 
 const out = new URL('./out/', import.meta.url);

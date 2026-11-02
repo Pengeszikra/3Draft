@@ -91,7 +91,7 @@ test('the viewer files are served, anything else is not', async () => {
     const bare = await new Promise((resolve) => http.get(`${base}/app`, (res) => { res.resume(); resolve(res); }));
     assert.equal(bare.statusCode, 302, '/app without the slash redirects to /app/');
     assert.equal(bare.headers.location, '/app/');
-    assert.equal((await get(`${base}/src/index.js`)).status, 200);
+    assert.equal((await get(`${base}/dist/index.js`)).status, 200);
     assert.equal((await get(`${base}/package.json`)).status, 404);
     assert.equal((await get(`${base}/mcp/scene.js`)).status, 404);
     assert.equal((await get(`${base}/..%2fpackage.json`)).status, 404);

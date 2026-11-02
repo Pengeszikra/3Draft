@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validate, bounds } from '../src/index.js';
+import { validate, bounds } from '../dist/index.js';
 import { createScene } from '../mcp/scene.js';
 import { cessna } from './cessna.js';
 

@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline';
 import { pathToFileURL } from 'node:url';
 import { createScene } from './scene.js';
 import { startLive } from './live.js';
-import { version } from '../src/index.js';
+import { version } from '../dist/index.js';
 
 const SUPPORTED = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
