@@ -5,7 +5,7 @@
 // shading yet.
 
 export const name = '3draft';
-export const version = '26.11.2001';
+export const version = '26.11.2002';
 
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export { validate } from './check.js';

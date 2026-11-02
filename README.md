@@ -192,3 +192,8 @@ day * 1000 + build:
 ## License
 
 MIT
+
+## Examples
+
+- `examples/table.js`: the table demo (`npm run example`).
+- `examples/bridge.js`: a stone arch bridge of 50 named objects (`npm run bridge`). It writes `examples/bridge.scene.json`, a scene file you can load with the MCP `import` tool (`path: "examples/bridge.scene.json"`).

@@ -627,6 +627,26 @@
       };
     }
 
+    // Published as a Claude artifact with the `db` capability: the objects live in the shared
+    // collection "objects" (one document per object: { name, mesh }). Claude writes them with
+    // its own tools and every open view shows them at once. Outside an artifact `claude` does not exist.
+    if (globalThis.claude?.use) {
+      globalThis.claude.use('db').then((db) => {
+        if (!db) return;
+        db.collection('objects').onSnapshot(
+          (snap) => {
+            const objects = snap.docs.map((d) => d.data()).filter((o) => o?.mesh?.positions);
+            applyScene({ objects, rev: `db ${snap.size}` });
+            liveEl.textContent = `${objects.length} object${objects.length === 1 ? '' : 's'} · db`;
+          },
+          (err) => {
+            liveEl.textContent = 'db error';
+            liveEl.title = String(err?.message ?? err);
+          },
+        );
+      });
+    }
+
     draw();
   </script>
 </body>
