@@ -1,6 +1,6 @@
 // The demo target shared by the example script and the viewer app.
 
-import { box, merge } from '../src/index.js';
+import { box, merge } from '../dist/index.js';
 
 /** The table leg: a square base and a height. The viewer's prisms use the same base and color. */
 export const LEG = { base: 0.15, height: 0.85, color: '#8a6a4a' };

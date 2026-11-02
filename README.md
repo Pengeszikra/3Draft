@@ -144,16 +144,58 @@ Everything is deterministic, so the same calls give the same SVG.
 - Edges are the polygon outlines, so hidden edges are not drawn.
 - Back-face culling assumes closed meshes with CCW faces seen from outside.
 
+## TypeScript and the `|>` pipeline operator
+
+The engine is written in TypeScript (`src/*.ts`) with the F# style pipeline operator, `value |> fn`
+(see [Pipeline operator great again](https://dev.to/pengeszikra/pipeline-operator-great-again-1cbn)).
+Neither `tsc` nor Node understands `|>` yet, so `npm run build` (`scripts/build.mjs`) first rewrites
+every `|>` into plain calls (`scripts/pipe.mjs`, `a |> f |> g(1)` becomes `g(1)(f(a))`) and then lets the
+TypeScript compiler type check and emit `dist/*.js` and `dist/*.d.ts`.
+
+```ts
+const t1 = mesh.positions[b] |> minus(mesh.positions[a]) |> norm;   // the right side is a function
+const dir = spec.dir |> norm |> times(dist) |> plus(center);          // curried helpers: plus, minus, times
+```
+
+- The right side must evaluate to a function; put an arrow function in parentheses: `x |> ((v) => v + 1)`.
+- `|>` binds like `>>>` while it is parsed, so wrap a pipeline in parentheses next to `+`, `-` and friends.
+- `dist/` is committed: the viewer, the examples, the MCP server and the npm package use the built JavaScript, so a
+  clone runs without a build. `npm run build:check` fails when `dist/` is out of date, `npm test` builds first.
+- The compiler is a dev dependency (`typescript`); `TYPESCRIPT=/path/to/typescript.js` points the build at another copy.
+
+## Develop
+
+```bash
+npm run build        # src/*.ts -> dist/ (|> desugared, type checked)
+npm test             # builds, then runs every test (dist, examples, mcp, scripts)
+npm run build:check  # fails when dist/ is out of date
+npm run kernel       # re-assemble kernel/pick.hexaw (needs the hexaw repo next to this one)
+npm run app          # the viewer, http://localhost:5173/app/
+```
+
+Edit `src/*.ts`, never `dist/`: it is generated and committed so that a clone runs without a build.
+
 ## Viewer app (repo only, not part of the npm package)
 
 ```sh
 npm run app     # http://localhost:5173/app/
 ```
 
-Drag to rotate the view, double click to reset. G switches between the SVG and the WebGPU view, L turns the light (WebGPU). A
-target cross follows the pointer and lies on the surface under it. It is a
+Drag to rotate the view, double click to reset. A target cross follows the pointer and lies on the surface under it.
+
+| key | does |
+| --- | --- |
+| `w a s d r f` | fly: forward, left, back, right, up, down; every press is a speed step (an accelerating curve), the opposite key slows down |
+| `Shift` | steer towards the pointer while flying |
+| `Space` | place a prism on the surface (or shoot one into empty space) |
+| `V` | Spider bar: two surface points joined by a thin brown prism; `V` over empty space forgets the first point |
+| `T` | travel to the target (a straight flight); `T` over nothing stops and zeroes the speed |
+| `X`, `Backspace` | delete the prism under the cross, undo |
+| `H`, `G`, `L` | edges, SVG / WebGPU view, light |
+
+On a phone the four round buttons do the same. The viewer picks with the HEXAW kernel (the footer shows `pick hexaw`). It is a
 single `app/index.html` plus a dependency-free static server
-(`app/serve.js`, localhost only, serves `app/`, `src/` and `examples/`).
+(`app/serve.js`, localhost only, serves `app/`, `dist/` and `examples/`).
 
 ## Versioning
 
@@ -168,7 +210,7 @@ day * 1000 + build:
 | `26.11.15.012` | `26.11.15012`   |
 
 `npm run bump` sets the next version for today's date in `package.json` and
-`src/index.js` (`node scripts/bump.js --dry` only prints it).
+`src/index.ts` (`node scripts/bump.js --dry` only prints it).
 
 ## Idea
 
@@ -199,13 +241,13 @@ MIT
 - `examples/bridge.js`: a stone arch bridge of 50 named objects (`npm run bridge`). It writes `examples/bridge.scene.json`, a scene file you can load with the MCP `import` tool (`path: "examples/bridge.scene.json"`).
 - `examples/cessna.js`: a small Cessna as ONE mesh with 9 face colours (single flat material, colour per face): lofted closed parts (fuselage, high wing, tail, struts, gear, spinner, propeller) merged into one mesh. `node examples/cessna.js` checks it and writes `examples/cessna.scene.json` (one object, loadable with the MCP `import` tool) and `examples/out/cessna.svg`.
 
-## HEXAW kernel (branch `hexaw`)
+## HEXAW kernel
 
-The picking hot loop (ray against every triangle, Moller-Trumbore, the same arithmetic as `src/pick.js`) is also written in
+The picking hot loop (ray against every triangle, Moller-Trumbore, the same arithmetic as `src/pick.ts`) is also written in
 [HEXAW](https://github.com/Pengeszikra/hexaw), the byte-visible WebAssembly assembly dialect:
 
 - `kernel/pick.hexaw` is the source (569 bytes of WebAssembly once assembled).
-- `npm run kernel` assembles it with `hexaw-core.js` (found through `HEXAW_CORE`, a checkout next to this repo, or the `hexaw` package) and writes `src/kernel-bytes.js`, the module as base64. The engine needs neither HEXAW nor a file fetch at runtime. `node scripts/build-kernel.mjs --check` fails when the generated file is out of date.
+- `npm run kernel` assembles it with `hexaw-core.js` (found through `HEXAW_CORE`, a checkout next to this repo, or the `hexaw` package) and writes `src/kernel-bytes.ts`, the module as base64 (then `npm run build` carries it into `dist/`). The engine needs neither HEXAW nor a file fetch at runtime. `node scripts/build-kernel.mjs --check` fails when the generated file is out of date.
 - `initKernel()` starts it; `kernel.pick(mesh, camera, x, y)` returns exactly what `pick()` returns. The mesh is copied into the kernel's linear memory once for as long as it is the same object.
 - The viewer uses the kernel as soon as it has started (the footer shows `pick hexaw`), and plain `pick()` before that.
 - Measured on 1200 prisms (7200 faces): 1.7 ms per pick in JavaScript, 0.14 ms with the kernel.

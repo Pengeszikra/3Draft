@@ -1,6 +1,6 @@
 // Tiny static server for the viewer (no dependencies).
 // Usage: npm run app   ->  http://localhost:5173/app/   (PORT=1234 to change)
-// Serves only app/, src/ and examples/, and only on 127.0.0.1.
+// Serves only app/, dist/ and examples/, and only on 127.0.0.1.
 
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -8,7 +8,7 @@ import { extname, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const allowed = new Set(['app', 'src', 'examples']);
+const allowed = new Set(['app', 'dist', 'examples']);
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',

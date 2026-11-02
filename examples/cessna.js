@@ -5,8 +5,8 @@
 // touch y = 0.
 
 import { writeFileSync } from 'node:fs';
-import { validate, renderView, merge, orbit } from '../src/index.js';
-import { sub, cross, dot, len } from '../src/vec.js';
+import { validate, renderView, merge, orbit } from '../dist/index.js';
+import { sub, cross, dot, len } from '../dist/vec.js';
 
 const C = {
   white: '#f1f1ec',

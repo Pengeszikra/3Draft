@@ -3,7 +3,7 @@
 // examples/bridge.scene.json, a scene file the MCP `import` tool and the viewer's database can load.
 
 import { writeFileSync } from 'node:fs';
-import { box, validate, renderView, merge, orbit } from '../src/index.js';
+import { box, validate, renderView, merge, orbit } from '../dist/index.js';
 
 const STONES = ['#b8b0a0', '#a89f8e', '#c2baa9'];
 

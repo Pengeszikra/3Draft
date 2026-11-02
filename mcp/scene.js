@@ -4,7 +4,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, relative, isAbsolute, extname } from 'node:path';
-import { box, extrude, extrudeFace, moveVertices, faceNormal, faceCenter, merge, rotate, bounds, makeCamera, orbit, pick, renderView, renderSheet, validate, VIEW_ORDER } from '../src/index.js';
+import { box, extrude, extrudeFace, moveVertices, faceNormal, faceCenter, merge, rotate, bounds, makeCamera, orbit, pick, renderView, renderSheet, validate, VIEW_ORDER } from '../dist/index.js';
 
 export class ToolError extends Error {}
 const fail = (message) => {

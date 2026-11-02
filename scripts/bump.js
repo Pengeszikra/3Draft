@@ -11,7 +11,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { displayVersion } from '../src/version.js';
+import { displayVersion } from '../dist/version.js';
 
 /** Next version for `date` given the current version. */
 export const nextVersion = (current, date = new Date()) => {
@@ -30,7 +30,7 @@ export const display = displayVersion;
 
 const run = () => {
   const pkgUrl = new URL('../package.json', import.meta.url);
-  const srcUrl = new URL('../src/index.js', import.meta.url);
+  const srcUrl = new URL('../src/index.ts', import.meta.url);
   const pkg = JSON.parse(readFileSync(pkgUrl, 'utf8'));
   const next = nextVersion(pkg.version);
   console.log(`${pkg.version} -> ${next}  (${display(next)})`);
@@ -41,7 +41,7 @@ const run = () => {
 
   const src = readFileSync(srcUrl, 'utf8');
   const updated = src.replace(/export const version = '[^']*';/, `export const version = '${next}';`);
-  if (updated === src && !src.includes(`'${next}'`)) throw new Error('version constant not found in src/index.js');
+  if (updated === src && !src.includes(`'${next}'`)) throw new Error('version constant not found in src/index.ts');
   writeFileSync(srcUrl, updated);
 };
 

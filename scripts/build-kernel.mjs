@@ -1,8 +1,8 @@
-// Assembles kernel/pick.hexaw with the HEXAW assembler and writes src/kernel-bytes.js
+// Assembles kernel/pick.hexaw with the HEXAW assembler and writes src/kernel-bytes.ts
 // (the .wasm as base64, so the engine needs neither hexaw nor a file fetch at runtime).
 //
 //   node scripts/build-kernel.mjs            build
-//   node scripts/build-kernel.mjs --check    fail when src/kernel-bytes.js is out of date
+//   node scripts/build-kernel.mjs --check    fail when src/kernel-bytes.ts is out of date
 //
 // The assembler is hexaw-core.js of https://github.com/Pengeszikra/hexaw. It is found through
 // HEXAW_CORE, the `hexaw` package, or a checkout next to this repo.
@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 
 const root = new URL('../', import.meta.url);
 const SOURCE = new URL('kernel/pick.hexaw', root);
-const OUT = new URL('src/kernel-bytes.js', root);
+const OUT = new URL('src/kernel-bytes.ts', root);
 
 export const findCore = () => {
   const here = fileURLToPath(root);
@@ -44,12 +44,12 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const text = render(bytes);
   if (process.argv.includes('--check')) {
     if (!existsSync(OUT) || readFileSync(OUT, 'utf8') !== text) {
-      console.error('src/kernel-bytes.js is out of date: run node scripts/build-kernel.mjs');
+      console.error('src/kernel-bytes.ts is out of date: run node scripts/build-kernel.mjs');
       process.exit(1);
     }
     console.log(`kernel ok, ${bytes.length} bytes`);
   } else {
     writeFileSync(OUT, text);
-    console.log(`kernel: ${bytes.length} bytes -> src/kernel-bytes.js`);
+    console.log(`kernel: ${bytes.length} bytes -> src/kernel-bytes.ts`);
   }
 }
