@@ -14,10 +14,6 @@ export const standOn = (mesh, hit, { base = 0.15, height = 3 * base, color = '#c
   const ex = norm(sub(mesh.positions[b], mesh.positions[a]));
   const ey = hit.normal;
   const ez = cross(ex, ey);
-  return box({
-    size: [base, height, base],
-    at: add(hit.point, scale(ey, height / 2)),
-    axes: [ex, ey, ez],
-    color,
-  });
+  const frame = { size: [base, height, base], at: add(hit.point, scale(ey, height / 2)), axes: [ex, ey, ez] };
+  return { ...box({ ...frame, color }), frame }; // frame: what an instanced renderer needs
 };

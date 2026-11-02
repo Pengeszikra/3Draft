@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { box, merge, makeCamera, orbit, project, bounds } from './index.js';
-import { viewProjection, buildVertices } from './gpu.js';
+import { viewProjection, buildVertices, buildInstances } from './gpu.js';
 
 const apply = (m, p) => {
   const c = [0, 1, 2, 3].map((r) => m[r] * p[0] + m[4 + r] * p[1] + m[8 + r] * p[2] + m[12 + r]);
@@ -57,4 +57,20 @@ test('buildVertices: triangles with flat outward normals and face colors', () =>
 
 test('buildVertices: an empty mesh gives no vertices', () => {
   assert.equal(buildVertices({ positions: [], faces: [] }).length, 0);
+});
+
+test('buildInstances: 15 floats per copy, position, frame, color', () => {
+  const d = buildInstances([{ at: [1, 2, 3], axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], color: '#ff0000' }, { at: [0, 0, 0], axes: [[0, 0, 1], [0, 1, 0], [-1, 0, 0]], color: '#00ff00' }]);
+  assert.equal(d.length, 30);
+  assert.deepEqual([...d.slice(0, 12)], [1, 2, 3, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  assert.deepEqual([...d.slice(12, 15)], [1, 0, 0]);
+  assert.deepEqual([...d.slice(24, 27)], [-1, 0, 0]);
+});
+
+test('an eye distance override moves the perspective eye (first person)', () => {
+  const m = box();
+  const near = makeCamera(orbit({ yaw: 0.3, pitch: 0.2 }), m, 400, { center: [0, 0, 0], radius: 1, dist: 0.05 });
+  const far = makeCamera(orbit({ yaw: 0.3, pitch: 0.2 }), m, 400, { center: [0, 0, 0], radius: 1 });
+  assert.ok(Math.hypot(...near.eye) - 0.05 < 1e-9);
+  assert.ok(Math.hypot(...far.eye) > 1);
 });

@@ -25,14 +25,39 @@ const panel = (mesh, view, o, x = 0, y = 0) => {
   const proj = mesh.positions.map((p) => project(cam, p));
   const items = [];
 
+  const NEAR = 0.02; // perspective: nearer than this is cut off
+  const keep = -8; // faces entirely off the panel (by more than a stroke) are not drawn
+  const seen = (pts) =>
+    !pts.every((p) => p.x < keep) && !pts.every((p) => p.y < keep) && !pts.every((p) => p.x > o.size - keep) && !pts.every((p) => p.y > o.size - keep);
+
   mesh.faces.forEach((face, i) => {
-    const world = face.v.map((k) => mesh.positions[k]);
-    const screen = face.v.map((k) => proj[k]);
-    if (screen.some((s) => s.depth <= 0.01)) return; // behind the camera
+    let world = face.v.map((k) => mesh.positions[k]);
+    let screen = face.v.map((k) => proj[k]);
     const dir = cam.ortho ? cam.f : sub(world[0], cam.eye);
     const normal = faceNormal(world);
     const facing = dot(normal, dir) < 0;
     if (o.cull && !facing) return; // back face
+    if (cam.ortho) {
+      if (screen.some((s) => s.depth <= 0.01)) return; // behind the camera
+    } else if (screen.some((s) => s.depth < NEAR)) {
+      // cut the face at the near plane, like a camera does
+      if (screen.every((s) => s.depth < NEAR)) return;
+      const cut = [];
+      for (let a = 0; a < world.length; a++) {
+        const b = (a + 1) % world.length;
+        const da = screen[a].depth - NEAR;
+        const db = screen[b].depth - NEAR;
+        if (da >= 0) cut.push(world[a]);
+        if (da * db < 0) {
+          const t = da / (da - db);
+          cut.push(world[a].map((c, k) => c + (world[b][k] - c) * t));
+        }
+      }
+      if (cut.length < 3) return;
+      world = cut;
+      screen = world.map((p) => project(cam, p));
+    }
+    if (!seen(screen)) return; // outside the panel
     items.push({
       i,
       vs: face.v,
@@ -60,7 +85,7 @@ const panel = (mesh, view, o, x = 0, y = 0) => {
       `fill="${it.color}" stroke="${o.stroke}" stroke-width="1.5" stroke-linejoin="round"/>`;
     const dots = o.points
       ? it.vs
-          .filter((k) => last.get(k) === idx)
+          .filter((k) => last.get(k) === idx && (cam.ortho || proj[k].depth >= NEAR))
           .sort((a, b) => a - b)
           .map(
             (k) =>

@@ -59,8 +59,28 @@ export const paintOrder = (items) => {
     waiting[second] += 1;
   };
 
-  for (let i = 0; i < count; i++) {
-    for (let j = i + 1; j < count; j++) {
+  // Screen bounding boxes, swept along x: only faces whose boxes overlap get the exact tests.
+  const box = items.map(({ screen }) => {
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    for (const { x, y } of screen) {
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+    return { x0, x1, y0, y1 };
+  });
+  const byX = items.map((_, k) => k).sort((a, b) => box[a].x0 - box[b].x0 || a - b);
+  for (let s = 0; s < count; s++) {
+    for (let t = s + 1; t < count; t++) {
+      const [i, j] = byX[s] < byX[t] ? [byX[s], byX[t]] : [byX[t], byX[s]];
+      const bi = box[byX[s]];
+      const bj = box[byX[t]];
+      if (bj.x0 >= bi.x1 - PX) break; // every later box starts further right
+      if (bj.y0 >= bi.y1 - PX || bi.y0 >= bj.y1 - PX) continue;
       const A = items[i];
       const B = items[j];
       if (!overlaps(A.screen, B.screen)) continue;

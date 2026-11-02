@@ -46,6 +46,8 @@ export interface ViewSpec {
 export interface Fit {
   center: Vec3;
   radius: number;
+  /** Perspective only: distance from the eye to the center. A first-person eye sits almost on the center. */
+  dist?: number;
 }
 
 export interface Camera {
@@ -137,6 +139,14 @@ export interface GpuRenderOptions {
   light?: GpuLight;
   material?: GpuMaterial;
   dpr?: number;
+  /** Many copies of one prototype mesh (modelled around the origin), drawn after `mesh`. */
+  instances?: { mesh: Mesh; data: Float32Array };
+}
+/** One copy of a prototype: its position, orthonormal frame and color. */
+export interface Instance {
+  at: Vec3;
+  axes: [Vec3, Vec3, Vec3];
+  color?: string;
 }
 export interface Gpu {
   render(mesh: Mesh, view: ViewName | ViewSpec, options?: GpuRenderOptions): void;
@@ -150,6 +160,8 @@ export function createGpu(canvas: HTMLCanvasElement, options?: { sampleCount?: n
 export function viewProjection(camera: Camera, near?: number, far?: number): Float32Array;
 /** Triangle list: position(3) normal(3) color(3) per vertex. */
 export function buildVertices(mesh: Mesh): Float32Array;
+/** Per-instance data for GpuRenderOptions.instances: at(3) ex(3) ey(3) ez(3) color(3) per copy. */
+export function buildInstances(items: Instance[]): Float32Array;
 export const defaultLight: Required<GpuLight>;
 export const defaultMaterial: Required<GpuMaterial>;
 

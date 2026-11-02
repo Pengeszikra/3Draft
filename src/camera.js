@@ -18,7 +18,7 @@ const VIEWS = {
 };
 
 /**
- * `fit` = { center, radius } overrides the target and framing. Use it when the
+ * `fit` = { center, radius, dist? } overrides the target and framing (perspective views only use `dist`). Use it when the
  * mesh moves (e.g. rotates) so the camera keeps looking at the same spot.
  */
 export const makeCamera = (view, mesh, size, fit) => {
@@ -28,7 +28,7 @@ export const makeCamera = (view, mesh, size, fit) => {
   const ortho = Boolean(spec.ortho);
   const { center, radius } = fit ?? bounds(mesh);
   const r0 = radius || 1;
-  const dist = ortho ? r0 * 4 : (r0 * 1.25) / Math.sin(FOV / 2);
+  const dist = ortho ? r0 * 4 : (fit?.dist ?? (r0 * 1.25) / Math.sin(FOV / 2)); // fit.dist: eye distance override (a first-person eye sits almost on the center)
   const eye = add(center, scale(norm(spec.dir), dist));
   const f = norm(sub(center, eye)); // forward
   const r = norm(cross(f, spec.up)); // right

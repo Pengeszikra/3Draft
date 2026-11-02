@@ -13,7 +13,7 @@ const FLOATS = 9; // position(3) normal(3) color(3)
  * Column-major 4x4 matrix (for WebGPU, z in 0..1) that maps world points exactly
  * like camera.project(): the same pixels, plus a depth between near and far.
  */
-export const viewProjection = (cam, near = 0.1, far = 1000) => {
+export const viewProjection = (cam, near = 0.03, far = 1000) => {
   const kk = cam.k / (cam.size / 2);
   const row = (v, s) => [v[0] * s, v[1] * s, v[2] * s, -dot(v, cam.eye) * s];
   const a = cam.ortho ? 1 / (far - near) : far / (far - near);
@@ -52,6 +52,18 @@ export const buildVertices = (mesh) => {
   return out;
 };
 
+const INSTANCE_FLOATS = 15; // at(3) ex(3) ey(3) ez(3) color(3)
+
+/**
+ * Per-instance data for drawInstances: one entry { at, axes: [ex, ey, ez], color } per copy of a
+ * prototype mesh (modelled around the origin). Float32Array, 15 floats per instance.
+ */
+export const buildInstances = (items) => {
+  const out = new Float32Array(items.length * INSTANCE_FLOATS);
+  items.forEach((it, i) => out.set([...it.at, ...it.axes[0], ...it.axes[1], ...it.axes[2], ...rgb(it.color)], i * INSTANCE_FLOATS));
+  return out;
+};
+
 export const defaultLight = { direction: norm([0.5, 0.8, 0.6]), sky: [1, 0.97, 0.92], ground: [0.42, 0.38, 0.36] };
 export const defaultMaterial = { ambient: 0.62, diffuse: 0.78, specular: 0.2, shininess: 30 };
 
@@ -83,6 +95,23 @@ struct VOut {
   return o;
 }
 
+struct IIn {
+  @location(0) pos : vec3<f32>, @location(1) nrm : vec3<f32>,
+  @location(3) at : vec3<f32>, @location(4) ex : vec3<f32>, @location(5) ey : vec3<f32>, @location(6) ez : vec3<f32>,
+  @location(7) col : vec3<f32>,
+};
+
+// the same prototype drawn many times: its frame (ex, ey, ez) and position come per instance
+@vertex fn vsi(i : IIn) -> VOut {
+  var o : VOut;
+  let w = i.at + i.ex * i.pos.x + i.ey * i.pos.y + i.ez * i.pos.z;
+  o.p = u.vp * vec4<f32>(w, 1.0);
+  o.n = i.ex * i.nrm.x + i.ey * i.nrm.y + i.ez * i.nrm.z;
+  o.c = i.col;
+  o.w = w;
+  return o;
+}
+
 @fragment fn fs(i : VOut, @builtin(front_facing) front : bool) -> @location(0) vec4<f32> {
   var n = normalize(i.n);
   if (!front) { n = -n; }
@@ -100,7 +129,8 @@ struct VOut {
 /**
  * Sets up WebGPU on a canvas. Rejects when WebGPU is not available.
  * Returns { render(mesh, view, options), destroy() }.
- * render options: size (CSS px, the canvas is made size x size), fit, background [r,g,b] 0..1,
+ * render options: size (CSS px, the canvas is made size x size), fit, instances { mesh, data } (many copies of one
+ * prototype mesh, data from buildInstances; drawn after the mesh), background [r,g,b] 0..1,
  * light { direction, sky, ground }, material { ambient, diffuse, specular, shininess }, dpr.
  */
 export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
@@ -116,29 +146,45 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
   context.configure({ device, format, alphaMode: 'opaque', });
 
   const module = device.createShaderModule({ code: SHADER });
-  const pipeline = device.createRenderPipeline({
-    layout: 'auto',
-    vertex: {
-      module,
-      entryPoint: 'vs',
-      buffers: [
-        {
-          arrayStride: FLOATS * 4,
-          attributes: [
-            { shaderLocation: 0, offset: 0, format: 'float32x3' },
-            { shaderLocation: 1, offset: 12, format: 'float32x3' },
-            { shaderLocation: 2, offset: 24, format: 'float32x3' },
-          ],
-        },
-      ],
-    },
-    fragment: { module, entryPoint: 'fs', targets: [{ format }] },
-    primitive: { topology: 'triangle-list', cullMode: 'none' },
-    depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
-    multisample: { count: sampleCount },
-  });
+  const meshLayout = {
+    arrayStride: FLOATS * 4,
+    attributes: [
+      { shaderLocation: 0, offset: 0, format: 'float32x3' },
+      { shaderLocation: 1, offset: 12, format: 'float32x3' },
+      { shaderLocation: 2, offset: 24, format: 'float32x3' },
+    ],
+  };
+  const instanceLayout = {
+    arrayStride: INSTANCE_FLOATS * 4,
+    stepMode: 'instance',
+    attributes: [3, 4, 5, 6, 7].map((loc, k) => ({ shaderLocation: loc, offset: k * 12, format: 'float32x3' })),
+  };
+  const make = (entry, buffers) =>
+    device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module, entryPoint: entry, buffers },
+      fragment: { module, entryPoint: 'fs', targets: [{ format }] },
+      primitive: { topology: 'triangle-list', cullMode: 'none' },
+      depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
+      multisample: { count: sampleCount },
+    });
+  const pipeline = make('vs', [meshLayout]);
+  // the instanced pipeline reads position and normal only from the prototype (locations 0, 1)
+  const instPipeline = make('vsi', [{ ...meshLayout, attributes: meshLayout.attributes.slice(0, 2) }, instanceLayout]);
   const uniforms = device.createBuffer({ size: 144, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   const bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
+  const instBind = device.createBindGroup({ layout: instPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
+
+  // Geometry that did not change since the last frame is not rebuilt or uploaded again.
+  let uploaded = null; // the mesh now in vertexBuffer
+  let vertexCount = 0;
+  let protoMesh = null;
+  let protoBuffer = null;
+  let protoCount = 0;
+  let instBuffer = null;
+  let instCapacity = 0;
+  let instData = null;
+  let instCount = 0;
 
   let vertexBuffer = null;
   let capacity = 0;
@@ -157,19 +203,43 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
     color = sampleCount > 1 ? device.createTexture({ size: [n, n], format, sampleCount, usage: GPUTextureUsage.RENDER_ATTACHMENT }) : null;
   };
 
-  const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, dpr = globalThis.devicePixelRatio || 1 } = {}, readback = false) => {
+  const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, dpr = globalThis.devicePixelRatio || 1, instances } = {}, readback = false) => {
     const L = { ...defaultLight, ...light };
     const M = { ...defaultMaterial, ...material };
     const cam = makeCamera(view, mesh, size, fit);
     targets(Math.max(1, Math.round(size * dpr)));
 
-    const verts = buildVertices(mesh);
-    if (verts.byteLength > capacity) {
-      vertexBuffer?.destroy();
-      capacity = Math.max(verts.byteLength, 4096);
-      vertexBuffer = device.createBuffer({ size: capacity, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+    if (mesh !== uploaded) {
+      const verts = buildVertices(mesh);
+      if (verts.byteLength > capacity) {
+        vertexBuffer?.destroy();
+        capacity = Math.max(verts.byteLength, 4096);
+        vertexBuffer = device.createBuffer({ size: capacity, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+      }
+      if (verts.byteLength) device.queue.writeBuffer(vertexBuffer, 0, verts);
+      vertexCount = verts.length / FLOATS;
+      uploaded = mesh;
     }
-    if (verts.byteLength) device.queue.writeBuffer(vertexBuffer, 0, verts);
+    if (instances?.mesh && instances.mesh !== protoMesh) {
+      const v = buildVertices(instances.mesh);
+      protoBuffer?.destroy();
+      protoBuffer = device.createBuffer({ size: Math.max(v.byteLength, 256), usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+      device.queue.writeBuffer(protoBuffer, 0, v);
+      protoCount = v.length / FLOATS;
+      protoMesh = instances.mesh;
+    }
+    if (instances?.data && instances.data !== instData) {
+      const d = instances.data;
+      if (d.byteLength > instCapacity) {
+        instBuffer?.destroy();
+        instCapacity = Math.max(d.byteLength, 4096);
+        instBuffer = device.createBuffer({ size: instCapacity, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+      }
+      if (d.byteLength) device.queue.writeBuffer(instBuffer, 0, d);
+      instData = d;
+      instCount = d.length / INSTANCE_FLOATS;
+    }
+    if (!instances) instCount = 0;
 
     const u = new Float32Array(36);
     u.set(viewProjection(cam), 0);
@@ -197,11 +267,18 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
       ],
       depthStencilAttachment: { view: depth.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard' },
     });
-    if (verts.byteLength) {
+    if (vertexCount) {
       pass.setPipeline(pipeline);
       pass.setBindGroup(0, bind);
       pass.setVertexBuffer(0, vertexBuffer);
-      pass.draw(verts.length / FLOATS);
+      pass.draw(vertexCount);
+    }
+    if (instCount && protoCount) {
+      pass.setPipeline(instPipeline);
+      pass.setBindGroup(0, instBind);
+      pass.setVertexBuffer(0, protoBuffer);
+      pass.setVertexBuffer(1, instBuffer);
+      pass.draw(protoCount, instCount);
     }
     pass.end();
     if (!offscreen) {
@@ -242,6 +319,8 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
 
   const destroy = () => {
     vertexBuffer?.destroy();
+    protoBuffer?.destroy();
+    instBuffer?.destroy();
     depth?.destroy();
     color?.destroy();
     uniforms.destroy();

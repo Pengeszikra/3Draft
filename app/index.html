@@ -178,12 +178,12 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. D deletes the prism under the cross, T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. X deletes the prism under the cross, W A S D R F fly, Shift steers towards the pointer, T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <div class="fab" aria-label="Controls">
     <button id="fabTravel" type="button" aria-label="Travel to the object under the cross (T)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
     <button id="fabPlace" type="button" aria-label="Place or shoot a prism (Space)"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/></svg></button>
-    <button id="fabDelete" type="button" aria-label="Delete the prism under the cross (D)"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+    <button id="fabDelete" type="button" aria-label="Delete the prism under the cross (X)"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
     <button id="fabMode" type="button" aria-label="Switch SVG / WebGPU view (G)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg></button>
   </div>
 
@@ -191,12 +191,13 @@
     <p class="read">
       <span>yaw <b id="yaw">–</b></span>
       <span>pitch <b id="pitch">–</b></span>
+      <span>speed <b id="speed">0·0·0</b></span>
       <span>placed <b id="count">0</b></span>
       <span>view <b id="mode">svg</b></span>
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · space: place · d: delete · t: travel · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · shift: steer to the pointer · space: place · x: delete · t: travel · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -210,7 +211,7 @@
   </footer>
 
   <script type="module">
-    import { createGpu, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
+    import { createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
     import { LEG } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -220,6 +221,7 @@
     const modeEl = document.getElementById('mode');
     const liveEl = document.getElementById('live');
     const yawEl = document.getElementById('yaw');
+    const speedEl = document.getElementById('speed');
     const pitchEl = document.getElementById('pitch');
     const countEl = document.getElementById('count');
     const surfaceEl = document.getElementById('surface');
@@ -238,9 +240,12 @@
     let hit = null; // the surface under the pointer in the last drawn frame
     let queued = false;
 
-    // Prisms put down so far: { mesh, from, start }. `from` is the start offset of a
-    // flight that ends at the mesh's own position; null once it has landed.
+    // Prisms put down so far: { mesh, inst, from, start }. `inst` is the prism as an instance
+    // ({ at, axes, color } of the shared prototype) for the GPU. `from` is the start offset of a
+    // flight that ends at its own position; null once it has landed.
     const placed = [];
+    let placedVer = 0; // bumped on every change of the set of prisms
+    const PROTO = box({ size: [LEG.base, 3 * LEG.base, LEG.base], color: '#ffffff' }); // one prism around the origin
     const FLIGHT_MS = 650;
     const SHOT_MAX = 6.4; // farthest shot, in eye-to-center distances
     const UP = [0, 1, 0];
@@ -263,17 +268,37 @@
     let cam = null; // camera of the last drawn frame
     const rebuild = () => {
       scene = merge(remote, ...placed.filter((p) => !p.from).map((p) => p.mesh));
+      placedVer++;
     };
     const shifted = (mesh, d) => ({ ...mesh, positions: mesh.positions.map((q) => [q[0] + d[0], q[1] + d[1], q[2] + d[2]]) });
-    const flying = (p, now) => {
-      if (!p.from) return p.mesh;
+    // how far a flying prism still is from where it lands, as a fraction of its flight
+    const remaining = (p, now) => {
       const t = Math.min(1, (now - p.start) / FLIGHT_MS);
-      if (t >= 1) {
-        p.from = null;
-        return p.mesh;
+      return t >= 1 ? 0 : (1 - t) ** 3; // ease out: fast at the start, settles softly
+    };
+    // lands the flights that are over; true when something landed
+    const land = (now) => {
+      let any = false;
+      for (const p of placed) if (p.from && now - p.start >= FLIGHT_MS) ((p.from = null), (any = true));
+      if (any) rebuild();
+      return any;
+    };
+    // instances for the GPU: landed prisms as they are, flying ones shifted back along their flight
+    let instCache = { ver: -1, data: null };
+    const instances = (now, flying) => {
+      if (flying || instCache.ver !== placedVer) {
+        instCache = {
+          ver: placedVer,
+          data: buildInstances(
+            placed.map((p) => {
+              if (!p.from) return p.inst;
+              const k = remaining(p, now);
+              return { ...p.inst, at: p.inst.at.map((c, i) => c + p.from[i] * k) };
+            }),
+          ),
+        };
       }
-      const k = (1 - t) ** 3; // ease out: fast at the start, settles softly
-      return shifted(p.mesh, p.from.map((c) => c * k));
+      return instCache.data;
     };
 
     const deg = (r) => `${Math.round((r * 180) / Math.PI)}°`;
@@ -284,6 +309,8 @@
 
     // Travel: the camera glides to a target (what to look at, how close, from which side).
     // The view is an orbit around fit.center, so travelling means easing center, radius, yaw and pitch.
+    // The eye-to-center distance a normal (orbit) framing of this radius has.
+    const orbitDist = (radius) => Math.hypot(...makeCamera(orbit({}), nothing, 100, { center: [0, 0, 0], radius }).eye);
     let travel = null;
     let focused = false; // true while the camera sits on one object; scene updates then leave it alone
     const TRAVEL_MS = 900;
@@ -292,9 +319,11 @@
     const goTo = (to) => {
       travel = {
         start: performance.now(),
-        from: { center: [...fit.center], radius: fit.radius, yaw, pitch },
-        to: { ...to, yaw: turnBy(yaw, to.yaw ?? yaw), pitch: to.pitch ?? pitch },
+        from: { center: [...fit.center], radius: fit.radius, dist: fit.dist ?? orbitDist(fit.radius), yaw, pitch },
+        to: { ...to, dist: orbitDist(to.radius), yaw: turnBy(yaw, to.yaw ?? yaw), pitch: to.pitch ?? pitch },
       };
+      fly = false;
+      stop();
       redraw();
     };
     const stepTravel = (now) => {
@@ -305,10 +334,63 @@
       const mix = (a, b) => a + (b - a) * k;
       fit.center = from.center.map((c, i) => mix(c, to.center[i]));
       fit.radius = mix(from.radius, to.radius);
+      fit.dist = mix(from.dist, to.dist);
       yaw = mix(from.yaw, to.yaw);
       pitch = mix(from.pitch, to.pitch);
-      if (t >= 1) travel = null;
-      else redraw();
+      if (t >= 1) {
+        travel = null;
+        delete fit.dist; // back to the normal orbit framing
+      } else redraw();
+    };
+
+    // Flying around. W/S, D/A and R/F are speed vectors, not moves: every press changes the speed
+    // along that axis by one level, so w w w is 3 forward, and s s s slows down again to a stop.
+    // The eye then sits (almost) on the orbit center and the center moves.
+    let fly = false;
+    const level = { f: 0, r: 0, u: 0 }; // forward, right, up
+    const UNIT = 0.5; // world units per second per level
+    const FLY_DIST = 0.05;
+    const STEER = 3; // 1/s: how fast shift turns the view towards the pointer
+    let shiftDown = false;
+    let lastFrame = performance.now();
+    const stop = () => (level.f = level.r = level.u = 0);
+    const enterFly = () => {
+      if (fly && !travel) return;
+      travel = null;
+      const c = makeCamera(orbit({ yaw, pitch }), nothing, 100, fit); // where the eye is now
+      const away = c.eye.map((e, i) => e - fit.center[i]);
+      const len = Math.hypot(...away) || 1;
+      fit.center = c.eye.map((e, i) => e - (away[i] / len) * FLY_DIST); // the eye stays, the pivot comes to it
+      fit.dist = FLY_DIST;
+      fly = true;
+      focused = true;
+    };
+    const speed = (axis, d) => {
+      enterFly();
+      level[axis] += d;
+      redraw();
+    };
+    const stepFly = (now) => {
+      const dt = Math.min(0.05, (now - lastFrame) / 1000);
+      lastFrame = now;
+      if (!fly) return;
+      const steer = shiftDown && pointer && cam?.at;
+      if (steer) {
+        // shift: the view turns towards the pointer, faster the farther it is from the middle
+        const d = ray(cam, cam.at.x, cam.at.y).dir;
+        const k = 1 - Math.exp(-STEER * dt);
+        yaw += (turnBy(yaw, Math.atan2(d[0], -d[2])) - yaw) * k;
+        pitch = Math.max(-LIMIT, Math.min(LIMIT, pitch + (Math.asin(Math.max(-1, Math.min(1, -d[1]))) - pitch) * k));
+      }
+      const cy = Math.cos(yaw);
+      const sy = Math.sin(yaw);
+      const cp = Math.cos(pitch);
+      const sp = Math.sin(pitch);
+      const forward = [sy * cp, -sp, -cy * cp];
+      const right = [cy, 0, sy];
+      const v = forward.map((c, i) => c * level.f + right[i] * level.r + (i === 1 ? level.u : 0));
+      fit.center = fit.center.map((c, i) => c + v[i] * UNIT * dt);
+      if (level.f || level.r || level.u || steer) redraw();
     };
 
     // All faces connected to `face` through shared vertices: one object of the scene.
@@ -356,6 +438,7 @@
     const draw = () => {
       queued = false;
       stepTravel(performance.now());
+      stepFly(performance.now());
       const r = stage.getBoundingClientRect();
       const touchy = matchMedia('(pointer: coarse), (max-width: 640px)').matches;
       // on a phone the drawing is a little larger than the short side and the rest of the screen is panel color
@@ -364,9 +447,11 @@
       const view = orbit({ yaw, pitch }); // the camera orbits, the scene stays in object space
 
       const now = performance.now();
-      const shown = merge(remote, ...placed.map((p) => flying(p, now)));
-      if (placed.some((p) => p.from)) redraw();
-      else rebuild();
+      land(now);
+      const flights = placed.filter((p) => p.from);
+      if (flights.length) redraw();
+      // SVG draws everything as one mesh: the landed scene plus the prisms still in the air
+      const shown = flights.length ? merge(scene, ...flights.map((p) => shifted(p.mesh, p.from.map((c) => c * remaining(p, now))))) : scene;
 
       hit = null;
       if (pointer) {
@@ -386,7 +471,8 @@
         const rgb = /^#[0-9a-f]{6}$/i.test(bg) ? [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16) / 255) : undefined;
         const a = lightAngle;
         renderGpu = (readback = false) =>
-          gpu[readback ? 'pixels' : 'render'](shown, view, {
+          gpu[readback ? 'pixels' : 'render'](remote, view, {
+            instances: { mesh: PROTO, data: instances(now, flights.length > 0) },
             size,
             fit,
             background: rgb,
@@ -400,6 +486,7 @@
         layer.innerHTML = renderView(shown, view, { size, fit, marks });
       }
       fabMode.classList.toggle('on', mode === 'gpu' && Boolean(gpu));
+      speedEl.textContent = `${level.f}·${level.r}·${level.u}`;
       yawEl.textContent = deg(yaw);
       pitchEl.textContent = deg(pitch);
       countEl.textContent = String(placed.length);
@@ -467,7 +554,9 @@
     // standing on the surface under the cross.
     const place = () => {
       if (hit) {
-        placed.push({ mesh: standOn(scene, hit, { base: LEG.base, color: brown() }), from: null });
+        const color = brown();
+        const mesh = standOn(scene, hit, { base: LEG.base, color });
+        placed.push({ mesh, inst: { ...mesh.frame, color }, from: null });
         rebuild();
         return redraw();
       }
@@ -475,7 +564,7 @@
       // Empty space under the cursor: shoot the prism out along the cursor ray,
       // to a random distance, and let it fly there.
       const { origin, dir } = ray(cam, cam.at.x, cam.at.y);
-      const D = Math.hypot(...origin.map((c, i) => c - fit.center[i])); // eye to scene center
+      const D = orbitDist(fit.radius); // the eye-to-center distance the framing would have, also when flying
       const reach = (k) => origin.map((c, i) => c + dir[i] * D * k);
       const k = 0.6 + Math.random() * (SHOT_MAX - 0.6);
       const end = reach(k); // lands under the cursor, on the cursor ray
@@ -483,9 +572,11 @@
       const f = cam.f;
       const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
       // Lying like a bullet: the long axis is the camera axis.
-      const mesh = box({ size: [LEG.base, 3 * LEG.base, LEG.base], at: end, color: brown(), axes: [cam.u, f, cross(cam.u, f)] });
+      const color = brown();
+      const frame = { size: [LEG.base, 3 * LEG.base, LEG.base], at: end, axes: [cam.u, f, cross(cam.u, f)] };
+      const mesh = box({ ...frame, color });
       const back = (k - 0.2) * D * (dir[0] * f[0] + dir[1] * f[1] + dir[2] * f[2]); // distance along the axis to the start depth
-      placed.push({ mesh, from: f.map((c) => -c * back), start: performance.now() });
+      placed.push({ mesh, inst: { at: end, axes: frame.axes, color }, from: f.map((c) => -c * back), start: performance.now() });
       redraw();
     };
     // Which landed prism owns a face of the pick scene .
@@ -546,12 +637,21 @@
       ArrowUp: [0, -STEP],
       ArrowDown: [0, STEP],
     };
+    const FLY_KEYS = { w: ['f', 1], s: ['f', -1], d: ['r', 1], a: ['r', -1], r: ['u', 1], f: ['u', -1] };
+    document.addEventListener('keyup', (e) => (shiftDown = e.shiftKey));
+    addEventListener('blur', () => (shiftDown = false));
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Shift') redraw(); // starts the steering loop
+      shiftDown = e.shiftKey;
       if (e.target instanceof HTMLButtonElement) return; // Space and Enter belong to a focused button
-      if (e.key === ' ') {
+      const fk = !e.ctrlKey && !e.metaKey && !e.altKey && FLY_KEYS[e.key.toLowerCase()];
+      if (fk) {
+        e.preventDefault();
+        if (!e.repeat) speed(...fk);
+      } else if (e.key === ' ') {
         e.preventDefault();
         if (!e.repeat) place();
-      } else if (e.key === 'd' || e.key === 'D' || e.key === 'Delete') {
+      } else if (e.key === 'x' || e.key === 'X' || e.key === 'Delete') {
         e.preventDefault();
         remove();
       } else if (e.key === 'g' || e.key === 'G') {
@@ -591,6 +691,7 @@
     // ?debug: read the WebGPU frame back through an offscreen texture (a headless browser shows no canvas)
     if (new URLSearchParams(location.search).has('debug')) {
       globalThis.__3draft = {
+        state: () => ({ center: fit.center, dist: fit.dist, radius: fit.radius, level: { ...level }, yaw, pitch, fly, placed: placed.length }),
         grab: async () => {
           const r = await renderGpu(true);
           const o = document.createElement('canvas');
