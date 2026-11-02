@@ -178,7 +178,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. P joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the prism under the cross, W A S D R F fly, Shift steers towards the pointer, T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the prism under the cross, W A S D R F fly, Shift steers towards the pointer, T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <div class="fab" aria-label="Controls">
     <button id="fabTravel" type="button" aria-label="Travel to the object under the cross (T)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
@@ -198,7 +198,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · shift: steer to the pointer · space: place · p: spider bar (two points) · x: delete · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · shift: steer to the pointer · space: place · v: spider bar (two points) · x: delete · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -598,9 +598,9 @@
       placed.push({ mesh, inst: { at: end, axes: frame.axes, color }, from: f.map((c) => -c * back), start: performance.now() });
       redraw();
     };
-    // P: the Spider bar. The first P remembers the surface point under the cross, the second one
+    // V: the Spider bar. The first V remembers the surface point under the cross, the second one
     // joins the two points with a thin prism (half the base of a shot prism, a bit darker brown).
-    // P over empty space forgets a pending first point.
+    // V over empty space forgets a pending first point.
     let spiderFrom = null;
     const spider = () => {
       if (!hit) {
@@ -707,7 +707,7 @@
       } else if (e.key === ' ') {
         e.preventDefault();
         if (!e.repeat) place();
-      } else if (e.key === 'p' || e.key === 'P') {
+      } else if (e.key === 'v' || e.key === 'V') {
         e.preventDefault();
         if (!e.repeat) spider();
       } else if (e.key === 'x' || e.key === 'X' || e.key === 'Delete') {
