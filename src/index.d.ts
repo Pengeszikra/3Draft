@@ -219,3 +219,9 @@ export interface Info {
 }
 
 export function info(): Info;
+
+/** The HEXAW kernel (kernel/pick.hexaw compiled to WebAssembly): ray picking with the same results as pick(). */
+export interface Kernel {
+  pick(mesh: Mesh, camera: Camera, x: number, y: number, options?: { cull?: boolean }): Hit | null;
+}
+export function initKernel(): Promise<Kernel>;

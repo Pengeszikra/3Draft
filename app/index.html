@@ -192,6 +192,7 @@
       <span>yaw <b id="yaw">–</b></span>
       <span>pitch <b id="pitch">–</b></span>
       <span>speed <b id="speed">0·0·0</b></span>
+      <span>pick <b id="pick" title="who answers picking: js or the HEXAW kernel">js</b></span>
       <span>placed <b id="count">0</b></span>
       <span>view <b id="mode">svg</b></span>
       <span>live <b id="live" title="MCP link">off</b></span>
@@ -211,7 +212,7 @@
   </footer>
 
   <script type="module">
-    import { createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
+    import { initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../src/index.js';
     import { LEG } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -222,6 +223,7 @@
     const liveEl = document.getElementById('live');
     const yawEl = document.getElementById('yaw');
     const speedEl = document.getElementById('speed');
+    const pickEl = document.getElementById('pick');
     const pitchEl = document.getElementById('pitch');
     const countEl = document.getElementById('count');
     const surfaceEl = document.getElementById('surface');
@@ -434,6 +436,18 @@
       }
     };
 
+    // The HEXAW kernel (WebAssembly written in HEXAW) does the picking once it has started;
+    // until then, and without WebAssembly, the plain JavaScript pick() answers.
+    let kernel = null;
+    initKernel().then(
+      (k) => {
+        kernel = k;
+        pickEl.textContent = 'hexaw';
+        redraw();
+      },
+      () => (pickEl.textContent = 'js'),
+    );
+
     const fabMode = document.getElementById('fabMode');
     const draw = () => {
       queued = false;
@@ -459,7 +473,7 @@
         const x = pointer.x - r.left - (r.width - size) / 2;
         const y = pointer.y - r.top - (r.height - size) / 2;
         cam = makeCamera(view, scene, size, fit);
-        hit = pick(scene, cam, x, y);
+        hit = kernel ? kernel.pick(scene, cam, x, y) : pick(scene, cam, x, y);
         cam.at = { x, y };
       }
       const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
