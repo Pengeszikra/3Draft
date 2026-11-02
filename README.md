@@ -197,6 +197,7 @@ MIT
 
 - `examples/table.js`: the table demo (`npm run example`).
 - `examples/bridge.js`: a stone arch bridge of 50 named objects (`npm run bridge`). It writes `examples/bridge.scene.json`, a scene file you can load with the MCP `import` tool (`path: "examples/bridge.scene.json"`).
+- `examples/cessna.js`: a small Cessna as ONE mesh with 9 face colours (single flat material, colour per face): lofted closed parts (fuselage, high wing, tail, struts, gear, spinner, propeller) merged into one mesh. `node examples/cessna.js` checks it and writes `examples/cessna.scene.json` (one object, loadable with the MCP `import` tool) and `examples/out/cessna.svg`.
 
 ## HEXAW kernel (branch `hexaw`)
 
