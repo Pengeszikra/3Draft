@@ -194,7 +194,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H puts the move gizmo (helper) on the object under the cross, H again takes it off, drag an arrow to move the object; E toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <aside id="boolq" hidden aria-label="Boolean operation">
     <span id="boolText"></span>
@@ -237,7 +237,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: edges · g: svg/gpu · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; h again removes it) · e: edges · g: svg/gpu · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -252,7 +252,7 @@
   </footer>
 
   <script type="module">
-    import { boolean, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
+    import { boolean, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
     import { LEG } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -315,6 +315,8 @@
     let scene = nothing; // what is on screen and what picking sees: all objects (or the isolated one)
     let owners = []; // [{ obj, start, end }]: which object owns which faces of `scene`
     let cam = null; // camera of the last drawn frame
+    let gcam = null; // the camera of every frame (cam only exists while the pointer is over the view)
+    let panel = { left: 0, top: 0 }; // where the square drawing starts, in client pixels
     let solo = null; // `/` isolates one object: its id, null shows everything
     const rebuild = () => {
       let objs = allObjects();
@@ -539,6 +541,9 @@
         hit = kernel ? kernel.pick(scene, cam, x, y) : pick(scene, cam, x, y);
         cam.at = { x, y };
       }
+      gcam = makeCamera(view, scene, size, shown_fit);
+      panel = { left: r.left + (r.width - size) / 2, top: r.top + (r.height - size) / 2 };
+      const handles = gizmoHandles();
       const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
       for (const [o, color] of [[boolFrom, '#e8590c'], [boolPair?.b, '#2f9e44']]) {
         if (!o || !allObjects().includes(o)) continue;
@@ -551,6 +556,9 @@
           edges.push([c(a, b, 0), c(a, b, 1)], [c(a, 0, b), c(a, 1, b)], [c(0, a, b), c(1, a, b)]);
         }
         marks.push({ name: 'bool', color, width: 3, lines: edges });
+      }
+      if (handles) {
+        for (const h of handles) marks.push({ name: `gizmo-${'xyz'[h.axis]}`, color: h.color, width: h.axis === (gdrag?.axis ?? gHover) ? 6 : 3, lines: h.lines });
       }
       if (spiderFrom) {
         const [x, y, z] = spiderFrom;
@@ -743,6 +751,7 @@
       const o = hit && owner(hit.face);
       if (!o) return;
       erase(o);
+      history.push(() => allObjects().includes(o) || restore(o));
       redraw();
     };
     const erase = (o) => {
@@ -913,6 +922,8 @@
     const paintFaces = (obj, faces) => {
       const m = materials[current];
       const base = owners.find((o) => o.obj === obj).start;
+      const before = obj.mesh;
+      history.push(() => allObjects().includes(obj) && change(obj, before));
       change(obj, { ...obj.mesh, faces: obj.mesh.faces.map((f, i) => (!faces || faces.has(i + base) ? { ...f, color: m.color, mat: m.name } : f)) });
       redraw();
     };
@@ -952,25 +963,118 @@
       paintFaces(owner(hit.face), null); // the whole object
     };
 
+    // H: the move gizmo (the helper). H puts it on the object under the cross, H again takes it off; there is only one.
+    // Drag one of its three arrows to slide the object along that axis.
+    let gizmo = null; // the object that carries it
+    let gHover = null; // the axis under the pointer
+    let gdrag = null; // { obj, axis, from, mesh0, dir, unit, d }
+    const AXES = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    const GCOLORS = ['#e03131', '#2f9e44', '#1c7ed6'];
+    const gizmoFrame = () => {
+      if (!gizmo || !allObjects().includes(gizmo)) return (gizmo = null);
+      const lo = [Infinity, Infinity, Infinity];
+      const hi = [-Infinity, -Infinity, -Infinity];
+      for (const q of gizmo.mesh.positions) q.forEach((c, i) => ((lo[i] = Math.min(lo[i], c)), (hi[i] = Math.max(hi[i], c))));
+      const c = lo.map((v, i) => (v + hi[i]) / 2);
+      const L = Math.max(...hi.map((v, i) => v - lo[i]), fit.radius * 0.1) * 0.75;
+      return { c, L };
+    };
+    const gizmoHandles = () => {
+      const g = gizmoFrame();
+      if (!g) return null;
+      return AXES.map((a, axis) => {
+        const tip = g.c.map((v, i) => v + a[i] * g.L);
+        const side = AXES[(axis + 1) % 3];
+        const up = AXES[(axis + 2) % 3];
+        const h = g.L * 0.12;
+        const back = tip.map((v, i) => v - a[i] * h * 2);
+        const lines = [[g.c, tip]];
+        for (const [u, sgn] of [[side, 1], [side, -1], [up, 1], [up, -1]]) lines.push([tip, back.map((v, i) => v + u[i] * h * sgn)]);
+        return { axis, color: GCOLORS[axis], lines, from: g.c, to: tip, L: g.L };
+      });
+    };
+    const toPanel = (e) => ({ x: e.clientX - panel.left, y: e.clientY - panel.top });
+    const nearAxis = (e) => {
+      const hs = gizmoHandles();
+      if (!hs || !gcam) return null;
+      const q = toPanel(e);
+      let best = null;
+      for (const h of hs) {
+        const a = project(gcam, h.from);
+        const b = project(gcam, h.to);
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len2 = dx * dx + dy * dy || 1;
+        const t = Math.max(0, Math.min(1, ((q.x - a.x) * dx + (q.y - a.y) * dy) / len2));
+        const d = Math.hypot(q.x - (a.x + dx * t), q.y - (a.y + dy * t));
+        if (d < 12 && (!best || d < best.d)) best = { h, d, a, b };
+      }
+      return best;
+    };
+    const toggleGizmo = () => {
+      if (gizmo) gizmo = null;
+      else if (hit && owner(hit.face)) gizmo = owner(hit.face);
+      gHover = null;
+      redraw();
+    };
+    const dragGizmo = (e) => {
+      const g = gdrag;
+      const q = toPanel(e);
+      const s = ((q.x - g.from.x) * g.unit.x + (q.y - g.from.y) * g.unit.y) / g.perUnit;
+      g.d = s;
+      g.obj.mesh = shifted(g.mesh0, AXES[g.axis].map((c) => c * s));
+      rebuild();
+      redraw();
+    };
+    const dropGizmo = () => {
+      const g = gdrag;
+      gdrag = null;
+      if (!g || Math.abs(g.d) < 1e-9) return;
+      const { obj, mesh0 } = g;
+      const mesh = obj.mesh;
+      obj.mesh = mesh0;
+      change(obj, mesh); // one write for the whole drag
+      history.push(() => allObjects().includes(obj) && change(obj, mesh0));
+    };
+
     let last = null; // drag origin
     stage.addEventListener('pointerdown', (e) => {
       if (e.shiftKey) {
         pointer = { x: e.clientX, y: e.clientY };
         return paintFace(); // Shift+press paints, it never starts a rotation
       }
-      last = { x: e.clientX, y: e.clientY };
       pointer = { x: e.clientX, y: e.clientY };
+      const grab = nearAxis(e);
+      if (grab) {
+        const dx = grab.b.x - grab.a.x;
+        const dy = grab.b.y - grab.a.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const q = toPanel(e);
+        // the pointer may sit anywhere along the arrow: measure from where it was grabbed
+        const t0 = ((q.x - grab.a.x) * dx + (q.y - grab.a.y) * dy) / (len * len);
+        gdrag = { obj: gizmo, axis: grab.h.axis, from: { x: grab.a.x + dx * t0, y: grab.a.y + dy * t0 }, mesh0: gizmo.mesh, unit: { x: dx / len, y: dy / len }, perUnit: len / grab.h.L, d: 0 };
+        stage.setPointerCapture(e.pointerId);
+        return;
+      }
+      last = { x: e.clientX, y: e.clientY };
       stage.setPointerCapture(e.pointerId);
       stage.classList.add('drag');
       redraw();
     });
     stage.addEventListener('pointermove', (e) => {
       pointer = { x: e.clientX, y: e.clientY };
-      if (!last) return redraw();
+      if (gdrag) return dragGizmo(e);
+      if (!last) {
+        const g = nearAxis(e);
+        gHover = g ? g.h.axis : null;
+        stage.style.cursor = g ? 'grab' : '';
+        return redraw();
+      }
       turn((e.clientX - last.x) * 0.008, (e.clientY - last.y) * 0.008);
       last = { x: e.clientX, y: e.clientY };
     });
     const release = () => {
+      dropGizmo();
       last = null;
       stage.classList.remove('drag');
     };
@@ -1040,6 +1144,9 @@
         e.preventDefault();
         if (!e.repeat) travelTo();
       } else if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        if (!e.repeat) toggleGizmo();
+      } else if (e.key === 'e' || e.key === 'E') {
         e.preventDefault();
         stage.classList.toggle('clean');
       } else if (e.key === 'Backspace' || e.key === 'u' || e.key === 'U') {

@@ -97,11 +97,12 @@ A single `app/index.html` plus a dependency-free static server (`app/serve.js`, 
 | `O` | boolean: `O` marks an object (orange), `O` on another one (green) asks: `1` union, `2` A − B, `3` B − A, `4` intersect, `5`/`Esc` cancel; the result replaces both, Backspace brings them back |
 | `V` | Spider bar: two surface points joined by a thin prism |
 | `X` | delete the object under the cross |
-| `U`, `Backspace` | undo |
+| `U`, `Backspace` | undo (placing, delete, painting, boolean, moving) |
 | `/` | only the object under the cross; again: the whole scene, and the camera flies back to where it was before |
 | `P` | show / hide the materials; `Shift`+press paints a face, `Shift`+double click the whole object |
 | `T` | fly to the object under the cross; over nothing, or when too close or inside a model: out to the nearest object |
-| `H`, `G`, `L` | edges and points, SVG / WebGPU view, light |
+| `H` | the move gizmo (helper): `H` puts it on the object under the cross, `H` again takes it off, one at a time; drag an arrow to slide the object along that axis |
+| `E`, `G`, `L` | edges and points, SVG / WebGPU view, light |
 | `?` | show / hide the shortcut hints under the view (hidden at the start; also the `Keys` button) |
 
 **Materials (P).** Twelve starting materials (plaster, sand, wood, dark wood, concrete, slate, grass, brick, steel, gold, glass, lamp), four sliders (`metal`, `rough`, `alpha`, `emit`) and a colour for the selected one, `+ new` copies it. A painted face stores the material name, so editing a material changes every face made of it.
