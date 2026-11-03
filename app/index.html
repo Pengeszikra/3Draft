@@ -120,7 +120,7 @@
     #stage svg text { fill: var(--muted); font-family: var(--font-mono); }
     #stage svg polygon { stroke: var(--edge); }
     #stage svg circle { fill: var(--point); }
-    #stage svg polyline { stroke: var(--cursor); }
+    #stage svg polyline[data-mark="cursor"] { stroke: var(--cursor); }
 
     /* P: the material palette. Data first: every entry is a plain object, the swatches are drawn from the list. */
     #palette { position: fixed; right: 16px; top: 64px; z-index: 5; width: 188px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: grid; gap: 8px; font: 500 12px/1.2 var(--font-mono); color: var(--muted); }
@@ -194,7 +194,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H puts the move gizmo (helper) on the object under the cross, H again takes it off, drag an arrow to move the object; E toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H puts the move gizmo (helper) on the object under the cross with the world axes, the next H switches to the object's own axes, the third takes it off; drag an arrow to move the object; E toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <aside id="boolq" hidden aria-label="Boolean operation">
     <span id="boolText"></span>
@@ -237,7 +237,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; h again removes it) · e: edges · g: svg/gpu · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -963,9 +963,12 @@
       paintFaces(owner(hit.face), null); // the whole object
     };
 
-    // H: the move gizmo (the helper). H puts it on the object under the cross, H again takes it off; there is only one.
+    // H: the move gizmo (the helper). H puts it on the object under the cross (world axes), the next H turns it to the
+    // object's own axes, the third takes it off; there is only one.
     // Drag one of its three arrows to slide the object along that axis.
     let gizmo = null; // the object that carries it
+    let gLocal = false; // false: the world axes, true: the object's own axes
+    let gTurn = { mesh: null, angle: 0 }; // cached: the object's own turn around y
     let gHover = null; // the axis under the pointer
     let gdrag = null; // { obj, axis, from, mesh0, dir, unit, d }
     const AXES = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
@@ -976,21 +979,50 @@
       const hi = [-Infinity, -Infinity, -Infinity];
       for (const q of gizmo.mesh.positions) q.forEach((c, i) => ((lo[i] = Math.min(lo[i], c)), (hi[i] = Math.max(hi[i], c))));
       const c = lo.map((v, i) => (v + hi[i]) / 2);
-      const L = Math.max(...hi.map((v, i) => v - lo[i]), fit.radius * 0.1) * 0.75;
-      return { c, L };
+      const L = Math.max(...hi.map((v, i) => v - lo[i]), fit.radius * 0.1) * 0.6;
+      let axes = AXES;
+      if (gLocal) {
+        // objects carry no transform, so "own" axes are found from the shape: y stays up, x and z follow the turn
+        // around y that gives the smallest footprint box
+        if (gTurn.mesh !== gizmo.mesh) {
+          let best = Infinity;
+          let angle = 0;
+          for (let deg = 0; deg < 90; deg++) {
+            const a = (deg * Math.PI) / 180;
+            const co = Math.cos(a);
+            const si = Math.sin(a);
+            let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+            for (const q of gizmo.mesh.positions) {
+              const u = q[0] * co + q[2] * si;
+              const w = -q[0] * si + q[2] * co;
+              if (u < x0) x0 = u;
+              if (u > x1) x1 = u;
+              if (w < z0) z0 = w;
+              if (w > z1) z1 = w;
+            }
+            const area = (x1 - x0) * (z1 - z0);
+            if (area < best - 1e-9) ((best = area), (angle = a));
+          }
+          gTurn = { mesh: gizmo.mesh, angle };
+        }
+        const co = Math.cos(gTurn.angle);
+        const si = Math.sin(gTurn.angle);
+        axes = [[co, 0, si], [0, 1, 0], [-si, 0, co]];
+      }
+      return { c, L, axes };
     };
     const gizmoHandles = () => {
       const g = gizmoFrame();
       if (!g) return null;
-      return AXES.map((a, axis) => {
+      return g.axes.map((a, axis) => {
         const tip = g.c.map((v, i) => v + a[i] * g.L);
-        const side = AXES[(axis + 1) % 3];
-        const up = AXES[(axis + 2) % 3];
+        const side = g.axes[(axis + 1) % 3];
+        const up = g.axes[(axis + 2) % 3];
         const h = g.L * 0.12;
         const back = tip.map((v, i) => v - a[i] * h * 2);
         const lines = [[g.c, tip]];
         for (const [u, sgn] of [[side, 1], [side, -1], [up, 1], [up, -1]]) lines.push([tip, back.map((v, i) => v + u[i] * h * sgn)]);
-        return { axis, color: GCOLORS[axis], lines, from: g.c, to: tip, L: g.L };
+        return { axis, color: GCOLORS[axis], lines, from: g.c, to: tip, L: g.L, dir: a };
       });
     };
     const toPanel = (e) => ({ x: e.clientX - drawing.left, y: e.clientY - drawing.top });
@@ -1012,8 +1044,10 @@
       return best;
     };
     const toggleGizmo = () => {
-      if (gizmo) gizmo = null;
-      else if (hit && owner(hit.face)) gizmo = owner(hit.face);
+      // H cycles: world axes -> the object's own axes -> off
+      if (gizmo && !gLocal) gLocal = true;
+      else if (gizmo) gizmo = null;
+      else if (hit && owner(hit.face)) ((gizmo = owner(hit.face)), (gLocal = false));
       gHover = null;
       redraw();
     };
@@ -1022,7 +1056,7 @@
       const q = toPanel(e);
       const s = ((q.x - g.from.x) * g.unit.x + (q.y - g.from.y) * g.unit.y) / g.perUnit;
       g.d = s;
-      g.obj.mesh = shifted(g.mesh0, AXES[g.axis].map((c) => c * s));
+      g.obj.mesh = shifted(g.mesh0, g.dir.map((c) => c * s));
       rebuild();
       redraw();
     };
@@ -1052,7 +1086,7 @@
         const q = toPanel(e);
         // the pointer may sit anywhere along the arrow: measure from where it was grabbed
         const t0 = ((q.x - grab.a.x) * dx + (q.y - grab.a.y) * dy) / (len * len);
-        gdrag = { obj: gizmo, axis: grab.h.axis, from: { x: grab.a.x + dx * t0, y: grab.a.y + dy * t0 }, mesh0: gizmo.mesh, unit: { x: dx / len, y: dy / len }, perUnit: len / grab.h.L, d: 0 };
+        gdrag = { obj: gizmo, axis: grab.h.axis, from: { x: grab.a.x + dx * t0, y: grab.a.y + dy * t0 }, mesh0: gizmo.mesh, dir: grab.h.dir, unit: { x: dx / len, y: dy / len }, perUnit: len / grab.h.L, d: 0 };
         stage.setPointerCapture(e.pointerId);
         return;
       }

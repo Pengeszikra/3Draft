@@ -101,7 +101,7 @@ A single `app/index.html` plus a dependency-free static server (`app/serve.js`, 
 | `/` | only the object under the cross; again: the whole scene, and the camera flies back to where it was before |
 | `P` | show / hide the materials; `Shift`+press paints a face, `Shift`+double click the whole object |
 | `T` | fly to the object under the cross; over nothing, or when too close or inside a model: out to the nearest object |
-| `H` | the move gizmo (helper): `H` puts it on the object under the cross, `H` again takes it off, one at a time; drag an arrow to slide the object along that axis |
+| `H` | the move gizmo (helper), one at a time: `H` puts it on the object under the cross with the world axes, the next `H` turns it to the object's own axes (y up, x and z along the turn that fits the footprint best), the third takes it off; drag an arrow to slide the object along that axis |
 | `E`, `G`, `L` | edges and points, SVG / WebGPU view, light |
 | `?` | show / hide the shortcut hints under the view (hidden at the start; also the `Keys` button) |
 
