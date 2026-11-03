@@ -96,12 +96,11 @@
       display: grid;
       place-items: center;
       overflow: hidden;
-      cursor: grab;
+      cursor: crosshair;
       user-select: none;
       -webkit-user-select: none;
       touch-action: none;
     }
-    #stage.drag { cursor: grabbing; }
     /* H: faces only, no edges and no points */
     #stage.clean svg polygon { stroke: none; }
     #stage.clean svg circle { display: none; }
@@ -122,6 +121,15 @@
     #stage svg circle { fill: var(--point); }
     #stage svg polyline { stroke: var(--cursor); }
 
+    /* P: the material palette. Data first: every entry is a plain object, the swatches are drawn from the list. */
+    #palette { position: fixed; right: 16px; top: 64px; z-index: 5; width: 188px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: grid; gap: 8px; font: 500 12px/1.2 var(--font-mono); color: var(--muted); }
+    #palette[hidden] { display: none; }
+    #palette .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+    #palette .sw { aspect-ratio: 1; padding: 0; border-radius: 3px; border: 1px solid var(--line); }
+    #palette .sw.on { outline: 2px solid var(--cursor); outline-offset: 1px; }
+    #palette .row { display: flex; gap: 6px; align-items: center; }
+    #palette input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--line); background: none; }
+    #palette b { color: var(--fg); font-weight: 500; }
     button {
       font: 500 13px/1 var(--font-mono);
       color: var(--fg);
@@ -178,7 +186,13 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the prism under the cross, W A S D R F fly, Shift steers towards the pointer, T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the prism under the cross, W A S D R F fly, P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+
+  <aside id="palette" hidden aria-label="Material palette">
+    <span>palette · shift+click: paint a face · shift+double click: paint the whole model</span>
+    <div class="grid" id="swatches"></div>
+    <div class="row"><input type="color" id="custom" value="#c0392b" aria-label="Custom colour" /><button id="addColor" type="button">+ add</button><b id="current">–</b></div>
+  </aside>
 
   <div class="fab" aria-label="Controls">
     <button id="fabTravel" type="button" aria-label="Travel to the object under the cross (T)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
@@ -198,7 +212,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · shift: steer to the pointer · space: place · v: spider bar (two points) · x: delete · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · p: palette (shift+click paints a face, shift+double click the whole model) · space: place · v: spider bar (two points) · x: delete · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -354,8 +368,6 @@
     const FLY_DIST = 0.05;
     // The speed grows faster than the level: 1, 2.7, 5.6, 9.9, 16, ... (times UNIT), forwards or backwards.
     const pace = (l) => Math.sign(l) * (1.7 ** Math.abs(l) - 1) / 0.7;
-    const STEER = 3; // 1/s: how fast shift turns the view towards the pointer
-    let shiftDown = false;
     let lastFrame = performance.now();
     const stop = () => (level.f = level.r = level.u = 0);
     const enterFly = () => {
@@ -378,14 +390,6 @@
       const dt = Math.min(0.05, (now - lastFrame) / 1000);
       lastFrame = now;
       if (!fly) return;
-      const steer = shiftDown && pointer && cam?.at;
-      if (steer) {
-        // shift: the view turns towards the pointer, faster the farther it is from the middle
-        const d = ray(cam, cam.at.x, cam.at.y).dir;
-        const k = 1 - Math.exp(-STEER * dt);
-        yaw += (turnBy(yaw, Math.atan2(d[0], -d[2])) - yaw) * k;
-        pitch = Math.max(-LIMIT, Math.min(LIMIT, pitch + (Math.asin(Math.max(-1, Math.min(1, -d[1]))) - pitch) * k));
-      }
       const cy = Math.cos(yaw);
       const sy = Math.sin(yaw);
       const cp = Math.cos(pitch);
@@ -394,7 +398,7 @@
       const right = [cy, 0, sy];
       const v = forward.map((c, i) => c * pace(level.f) + right[i] * pace(level.r) + (i === 1 ? pace(level.u) : 0));
       fit.center = fit.center.map((c, i) => c + v[i] * UNIT * dt);
-      if (level.f || level.r || level.u || steer) redraw();
+      if (level.f || level.r || level.u) redraw();
     };
 
     // All faces connected to `face` through shared vertices: one object of the scene.
@@ -660,8 +664,82 @@
       redraw();
     };
 
+    // The material palette. An entry is plain data ({ name, color }); more fields (metal, rough, alpha ...)
+    // can join later. The scene stores only the colour of a face, so painting is a colour write.
+    const palette = ['#e9e4d8', '#c9b79a', '#8a5a36', '#5a3d2b', '#8c8c88', '#4f5358', '#7d9b4e', '#3d5a80', '#9fb4c4', '#c0392b', '#e8a33d', '#222222'].map((color, i) => ({ name: `m${i}`, color }));
+    let current = 0;
+    const paletteEl = document.getElementById('palette');
+    const swatchesEl = document.getElementById('swatches');
+    const currentEl = document.getElementById('current');
+    const showPalette = () => {
+      swatchesEl.innerHTML = '';
+      palette.forEach((m, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `sw${i === current ? ' on' : ''}`;
+        b.style.background = m.color;
+        b.title = `${m.name} ${m.color}`;
+        b.addEventListener('click', () => ((current = i), showPalette()));
+        swatchesEl.append(b);
+      });
+      currentEl.textContent = palette[current].color;
+    };
+    const togglePalette = () => {
+      paletteEl.hidden = !paletteEl.hidden;
+      if (!paletteEl.hidden) showPalette();
+    };
+    document.getElementById('addColor').addEventListener('click', () => {
+      palette.push({ name: `m${palette.length}`, color: document.getElementById('custom').value });
+      current = palette.length - 1;
+      showPalette();
+    });
+    // Painted faces of the remote scene are remembered by object name and face number, so a reloaded scene keeps them.
+    const paints = new Map();
+    let remoteKeys = [];
+    const connected = (mesh, face) => {
+      const at = new Map();
+      mesh.faces.forEach((f, i) => f.v.forEach((v) => (at.get(v) ?? at.set(v, []).get(v)).push(i)));
+      const seen = new Set([face]);
+      const todo = [face];
+      while (todo.length) for (const v of mesh.faces[todo.pop()].v) for (const j of at.get(v)) if (!seen.has(j)) (seen.add(j), todo.push(j));
+      return seen;
+    };
+    const paintFaces = (faces) => {
+      const color = palette[current].color;
+      const inRemote = [...faces].filter((i) => i < remote.faces.length);
+      if (inRemote.length) {
+        const f = remote.faces.slice();
+        for (const i of inRemote) {
+          f[i] = { ...f[i], color };
+          paints.set(remoteKeys[i], color);
+        }
+        remote = { ...remote, faces: f };
+      }
+      // a landed prism is one instance with one colour: painting a face paints the whole prism
+      const owners = new Set([...faces].map(owner).filter(Boolean));
+      for (const p of owners) {
+        p.mesh = { ...p.mesh, faces: p.mesh.faces.map((f) => ({ ...f, color })) };
+        p.inst = { ...p.inst, color };
+      }
+      rebuild();
+      redraw();
+    };
+    // Shift+press: the face under the cross (the palette must be on). Shift+double click: its whole model.
+    const paintFace = () => {
+      if (paletteEl.hidden || !hit) return;
+      paintFaces(new Set([hit.face]));
+    };
+    const paintModel = () => {
+      if (paletteEl.hidden || !hit) return;
+      paintFaces(connected(scene, hit.face));
+    };
+
     let last = null; // drag origin
     stage.addEventListener('pointerdown', (e) => {
+      if (e.shiftKey) {
+        pointer = { x: e.clientX, y: e.clientY };
+        return paintFace(); // Shift+press paints, it never starts a rotation
+      }
       last = { x: e.clientX, y: e.clientY };
       pointer = { x: e.clientX, y: e.clientY };
       stage.setPointerCapture(e.pointerId);
@@ -685,7 +763,7 @@
       pointer = null;
       redraw();
     });
-    stage.addEventListener('dblclick', reset);
+    stage.addEventListener('dblclick', (e) => (e.shiftKey ? paintModel() : reset()));
 
     const moves = {
       ArrowLeft: [-STEP, 0],
@@ -694,11 +772,7 @@
       ArrowDown: [0, STEP],
     };
     const FLY_KEYS = { w: ['f', 1], s: ['f', -1], d: ['r', 1], a: ['r', -1], r: ['u', 1], f: ['u', -1] };
-    document.addEventListener('keyup', (e) => (shiftDown = e.shiftKey));
-    addEventListener('blur', () => (shiftDown = false));
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Shift') redraw(); // starts the steering loop
-      shiftDown = e.shiftKey;
       if (e.target instanceof HTMLButtonElement) return; // Space and Enter belong to a focused button
       const fk = !e.ctrlKey && !e.metaKey && !e.altKey && FLY_KEYS[e.key.toLowerCase()];
       if (fk) {
@@ -710,6 +784,9 @@
       } else if (e.key === 'v' || e.key === 'V') {
         e.preventDefault();
         if (!e.repeat) spider();
+      } else if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        if (!e.repeat) togglePalette();
       } else if (e.key === 'x' || e.key === 'X' || e.key === 'Delete') {
         e.preventDefault();
         remove();
@@ -751,7 +828,7 @@
     if (new URLSearchParams(location.search).has('debug')) {
       globalThis.__3draft = {
         load: (data) => applyScene(data),
-        state: () => ({ center: fit.center, dist: fit.dist, radius: fit.radius, level: { ...level }, yaw, pitch, fly, placed: placed.length }),
+        state: () => ({ paints: paints.size, palette: !paletteEl.hidden, cursor: getComputedStyle(stage).cursor, center: fit.center, dist: fit.dist, radius: fit.radius, level: { ...level }, yaw, pitch, fly, placed: placed.length }),
         grab: async () => {
           const r = await renderGpu(true);
           const o = document.createElement('canvas');
@@ -765,7 +842,18 @@
 
     // Live link: when served by the MCP server (`/events` exists), show what the AI builds.
     const applyScene = (data) => {
-      const meshes = (data.objects ?? []).map((o) => o.mesh);
+      const objs = data.objects ?? [];
+      remoteKeys = [];
+      const meshes = objs.map((o, n) =>
+        o.mesh.faces.length === 0 ? o.mesh : {
+          ...o.mesh,
+          faces: o.mesh.faces.map((f, i) => {
+            const key = `${o.name ?? n}#${i}`;
+            remoteKeys.push(key);
+            return paints.has(key) ? { ...f, color: paints.get(key) } : f;
+          }),
+        },
+      );
       remote = merge(nothing, ...meshes);
       rebuild();
       if (!focused) Object.assign(fit, overview()); // a camera parked on an object stays there
