@@ -64,6 +64,7 @@ Pass the palette to the renderers: `renderView(mesh, view, { palette })`, `gpu.r
 
 - `pick(mesh, camera, x, y)` casts a real ray: face, point, normal, distance. `ray` is the inverse of `project`; `crosshair` builds a cross lying on the surface; `standOn` returns a prism standing on a picked surface.
 - `validate(mesh)` returns text notes: closed shell, winding, planar and convex faces. `extrudeFace`, `moveVertices`, `extrude`, `rotate`, `merge`, `bounds` shape meshes.
+- `boolean(a, b, op)` (also `union`, `subtract`, `intersect`) is solid modelling on BSP trees: faces are split by planes, so the result stays convex and planar. Both operands must be closed with outward faces; an open shell (a wall without thickness) is refused with the reason. Face colours and materials are kept; cut faces take the colour of the cutting solid. The result is welded and T-junctions are repaired; on messy data (coincident faces) it can still come out open, so check `validate`.
 - **HEXAW kernel.** The picking hot loop is also written in [HEXAW](https://github.com/Pengeszikra/hexaw) (`kernel/pick.hexaw`, 569 bytes of WebAssembly). `initKernel()` starts it; `kernel.pick` returns exactly what `pick` returns, 0.14 ms instead of 1.7 ms on 7200 faces. The module is embedded as base64 (`src/kernel-bytes.ts`), so the engine needs neither HEXAW nor a fetch at runtime. `npm run kernel` re-assembles it.
 
 ### TypeScript and `|>`
@@ -93,6 +94,7 @@ A single `app/index.html` plus a dependency-free static server (`app/serve.js`, 
 | `w a s d r f` | fly: forward, left, back, right, up, down; every press is a speed step, the opposite key slows down |
 | `M` | place a prism on the surface (or shoot one into empty space) |
 | `Space` | stop moving (all speeds to zero) |
+| `O` | boolean: `O` marks an object (orange), `O` on another one (green) asks: `1` union, `2` A − B, `3` B − A, `4` intersect, `5`/`Esc` cancel; the result replaces both, Backspace brings them back |
 | `V` | Spider bar: two surface points joined by a thin prism |
 | `X`, `Backspace` | delete the object under the cross, undo |
 | `/` | only the object under the cross; again: the whole scene, and the camera flies back to where it was before |
@@ -116,7 +118,7 @@ The engine is small enough to read whole (about 2000 lines) and everything it wo
 - **Look.** The LLM renders a model to SVG and reads it (or the numbers in it), without a screenshot. `occlude` keeps the text small.
 - **Check.** `validate` / `inspect` say in words what is wrong (open shell, inside-out faces, a non-planar face, which one), so the next edit is targeted.
 - **Edit.** The same data goes back in: write documents, call tools, render again. Output is deterministic, so a change in the picture is a change in the model.
-- **MCP server.** `mcp/server.js` (stdio, no dependencies) holds a scene of named objects and exposes it as tools: `add_box`, `add_extrusion`, `add_mesh`, `transform`, `recolor`, `remove`, `clear`, `get_mesh`, `extrude_face`, `move_vertices`, `list`, `inspect`, `render`, `pick`, `export`, `import`, `viewer`. It also serves the viewer and pushes every change to it, so a person watches the model grow. `claude mcp add 3draft -- node /absolute/path/to/3Draft/mcp/server.js`
+- **MCP server.** `mcp/server.js` (stdio, no dependencies) holds a scene of named objects and exposes it as tools: `add_box`, `add_extrusion`, `add_mesh`, `transform`, `boolean`, `recolor`, `remove`, `clear`, `get_mesh`, `extrude_face`, `move_vertices`, `list`, `inspect`, `render`, `pick`, `export`, `import`, `viewer`. It also serves the viewer and pushes every change to it, so a person watches the model grow. `claude mcp add 3draft -- node /absolute/path/to/3Draft/mcp/server.js`
 - **Shared database.** In the artifact, the LLM and the person edit the same `objects` and `palette` collections, so either side can start from what the other made.
 
 Y is up, the ground is y = 0, faces are counter-clockwise seen from outside.

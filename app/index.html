@@ -124,6 +124,10 @@
     /* P: the material palette. Data first: every entry is a plain object, the swatches are drawn from the list. */
     #palette { position: fixed; right: 16px; top: 64px; z-index: 5; width: 188px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: grid; gap: 8px; font: 500 12px/1.2 var(--font-mono); color: var(--muted); }
     #palette[hidden] { display: none; }
+    #boolq { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 6; max-width: min(92vw, 520px); padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: grid; gap: 8px; font: 500 12px/1.3 var(--font-mono); color: var(--muted); }
+    #boolq[hidden] { display: none; }
+    #boolq .row { display: flex; flex-wrap: wrap; gap: 6px; }
+    #boolq i { color: #e8590c; font-style: normal; }
     #palette .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
     #palette .sw { aspect-ratio: 1; padding: 0; border-radius: 3px; border: 1px solid var(--line); }
     #palette .sw.on { outline: 2px solid var(--cursor); outline-offset: 1px; }
@@ -189,7 +193,19 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+
+  <aside id="boolq" hidden aria-label="Boolean operation">
+    <span id="boolText"></span>
+    <div class="row">
+      <button type="button" data-op="union">1 union</button>
+      <button type="button" data-op="subtract">2 A − B</button>
+      <button type="button" data-op="subtract" data-swap="1">3 B − A</button>
+      <button type="button" data-op="intersect">4 intersect</button>
+      <button type="button" data-op="cancel">5 cancel</button>
+    </div>
+    <i id="boolNote"></i>
+  </aside>
 
   <aside id="palette" hidden aria-label="Material palette">
     <span>materials · shift+click: paint a face · shift+double click: the whole object</span>
@@ -220,7 +236,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -235,7 +251,7 @@
   </footer>
 
   <script type="module">
-    import { initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
+    import { boolean, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
     import { LEG } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -517,6 +533,18 @@
         cam.at = { x, y };
       }
       const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
+      for (const [o, color] of [[boolFrom, '#e8590c'], [boolPair?.b, '#2f9e44']]) {
+        if (!o || !allObjects().includes(o)) continue;
+        const lo = [Infinity, Infinity, Infinity];
+        const hi = [-Infinity, -Infinity, -Infinity];
+        for (const p of o.mesh.positions) p.forEach((c, i) => ((lo[i] = Math.min(lo[i], c)), (hi[i] = Math.max(hi[i], c))));
+        const c = (i, j, k) => [[lo, hi][i][0], [lo, hi][j][1], [lo, hi][k][2]];
+        const edges = [];
+        for (const [a, b] of [[0, 0], [0, 1], [1, 0], [1, 1]]) {
+          edges.push([c(a, b, 0), c(a, b, 1)], [c(a, 0, b), c(a, 1, b)], [c(0, a, b), c(1, a, b)]);
+        }
+        marks.push({ name: 'bool', color, width: 3, lines: edges });
+      }
       if (spiderFrom) {
         const [x, y, z] = spiderFrom;
         const e = fit.radius * 0.05;
@@ -678,7 +706,7 @@
     const owner = (face) => owners.find((o) => face >= o.start && face < o.end)?.obj ?? null;
     // Every change goes the same way: the document (if a db is connected) and the local object.
     let col = null; // the db collection "objects", once connected
-    const created = []; // ids made here, for Backspace
+    const history = []; // one undo step per action made here, for Backspace
     const writes = new Map(); // one write at a time per document
     const save = (obj, op) => {
       if (!col) return;
@@ -691,7 +719,7 @@
     const uid = (name) => `${name}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const create = (name, mesh) => {
       const obj = { id: uid(name), name, mesh };
-      created.push(obj.id);
+      history.push(() => erase(obj));
       if (col) {
         hostObjects.push({ ...obj, host: true });
         save(obj, () => col.doc(obj.id).set({ name, mesh }));
@@ -717,11 +745,80 @@
       rebuild();
     };
     const undo = () => {
-      const o = allObjects().find((x) => x.id === created.at(-1));
-      created.pop();
-      if (o) erase(o);
+      history.pop()?.();
       redraw();
     };
+    // O: object boolean. The first O marks the object under the cross, the second one (on another object) asks which
+    // operation to run. The math is the engine's `boolean`; this is only the two picks and the question.
+    let boolFrom = null;
+    let boolPair = null; // { a, b } while the question is open
+    const boolEl = document.getElementById('boolq');
+    const boolText = document.getElementById('boolText');
+    const boolNote = document.getElementById('boolNote');
+    const restore = (o) => {
+      if (o.host) {
+        hostObjects.push(o);
+        save(o, () => col.doc(o.id).set({ name: o.name, mesh: o.mesh }));
+      } else mine.push(o);
+      rebuild();
+    };
+    const closeBool = () => {
+      boolPair = null;
+      boolEl.hidden = true;
+      boolNote.textContent = '';
+    };
+    const pickBool = () => {
+      const o = hit && owner(hit.face);
+      if (boolPair) return closeBool(), redraw();
+      if (!o) {
+        boolFrom = null;
+        return redraw();
+      }
+      if (!boolFrom || !allObjects().includes(boolFrom) || boolFrom === o) {
+        boolFrom = o;
+        return redraw();
+      }
+      boolPair = { a: boolFrom, b: o };
+      boolText.textContent = `A = ${boolFrom.name} (orange), B = ${o.name} (green): which operation?`;
+      boolEl.hidden = false;
+      redraw();
+    };
+    const runBool = (op, swap = false) => {
+      if (!boolPair) return;
+      const [a, b] = swap ? [boolPair.b, boolPair.a] : [boolPair.a, boolPair.b];
+      let mesh;
+      try {
+        mesh = boolean(a.mesh, b.mesh, op);
+      } catch (err) {
+        boolNote.textContent = String(err?.message ?? err);
+        return;
+      }
+      if (!mesh.faces.length) {
+        boolNote.textContent = 'the result is empty (the solids do not touch?)';
+        return;
+      }
+      const { a: first, b: second } = boolPair;
+      const sign = { union: '+', subtract: '-', intersect: '&' }[op];
+      erase(first);
+      erase(second);
+      const result = create(`${a.name}${sign}${b.name}`, mesh);
+      history.pop(); // create() pushed a plain erase; a boolean undo also brings both operands back
+      history.push(() => {
+        erase(result);
+        restore(first);
+        restore(second);
+      });
+      boolFrom = null;
+      closeBool();
+      liveEl.title = '';
+      redraw();
+    };
+    boolEl.addEventListener('click', (e) => {
+      const b = e.target instanceof HTMLElement && e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.op === 'cancel') return closeBool(), redraw();
+      runBool(b.dataset.op, b.dataset.swap === '1');
+    });
 
     // The material palette is data: { name, color, metal, rough, alpha, emit } per entry. A face points at an entry by
     // name (`face.mat`), so editing an entry changes every face made of it. With a db the palette is the collection
@@ -901,6 +998,16 @@
       } else if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         if (!e.repeat) place();
+      } else if (boolPair && /^[1-5]$/.test(e.key)) {
+        e.preventDefault();
+        if (e.key === '5') closeBool(), redraw();
+        else runBool(['union', 'subtract', 'subtract', 'intersect'][e.key - 1], e.key === '3');
+      } else if (boolPair && e.key === 'Escape') {
+        closeBool();
+        redraw();
+      } else if (e.key === 'o' || e.key === 'O') {
+        e.preventDefault();
+        if (!e.repeat) pickBool();
       } else if (e.key === 'v' || e.key === 'V') {
         e.preventDefault();
         if (!e.repeat) spider();

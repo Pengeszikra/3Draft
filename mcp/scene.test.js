@@ -216,3 +216,22 @@ test('get_mesh, extrude_face and move_vertices shape an object', () => {
   assert.equal(twist.ok, false);
   assert.match(twist.notes.join(' '), /non-planar/);
 });
+
+test('boolean: subtract a box from a box, replace or keep the inputs, refuse open solids', () => {
+  const s = createScene();
+  ok(s, 'add_box', { name: 'wall', size: [4, 3, 0.3], at: [0, 1.5, 0], color: '#e9e4d8' });
+  ok(s, 'add_box', { name: 'window', size: [1, 1, 1], at: [0, 1.5, 0], color: '#88ccee' });
+  const r = ok(s, 'boolean', { a: 'wall', b: 'window', op: 'subtract', name: 'wall-with-hole' });
+  const out = json(r);
+  assert.equal(out.closed, true);
+  assert.equal(out.ok, true);
+  const names = json(ok(s, 'list', {})).objects.map((o) => o.name);
+  assert.deepEqual(names, ['wall-with-hole'], 'a and b are replaced');
+  ok(s, 'add_box', { name: 'cut', size: [1, 1, 1], at: [1, 1.5, 0] });
+  ok(s, 'boolean', { a: 'wall-with-hole', b: 'cut', op: 'union', keep: true });
+  assert.equal(json(ok(s, 'list', {})).objects.length, 3, 'keep: true keeps both inputs');
+  ok(s, 'add_mesh', { name: 'sheet', positions: [[0, 0, 0], [1, 0, 0], [1, 1, 0]], faces: [{ v: [0, 1, 2] }] });
+  const bad = s.call('boolean', { a: 'sheet', b: 'cut', op: 'union' });
+  assert.equal(bad.isError, true);
+  assert.match(bad.text, /closed solids/);
+});

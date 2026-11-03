@@ -4,7 +4,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, relative, isAbsolute, extname } from 'node:path';
-import { box, extrude, extrudeFace, moveVertices, faceNormal, faceCenter, merge, rotate, bounds, makeCamera, orbit, pick, renderView, renderSheet, validate, VIEW_ORDER } from '../dist/index.js';
+import { box, extrude, extrudeFace, moveVertices, faceNormal, faceCenter, merge, rotate, bounds, makeCamera, orbit, pick, renderView, renderSheet, validate, boolean, VIEW_ORDER } from '../dist/index.js';
 
 export class ToolError extends Error {}
 const fail = (message) => {
@@ -259,6 +259,35 @@ export const createScene = () => {
         objects.set(a.name, moved);
         const c = validate(moved);
         return { ...summary(a.name, moved), ok: c.ok, notes: c.notes };
+      },
+    },
+    {
+      name: 'boolean',
+      description: 'Boolean of two closed solids: union, subtract (a minus b: a door, a window, a hole) or intersect. Both objects must be closed solids with outward faces (inspect says so). The result is a new closed solid; faces keep their colors and a face cut into a solid takes the color of the cutting face. By default a and b are replaced by the result; `keep: true` keeps them.',
+      inputSchema: {
+        type: 'object',
+        properties: { a: nameSchema, b: nameSchema, op: { type: 'string', enum: ['union', 'subtract', 'intersect'] }, name: { ...nameSchema, description: 'name of the result (default a-op-b)' }, keep: { type: 'boolean', description: 'keep a and b (default false)' } },
+        required: ['a', 'b', 'op'],
+      },
+      run: (x) => {
+        const ma = need(x.a);
+        const mb = need(x.b);
+        if (!['union', 'subtract', 'intersect'].includes(x.op)) fail("op must be 'union', 'subtract' or 'intersect'");
+        let out;
+        try {
+          out = boolean(ma, mb, x.op);
+        } catch (e) {
+          fail(e.message);
+        }
+        if (!out.faces.length) fail(`the ${x.op} of ${x.a} and ${x.b} is empty`);
+        const result = x.name === undefined ? `${x.a}-${x.op}-${x.b}` : name(x.name);
+        if (!x.keep) {
+          objects.delete(x.a);
+          objects.delete(x.b);
+        }
+        objects.set(result, out);
+        const c = validate(out);
+        return { ...summary(result, out), closed: c.closed, ok: c.ok, notes: c.notes };
       },
     },
     {

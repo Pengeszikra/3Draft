@@ -4,6 +4,8 @@ export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export type { BoxOptions } from './mesh.js';
 export { validate } from './check.js';
+export { boolean, union, subtract, intersect } from './csg.js';
+export type { BooleanOp } from './csg.js';
 export type { Validation } from './check.js';
 export { extrudeFace, moveVertices } from './edit.js';
 export { VIEW_ORDER, makeCamera, orbit, project, ray } from './camera.js';
