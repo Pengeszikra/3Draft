@@ -60,6 +60,8 @@ The palette is data: `{ name: { color, metal, rough, alpha, emit } }`. A face po
 
 Pass the palette to the renderers: `renderView(mesh, view, { palette })`, `gpu.render(mesh, view, { palette })` (a new object when an entry changes). SVG shows colour and alpha only.
 
+`gpu.render(mesh, view, { tonemap: true })` switches on a filmic look: lighting in linear colour, HDR light, Fresnel on the edges, ACES tone mapping, and `emit` that really glows above white (`tonemap: { exposure, emit }` to tune; off by default, so the plain look stays the same).
+
 ### Surfaces, picking, editing
 
 - `pick(mesh, camera, x, y)` casts a real ray: face, point, normal, distance. `ray` is the inverse of `project`; `crosshair` builds a cross lying on the surface; `standOn` returns a prism standing on a picked surface.

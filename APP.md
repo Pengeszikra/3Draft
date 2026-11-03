@@ -10,7 +10,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 
 ## The view
 
-- **Starting view: WebGPU.** If WebGPU is unavailable, or the GPU device is lost, the app falls back to SVG by itself and says so in the footer (`G` or the `WebGPU` button switches by hand). SVG shows colour and transparency only; WebGPU also shows metal, roughness and emission.
+- **Starting view: WebGPU.** If WebGPU is unavailable, or the GPU device is lost, the app falls back to SVG by itself and says so in the footer (`G` or the `WebGPU` button switches by hand). SVG shows colour and transparency only; WebGPU also shows metal, roughness and emission. The **filmic look** (`C`) adds linear light, Fresnel and tone mapping, so highlights roll off softly and `lamp`-like materials glow; switch it off for the plain flat look.
 - **The drawing fills the stage.** On a desktop it covers the whole area; on a phone it is a little larger than the short side.
 - **Drag** rotates, **double click** resets the view, the arrow keys rotate too.
 - **The cross** follows the pointer and lies on the surface under it. The cursor is always a cross. On a phone, with no mouse, it aims at the middle.
@@ -34,6 +34,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `O` | boolean (see below) |
 | `H` | move gizmo (see below) |
 | `E` | edges and points on / off (also the `Edges` button) |
+| `C` | filmic look on / off (also the `Filmic` button; on at the start, WebGPU view only) |
 | `G`, `L` | SVG / WebGPU, turn the light |
 | `?` | show / hide these shortcuts under the view (hidden at the start; also the `Keys` button) |
 

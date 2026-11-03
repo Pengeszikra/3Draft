@@ -30,6 +30,15 @@ export interface GpuRenderOptions {
         mesh: Mesh;
         data: Float32Array;
     };
+    /**
+     * Filmic look: lighting in linear colour, HDR light and emission, Fresnel on the edges, ACES tone mapping.
+     * `true` for the defaults or { exposure = 1, emit = 3 } (emit: how far above white an `emit: 1` face glows).
+     * Off by default (the plain flat look).
+     */
+    tonemap?: boolean | {
+        exposure?: number;
+        emit?: number;
+    };
 }
 /** One copy of a prototype: its position, orthonormal frame and color. */
 export interface Instance {

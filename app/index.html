@@ -194,7 +194,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H puts the move gizmo (helper) on the object under the cross with the world axes, the next H switches to the object's own axes, the third takes it off; drag an arrow to move the object; E toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light, C switches the filmic look. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H puts the move gizmo (helper) on the object under the cross with the world axes, the next H switches to the object's own axes, the third takes it off; drag an arrow to move the object; E toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <aside id="boolq" hidden aria-label="Boolean operation">
     <span id="boolText"></span>
@@ -237,7 +237,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -246,6 +246,7 @@
       <button id="keys" type="button" title="Show the shortcut hints (?)">Keys</button>
       <button id="gpuBtn" type="button">WebGPU</button>
       <button id="light" type="button">Light</button>
+      <button id="filmic" type="button" title="Filmic look: HDR light, glowing emission, tone mapping (C)">Filmic</button>
       <button id="undo" type="button">Undo</button>
       <button id="reset" type="button">Reset view</button>
     </span>
@@ -579,6 +580,7 @@
             size,
             fit: shown_fit,
             background: rgb,
+            tonemap: filmic,
             light: { direction: [Math.sin(a) * 0.6, 0.8, Math.cos(a) * 0.6] },
           });
         renderGpu();
@@ -601,6 +603,7 @@
     let mode = 'svg';
     let gpu = null;
     let lightAngle = 0.8;
+    let filmic = true; // C: filmic look on the WebGPU view (linear light, tone mapping, glowing emission)
     let renderGpu = null;
     const setMode = async (next) => {
       if (next === 'gpu' && !gpu) {
@@ -632,6 +635,11 @@
       redraw();
     };
     const toggleMode = () => setMode(mode === 'gpu' ? 'svg' : 'gpu');
+    const toggleFilmic = () => {
+      filmic = !filmic;
+      document.getElementById('filmic').classList.toggle('on', filmic);
+      redraw();
+    };
     const turnLight = () => {
       lightAngle += Math.PI / 4;
       redraw();
@@ -1171,6 +1179,9 @@
       } else if (e.key === 'g' || e.key === 'G') {
         e.preventDefault();
         toggleMode();
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        if (!e.repeat) toggleFilmic();
       } else if (e.key === 'l' || e.key === 'L') {
         e.preventDefault();
         turnLight();
@@ -1208,6 +1219,8 @@
     document.getElementById('keys').addEventListener('click', toggleHint);
     document.getElementById('gpuBtn').addEventListener('click', toggleMode);
     document.getElementById('light').addEventListener('click', turnLight);
+    document.getElementById('filmic').addEventListener('click', toggleFilmic);
+    document.getElementById('filmic').classList.add('on');
     document.getElementById('undo').addEventListener('click', undo);
     document.getElementById('reset').addEventListener('click', reset);
     new ResizeObserver(redraw).observe(stage);

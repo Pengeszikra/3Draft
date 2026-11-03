@@ -38,6 +38,12 @@ export interface GpuRenderOptions {
   dpr?: number;
   /** Many copies of one prototype mesh (modelled around the origin), drawn after `mesh`. */
   instances?: { mesh: Mesh; data: Float32Array };
+  /**
+   * Filmic look: lighting in linear colour, HDR light and emission, Fresnel on the edges, ACES tone mapping.
+   * `true` for the defaults or { exposure = 1, emit = 3 } (emit: how far above white an `emit: 1` face glows).
+   * Off by default (the plain flat look).
+   */
+  tonemap?: boolean | { exposure?: number; emit?: number };
 }
 /** One copy of a prototype: its position, orthonormal frame and color. */
 export interface Instance {
@@ -129,6 +135,7 @@ struct U {
   ground : vec4<f32>,
   eye : vec4<f32>,
   mat : vec4<f32>,     // ambient, diffuse, specular, shininess
+  fx : vec4<f32>,      // filmic (0 or 1), exposure, emission gain
 };
 @group(0) @binding(0) var<uniform> u : U;
 
@@ -170,11 +177,47 @@ struct IIn {
   return o;
 }
 
+fn toLinear(c : vec3<f32>) -> vec3<f32> {
+  return select(pow((c + 0.055) / 1.055, vec3<f32>(2.4)), c / 12.92, c <= vec3<f32>(0.04045));
+}
+fn toSrgb(c : vec3<f32>) -> vec3<f32> {
+  return select(1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055, c * 12.92, c <= vec3<f32>(0.0031308));
+}
+// ACES filmic curve (Narkowicz fit): highlights roll off softly instead of clipping
+fn aces(x : vec3<f32>) -> vec3<f32> {
+  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+// The filmic path: the same light model, but in linear colour with HDR light and emission, then tone mapped.
+fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
+  let metal = i.m.x;
+  let rough = i.m.y;
+  let albedo = toLinear(i.c);
+  let hemi = mix(toLinear(u.ground.rgb), toLinear(u.sky.rgb), n.y * 0.5 + 0.5) * u.mat.x;
+  let diff = max(dot(n, l), 0.0) * u.mat.y * 1.6;
+  let h = normalize(l + v);
+  let shin = mix(u.mat.w * 7.0, u.mat.w * 0.15, rough);
+  let spec = pow(max(dot(n, h), 0.0), shin) * mix(u.mat.z, 1.0, metal) * mix(1.0, 0.35, rough) * step(0.0, dot(n, l)) * 2.5;
+  let r = reflect(-v, n);
+  // Schlick: edges mirror more, metal keeps its tint
+  let f0 = mix(vec3<f32>(0.04), albedo, metal);
+  let fres = f0 + (vec3<f32>(1.0) - f0) * pow(1.0 - max(dot(n, v), 0.0), 5.0) * (1.0 - rough);
+  let env = mix(toLinear(u.ground.rgb) * 1.2, toLinear(u.sky.rgb) * 1.5, smoothstep(-0.25 - rough * 0.5, 0.25 + rough * 0.5, r.y));
+  var lit = albedo * (hemi + vec3<f32>(diff)) * (1.0 - metal)
+          + albedo * env * metal * (1.0 - 0.6 * rough)
+          + env * fres * (1.0 - rough) * 0.5
+          + vec3<f32>(spec) * mix(vec3<f32>(1.0), albedo, metal);
+  // emission adds light, so a lamp can go above 1.0 and still keep its colour after tone mapping
+  lit = lit + albedo * i.m.w * u.fx.z;
+  return vec4<f32>(toSrgb(aces(lit * u.fx.y)), i.m.z);
+}
+
 @fragment fn fs(i : VOut, @builtin(front_facing) front : bool) -> @location(0) vec4<f32> {
   var n = normalize(i.n);
   if (!front) { n = -n; }
   let l = normalize(u.light.xyz);
   let v = normalize(u.eye.xyz - i.w);
+  if (u.fx.x > 0.5) { return filmic(i, n, l, v); }
   let metal = i.m.x;
   let rough = i.m.y;
   let hemi = mix(u.ground.rgb, u.sky.rgb, n.y * 0.5 + 0.5) * u.mat.x;
@@ -241,7 +284,7 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
   const pipeline = make('vs', [meshLayout]);
   // the instanced pipeline reads position and normal only from the prototype (locations 0, 1)
   const instPipeline = make('vsi', [{ ...meshLayout, attributes: meshLayout.attributes.slice(0, 2) }, instanceLayout]);
-  const uniforms = device.createBuffer({ size: 144, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const uniforms = device.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   const bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
   const instBind = device.createBindGroup({ layout: instPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
 
@@ -277,10 +320,11 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, tonemap = false }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
+    const filmic = tonemap ? { exposure: 1, emit: 3, ...(tonemap === true ? {} : tonemap) } : null;
     const M = { ...defaultMaterial, ...material };
     const cam = makeCamera(view, mesh, size, fit);
     targets(Math.max(1, Math.round(size * dpr)));
@@ -318,13 +362,14 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
     }
     if (!instances) instCount = 0;
 
-    const u = new Float32Array(36);
+    const u = new Float32Array(40);
     u.set(viewProjection(cam), 0);
     u.set([...(L.direction |> norm), 0], 16);
     u.set([...L.sky, 0], 20);
     u.set([...L.ground, 0], 24);
     u.set([...cam.eye, 0], 28);
     u.set([M.ambient, M.diffuse, M.specular, M.shininess], 32);
+    u.set([filmic ? 1 : 0, filmic ? filmic.exposure : 1, filmic ? filmic.emit : 0, 0], 36);
     device.queue.writeBuffer(uniforms, 0, u);
 
     const encoder = device.createCommandEncoder();
