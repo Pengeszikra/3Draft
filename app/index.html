@@ -316,7 +316,7 @@
     let owners = []; // [{ obj, start, end }]: which object owns which faces of `scene`
     let cam = null; // camera of the last drawn frame
     let gcam = null; // the camera of every frame (cam only exists while the pointer is over the view)
-    let panel = { left: 0, top: 0 }; // where the square drawing starts, in client pixels
+    let drawing = { left: 0, top: 0 }; // where the square drawing starts, in client pixels
     let solo = null; // `/` isolates one object: its id, null shows everything
     const rebuild = () => {
       let objs = allObjects();
@@ -542,7 +542,7 @@
         cam.at = { x, y };
       }
       gcam = makeCamera(view, scene, size, shown_fit);
-      panel = { left: r.left + (r.width - size) / 2, top: r.top + (r.height - size) / 2 };
+      drawing = { left: r.left + (r.width - size) / 2, top: r.top + (r.height - size) / 2 };
       const handles = gizmoHandles();
       const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
       for (const [o, color] of [[boolFrom, '#e8590c'], [boolPair?.b, '#2f9e44']]) {
@@ -993,7 +993,7 @@
         return { axis, color: GCOLORS[axis], lines, from: g.c, to: tip, L: g.L };
       });
     };
-    const toPanel = (e) => ({ x: e.clientX - panel.left, y: e.clientY - panel.top });
+    const toPanel = (e) => ({ x: e.clientX - drawing.left, y: e.clientY - drawing.top });
     const nearAxis = (e) => {
       const hs = gizmoHandles();
       if (!hs || !gcam) return null;
