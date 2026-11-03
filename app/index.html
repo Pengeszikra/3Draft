@@ -186,7 +186,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the prism under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <aside id="palette" hidden aria-label="Material palette">
     <span>palette · shift+click: paint a face · shift+double click: paint the whole model</span>
@@ -207,12 +207,12 @@
       <span>pitch <b id="pitch">–</b></span>
       <span>speed <b id="speed">0·0·0</b></span>
       <span>pick <b id="pick" title="who answers picking: js or the HEXAW kernel">js</b></span>
-      <span>placed <b id="count">0</b></span>
+      <span>objects <b id="count">0</b></span>
       <span>view <b id="mode">svg</b></span>
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: palette (shift+click paints a face, shift+double click the whole model) · space: place · v: spider bar (two points) · x: delete · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: palette (shift+click paints a face, shift+double click the whole model) · space: place · v: spider bar (two points) · x: delete the object · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -256,7 +256,8 @@
     let hit = null; // the surface under the pointer in the last drawn frame
     let queued = false;
 
-    // Prisms put down so far: { mesh, inst, from, start }. `inst` is the prism as an instance
+    // Prisms still flying: { mesh, inst, from, start }; once landed they become ordinary objects.
+    // (was: Prisms put down so far) `inst` is the prism as an instance
     // ({ at, axes, color } of the shared prototype) for the GPU. `from` is the start offset of a
     // flight that ends at its own position; null once it has landed.
     const placed = [];
@@ -279,27 +280,23 @@
       };
       return `#${f(0)}${f(8)}${f(4)}`;
     };
-    let remote = nothing; // the scene pushed by the MCP server (read-only here)
-    let scene = nothing; // what picking sees: the remote scene and the landed prisms
+    // ONE scene model. Every object, whoever made it (a person here, Claude through the db or the MCP server),
+    // is the same thing: { id, name, mesh }. `host` objects come from outside (db / MCP), `mine` are made here
+    // while no db is connected; with a db every object is a document, so the AI sees what a person makes.
+    let hostObjects = [];
+    let mine = [];
+    const allObjects = () => [...hostObjects, ...mine];
+    let scene = nothing; // what is on screen and what picking sees: all objects (or the isolated one)
+    let owners = []; // [{ obj, start, end }]: which object owns which faces of `scene`
     let cam = null; // camera of the last drawn frame
-    // `/` isolates one model: `solo` is the set of its faces (indices into `remote`), null shows everything.
-    // `shownRemote` is what is on screen, `soloMap[i]` is the index in `remote` of face i of `shownRemote`.
-    let solo = null;
-    let soloMap = null;
-    let shownRemote = nothing;
-    const subMesh = (mesh, idx) => {
-      const used = new Map();
-      const positions = [];
-      const faces = idx.map((i) => ({
-        ...mesh.faces[i],
-        v: mesh.faces[i].v.map((k) => used.get(k) ?? (used.set(k, positions.length), positions.push(mesh.positions[k]), positions.length - 1)),
-      }));
-      return { positions, faces };
-    };
+    let solo = null; // `/` isolates one object: its id, null shows everything
     const rebuild = () => {
-      soloMap = solo ? [...solo].sort((a, b) => a - b) : null;
-      shownRemote = soloMap ? subMesh(remote, soloMap) : remote;
-      scene = merge(shownRemote, ...placed.filter((p) => !p.from).map((p) => p.mesh));
+      let objs = allObjects();
+      if (solo && !objs.some((o) => o.id === solo)) solo = null;
+      if (solo) objs = objs.filter((o) => o.id === solo);
+      let n = 0;
+      owners = objs.map((o) => ({ obj: o, start: n, end: (n += o.mesh.faces.length) }));
+      scene = merge(nothing, ...objs.map((o) => o.mesh));
       placedVer++;
     };
     const shifted = (mesh, d) => ({ ...mesh, positions: mesh.positions.map((q) => [q[0] + d[0], q[1] + d[1], q[2] + d[2]]) });
@@ -308,11 +305,15 @@
       const t = Math.min(1, (now - p.start) / FLIGHT_MS);
       return t >= 1 ? 0 : (1 - t) ** 3; // ease out: fast at the start, settles softly
     };
-    // lands the flights that are over; true when something landed
+    // lands the flights that are over: a landed prism is an ordinary object like any other
     const land = (now) => {
       let any = false;
-      for (const p of placed) if (p.from && now - p.start >= FLIGHT_MS) ((p.from = null), (any = true));
-      if (any) rebuild();
+      for (const p of [...placed]) {
+        if (now - p.start < FLIGHT_MS) continue;
+        placed.splice(placed.indexOf(p), 1);
+        create('prism', p.mesh);
+        any = true;
+      }
       return any;
     };
     // instances for the GPU: landed prisms as they are, flying ones shifted back along their flight
@@ -323,7 +324,6 @@
           ver: placedVer,
           data: buildInstances(
             placed.map((p) => {
-              if (!p.from) return p.inst;
               const k = remaining(p, now);
               return { ...p.inst, at: p.inst.at.map((c, i) => c + p.from[i] * k) };
             }),
@@ -435,8 +435,8 @@
 
     // The framing that shows the whole remote scene (or the empty-scene home).
     const overview = () => {
-      if (!shownRemote.positions.length) return { ...HOME, center: [...HOME.center] };
-      const b = bounds(shownRemote);
+      if (!scene.positions.length) return { ...HOME, center: [...HOME.center] };
+      const b = bounds(scene);
       return { center: b.center, radius: Math.max(b.radius * 1.05, 0.25) };
     };
 
@@ -482,7 +482,7 @@
 
       const now = performance.now();
       land(now);
-      const flights = placed.filter((p) => p.from);
+      const flights = placed;
       if (flights.length) redraw();
       // SVG draws everything as one mesh: the landed scene plus the prisms still in the air
       const shown = flights.length ? merge(scene, ...flights.map((p) => shifted(p.mesh, p.from.map((c) => c * remaining(p, now))))) : scene;
@@ -510,7 +510,7 @@
         const rgb = /^#[0-9a-f]{6}$/i.test(bg) ? [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16) / 255) : undefined;
         const a = lightAngle;
         renderGpu = (readback = false) =>
-          gpu[readback ? 'pixels' : 'render'](shownRemote, view, {
+          gpu[readback ? 'pixels' : 'render'](scene, view, {
             instances: { mesh: PROTO, data: instances(now, flights.length > 0) },
             size,
             fit,
@@ -528,7 +528,7 @@
       speedEl.textContent = `${level.f}·${level.r}·${level.u}`;
       yawEl.textContent = deg(yaw);
       pitchEl.textContent = deg(pitch);
-      countEl.textContent = String(placed.length);
+      countEl.textContent = String(allObjects().length + placed.length);
       surfaceEl.innerHTML = hit
         ? `surface <b>face ${hit.face} · n ${hit.normal.map(signed).join(' ')}</b>`
         : 'surface <b>–</b>';
@@ -595,8 +595,7 @@
       if (hit) {
         const color = brown();
         const mesh = standOn(scene, hit, { base: LEG.base, color });
-        placed.push({ mesh, inst: { ...mesh.frame, color }, from: null });
-        rebuild();
+        create('prism', mesh);
         return redraw();
       }
       if (!pointer || !cam?.at) return;
@@ -651,32 +650,55 @@
       const sx = base / LEG.base;
       const sy = length / (3 * LEG.base);
       const scaled = [ex.map((c) => c * sx), ey.map((c) => c * sy), ez.map((c) => c * sx)];
-      placed.push({ mesh, inst: { at, axes: scaled, color }, from: null });
-      rebuild();
+      create('bar', mesh);
       redraw();
     };
-    // Which landed prism owns a face of the pick scene .
-    const owner = (face) => {
-      let o = shownRemote.faces.length; // the remote scene's faces come first and are not deletable
-      if (face < o) return null;
-      for (const p of placed) {
-        if (p.from) continue;
-        o += p.mesh.faces.length;
-        if (face < o) return p;
-      }
-      return null;
+    // The object that owns a face of the scene.
+    const owner = (face) => owners.find((o) => face >= o.start && face < o.end)?.obj ?? null;
+    // Every change goes the same way: the document (if a db is connected) and the local object.
+    let col = null; // the db collection "objects", once connected
+    const created = []; // ids made here, for Backspace
+    const writes = new Map(); // one write at a time per document
+    const save = (obj, op) => {
+      if (!col) return;
+      const next = (writes.get(obj.id) ?? Promise.resolve()).then(op).catch((err) => {
+        liveEl.textContent = 'db write failed';
+        liveEl.title = String(err?.message ?? err);
+      });
+      writes.set(obj.id, next);
+    };
+    const uid = (name) => `${name}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const create = (name, mesh) => {
+      const obj = { id: uid(name), name, mesh };
+      created.push(obj.id);
+      if (col) {
+        hostObjects.push({ ...obj, host: true });
+        save(obj, () => col.doc(obj.id).set({ name, mesh }));
+      } else mine.push(obj);
+      rebuild();
+      return obj;
+    };
+    const change = (obj, mesh) => {
+      obj.mesh = mesh;
+      if (obj.host) save(obj, () => col.doc(obj.id).set({ name: obj.name, mesh: obj.mesh }));
+      rebuild();
     };
     const remove = () => {
-      const p = hit && owner(hit.face);
-      if (!p) return;
-      placed.splice(placed.indexOf(p), 1);
-      rebuild();
+      const o = hit && owner(hit.face);
+      if (!o) return;
+      erase(o);
       redraw();
     };
-    const undo = () => {
-      if (!placed.length) return;
-      placed.pop();
+    const erase = (o) => {
+      hostObjects = hostObjects.filter((x) => x !== o);
+      mine = mine.filter((x) => x !== o);
+      if (o.host) save(o, () => col.doc(o.id).delete());
       rebuild();
+    };
+    const undo = () => {
+      const o = allObjects().find((x) => x.id === created.at(-1));
+      created.pop();
+      if (o) erase(o);
       redraw();
     };
 
@@ -709,41 +731,16 @@
       current = palette.length - 1;
       showPalette();
     });
-    // Painted faces of the remote scene are remembered by object name and face number, so a reloaded scene keeps them.
-    const paints = new Map();
-    let remoteKeys = [];
-    const connected = (mesh, face) => {
-      const at = new Map();
-      mesh.faces.forEach((f, i) => f.v.forEach((v) => (at.get(v) ?? at.set(v, []).get(v)).push(i)));
-      const seen = new Set([face]);
-      const todo = [face];
-      while (todo.length) for (const v of mesh.faces[todo.pop()].v) for (const j of at.get(v)) if (!seen.has(j)) (seen.add(j), todo.push(j));
-      return seen;
-    };
-    const paintFaces = (faces) => {
+    const paintFaces = (obj, faces) => {
       const color = palette[current].color;
-      const inRemote = [...faces].filter((i) => i < shownRemote.faces.length).map((i) => (soloMap ? soloMap[i] : i));
-      if (inRemote.length) {
-        const f = remote.faces.slice();
-        for (const i of inRemote) {
-          f[i] = { ...f[i], color };
-          paints.set(remoteKeys[i], color);
-        }
-        remote = { ...remote, faces: f };
-      }
-      // a landed prism is one instance with one colour: painting a face paints the whole prism
-      const owners = new Set([...faces].map(owner).filter(Boolean));
-      for (const p of owners) {
-        p.mesh = { ...p.mesh, faces: p.mesh.faces.map((f) => ({ ...f, color })) };
-        p.inst = { ...p.inst, color };
-      }
-      rebuild();
+      const base = owners.find((o) => o.obj === obj).start;
+      change(obj, { ...obj.mesh, faces: obj.mesh.faces.map((f, i) => (!faces || faces.has(i + base) ? { ...f, color } : f)) });
       redraw();
     };
     // /: only the model under the cross stays in the picture; / again brings the whole scene back.
     const isolate = () => {
       if (solo) solo = null;
-      else if (hit && hit.face < shownRemote.faces.length) solo = connected(remote, soloMap ? soloMap[hit.face] : hit.face);
+      else if (hit && owner(hit.face)) solo = owner(hit.face).id;
       else return;
       rebuild();
       focused = false;
@@ -752,11 +749,11 @@
     // Shift+press: the face under the cross (the palette must be on). Shift+double click: its whole model.
     const paintFace = () => {
       if (paletteEl.hidden || !hit) return;
-      paintFaces(new Set([hit.face]));
+      paintFaces(owner(hit.face), new Set([hit.face]));
     };
     const paintModel = () => {
       if (paletteEl.hidden || !hit) return;
-      paintFaces(connected(scene, hit.face));
+      paintFaces(owner(hit.face), null); // the whole object
     };
 
     let last = null; // drag origin
@@ -856,7 +853,7 @@
     if (new URLSearchParams(location.search).has('debug')) {
       globalThis.__3draft = {
         load: (data) => applyScene(data),
-        state: () => ({ solo: solo ? solo.size : 0, faces: scene.faces.length, paints: paints.size, palette: !paletteEl.hidden, cursor: getComputedStyle(stage).cursor, center: fit.center, dist: fit.dist, radius: fit.radius, level: { ...level }, yaw, pitch, fly, placed: placed.length }),
+        state: () => ({ solo: solo ? 1 : 0, faces: scene.faces.length, objects: allObjects().length, db: Boolean(col), palette: !paletteEl.hidden, cursor: getComputedStyle(stage).cursor, center: fit.center, dist: fit.dist, radius: fit.radius, level: { ...level }, yaw, pitch, fly, placed: placed.length }),
         grab: async () => {
           const r = await renderGpu(true);
           const o = document.createElement('canvas');
@@ -869,25 +866,14 @@
     }
 
     // Live link: when served by the MCP server (`/events` exists), show what the AI builds.
+    let framed = false;
     const applyScene = (data) => {
-      const objs = data.objects ?? [];
-      remoteKeys = [];
-      const meshes = objs.map((o, n) =>
-        o.mesh.faces.length === 0 ? o.mesh : {
-          ...o.mesh,
-          faces: o.mesh.faces.map((f, i) => {
-            const key = `${o.name ?? n}#${i}`;
-            remoteKeys.push(key);
-            return paints.has(key) ? { ...f, color: paints.get(key) } : f;
-          }),
-        },
-      );
-      remote = merge(nothing, ...meshes);
-      solo = null; // the face numbers of an isolated model are gone with the old scene
+      hostObjects = (data.objects ?? []).map((o, n) => ({ id: o.id ?? o.name ?? `o${n}`, name: o.name ?? `o${n}`, mesh: o.mesh, host: true }));
       rebuild();
-      if (!focused) Object.assign(fit, overview()); // a camera parked on an object stays there
-
-      liveEl.textContent = `${meshes.length} object${meshes.length === 1 ? '' : 's'} · rev ${data.rev}`;
+      // the camera frames the scene once for a db (its snapshots also echo our own edits), at every push for MCP
+      if (!focused && (!framed || data.rev !== 'db')) Object.assign(fit, overview());
+      if (scene.faces.length) framed = true;
+      liveEl.textContent = `${hostObjects.length + mine.length} object${hostObjects.length + mine.length === 1 ? '' : 's'} · ${data.rev}`;
       redraw();
     };
     if (['localhost', '127.0.0.1'].includes(location.hostname) && typeof EventSource !== 'undefined') {
@@ -911,17 +897,22 @@
     if (globalThis.claude?.use) {
       globalThis.claude.use('db').then((db) => {
         if (!db) return;
-        db.collection('objects').onSnapshot(
+        col = db.collection('objects');
+        col.onSnapshot(
           (snap) => {
-            const objects = snap.docs.map((d) => d.data()).filter((o) => o?.mesh?.positions);
-            applyScene({ objects, rev: `db ${snap.size}` });
-            liveEl.textContent = `${objects.length} object${objects.length === 1 ? '' : 's'} · db`;
+            const objects = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((o) => o?.mesh?.positions);
+            applyScene({ objects, rev: 'db' });
           },
           (err) => {
             liveEl.textContent = 'db error';
             liveEl.title = String(err?.message ?? err);
           },
         );
+        // what was made here before the db answered goes into it now
+        for (const o of mine.splice(0)) {
+          hostObjects.push({ ...o, host: true });
+          save(o, () => col.doc(o.id).set({ name: o.name, mesh: o.mesh }));
+        }
       });
     }
 
