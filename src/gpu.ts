@@ -40,7 +40,7 @@ export interface GpuRenderOptions {
   instances?: { mesh: Mesh; data: Float32Array };
   /**
    * Filmic look: lighting in linear colour, HDR light and emission, Fresnel on the edges, ACES tone mapping.
-   * `true` for the defaults or { exposure = 1, emit = 3 } (emit: how far above white an `emit: 1` face glows).
+   * `true` for the defaults or { exposure = 1, emit = 2 } (emit: brightness of one unit of material `emit`, which goes up to 8).
    * Off by default (the plain flat look).
    */
   tonemap?: boolean | { exposure?: number; emit?: number };
@@ -232,7 +232,7 @@ fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
   var lit = i.c * (hemi + vec3<f32>(diff)) * (1.0 - metal)
           + i.c * env * metal * (1.0 - 0.6 * rough)
           + vec3<f32>(spec) * mix(vec3<f32>(1.0), i.c, metal);
-  lit = mix(lit, i.c * 1.15, i.m.w);
+  lit = mix(lit, i.c * 1.15, min(i.m.w, 1.0)); // the plain look: emit 0..1 fades to flat colour, more does not add
   return vec4<f32>(clamp(lit, vec3<f32>(0.0), vec3<f32>(1.0)), i.m.z);
 }
 `;
@@ -324,7 +324,7 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
-    const filmic = tonemap ? { exposure: 1, emit: 3, ...(tonemap === true ? {} : tonemap) } : null;
+    const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
     const M = { ...defaultMaterial, ...material };
     const cam = makeCamera(view, mesh, size, fit);
     targets(Math.max(1, Math.round(size * dpr)));

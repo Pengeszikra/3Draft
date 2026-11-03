@@ -8,7 +8,7 @@ export interface Material {
     rough?: number;
     /** 1 = solid, 0 = invisible. Drawn with alpha-to-coverage: one pass, no sorting. */
     alpha?: number;
-    /** 0..1: how much the color glows on its own, unlit. */
+    /** 0..8: how much the color glows on its own, unlit. Up to 1 it fades from lit to flat colour; above 1 (WebGPU `tonemap`) it is a light source: that many times brighter. */
     emit?: number;
 }
 export type Palette = Record<string, Material>;
@@ -20,6 +20,7 @@ export interface Surface {
     alpha: number;
     emit: number;
 }
+export declare const EMIT_MAX = 8;
 export declare const FALLBACK_COLOR = "#c8c8c8";
 export declare const DEFAULTS: {
     readonly metal: 0;
