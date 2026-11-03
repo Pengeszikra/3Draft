@@ -85,31 +85,9 @@ Put arrow functions in parentheses (`x |> ((v) => v + 1)`) and wrap a pipeline i
 npm run app     # http://localhost:5173/app/   (repo only, not in the npm package)
 ```
 
-A single `app/index.html` plus a dependency-free static server (`app/serve.js`, localhost only). It is also published as a Claude artifact whose shared database is the scene. Drag rotates, double click resets, a target cross follows the pointer and lies on the surface under it. The cursor is always a cross.
+A single `app/index.html` plus a dependency-free static server. Person and AI work on the same scene: objects loaded from outside and objects made in the viewer are one model, `{ id, name, mesh }`. WebGPU view with an SVG fallback, a cross cursor on the surface, flying, materials, booleans, a move gizmo, isolate, travel, undo. It is also published as a Claude artifact whose shared database is the scene.
 
-**One object model.** Objects loaded from outside (the db, the MCP server) and objects made in the viewer are the same thing, `{ id, name, mesh }`: painting, deleting, isolating and undo work on all of them, whoever made them. With the artifact `db` every create, paint and delete is written back, so the AI sees what a person makes.
-
-| key | does |
-| --- | --- |
-| `w a s d r f` | fly: forward, left, back, right, up, down; every press is a speed step, the opposite key slows down |
-| `M` | place a prism on the surface (or shoot one into empty space) |
-| `Space` | stop moving (all speeds to zero) |
-| `O` | boolean: `O` marks an object (orange), `O` on another one (green) asks: `1` union, `2` A − B, `3` B − A, `4` intersect, `5`/`Esc` cancel; the result replaces both, Backspace brings them back |
-| `V` | Spider bar: two surface points joined by a thin prism |
-| `X` | delete the object under the cross |
-| `U`, `Backspace` | undo (placing, delete, painting, boolean, moving) |
-| `/` | only the object under the cross; again: the whole scene, and the camera flies back to where it was before |
-| `P` | show / hide the materials; `Shift`+press paints a face, `Shift`+double click the whole object |
-| `T` | fly to the object under the cross; over nothing, or when too close or inside a model: out to the nearest object |
-| `H` | the move gizmo (helper), one at a time: `H` puts it on the object under the cross with the world axes, the next `H` turns it to the object's own axes (y up, x and z along the turn that fits the footprint best), the third takes it off; drag an arrow to slide the object along that axis |
-| `E`, `G`, `L` | edges and points, SVG / WebGPU view, light |
-| `?` | show / hide the shortcut hints under the view (hidden at the start; also the `Keys` button) |
-
-**Materials (P).** Twelve starting materials (plaster, sand, wood, dark wood, concrete, slate, grass, brick, steel, gold, glass, lamp), four sliders (`metal`, `rough`, `alpha`, `emit`) and a colour for the selected one, `+ new` copies it. A painted face stores the material name, so editing a material changes every face made of it.
-
-**Database layout** (artifact `db`): collection `objects` (one document per object: `{ name, mesh }`, at most 256 KiB each) and collection `palette` (one document per material: `{ color, metal, rough, alpha, emit, order }`).
-
-The viewer sends the SVG through `occlude`, picks with the HEXAW kernel (footer: `pick hexaw`), and on a phone shows four round buttons for the main actions.
+**How to use it, all keys and the database layout: [APP.md](APP.md).**
 
 ---
 

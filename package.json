@@ -16,6 +16,7 @@
     "dist",
     "!dist/**/*.test.*",
     "README.md",
+    "APP.md",
     "LICENSE"
   ],
   "scripts": {
