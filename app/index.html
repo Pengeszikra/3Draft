@@ -186,7 +186,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the prism under the cross, W A S D R F fly, P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the prism under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <aside id="palette" hidden aria-label="Material palette">
     <span>palette · shift+click: paint a face · shift+double click: paint the whole model</span>
@@ -212,7 +212,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · p: palette (shift+click paints a face, shift+double click the whole model) · space: place · v: spider bar (two points) · x: delete · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: palette (shift+click paints a face, shift+double click the whole model) · space: place · v: spider bar (two points) · x: delete · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -282,8 +282,24 @@
     let remote = nothing; // the scene pushed by the MCP server (read-only here)
     let scene = nothing; // what picking sees: the remote scene and the landed prisms
     let cam = null; // camera of the last drawn frame
+    // `/` isolates one model: `solo` is the set of its faces (indices into `remote`), null shows everything.
+    // `shownRemote` is what is on screen, `soloMap[i]` is the index in `remote` of face i of `shownRemote`.
+    let solo = null;
+    let soloMap = null;
+    let shownRemote = nothing;
+    const subMesh = (mesh, idx) => {
+      const used = new Map();
+      const positions = [];
+      const faces = idx.map((i) => ({
+        ...mesh.faces[i],
+        v: mesh.faces[i].v.map((k) => used.get(k) ?? (used.set(k, positions.length), positions.push(mesh.positions[k]), positions.length - 1)),
+      }));
+      return { positions, faces };
+    };
     const rebuild = () => {
-      scene = merge(remote, ...placed.filter((p) => !p.from).map((p) => p.mesh));
+      soloMap = solo ? [...solo].sort((a, b) => a - b) : null;
+      shownRemote = soloMap ? subMesh(remote, soloMap) : remote;
+      scene = merge(shownRemote, ...placed.filter((p) => !p.from).map((p) => p.mesh));
       placedVer++;
     };
     const shifted = (mesh, d) => ({ ...mesh, positions: mesh.positions.map((q) => [q[0] + d[0], q[1] + d[1], q[2] + d[2]]) });
@@ -419,8 +435,8 @@
 
     // The framing that shows the whole remote scene (or the empty-scene home).
     const overview = () => {
-      if (!remote.positions.length) return { ...HOME, center: [...HOME.center] };
-      const b = bounds(remote);
+      if (!shownRemote.positions.length) return { ...HOME, center: [...HOME.center] };
+      const b = bounds(shownRemote);
       return { center: b.center, radius: Math.max(b.radius * 1.05, 0.25) };
     };
 
@@ -494,7 +510,7 @@
         const rgb = /^#[0-9a-f]{6}$/i.test(bg) ? [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16) / 255) : undefined;
         const a = lightAngle;
         renderGpu = (readback = false) =>
-          gpu[readback ? 'pixels' : 'render'](remote, view, {
+          gpu[readback ? 'pixels' : 'render'](shownRemote, view, {
             instances: { mesh: PROTO, data: instances(now, flights.length > 0) },
             size,
             fit,
@@ -641,7 +657,7 @@
     };
     // Which landed prism owns a face of the pick scene .
     const owner = (face) => {
-      let o = remote.faces.length; // the remote scene's faces come first and are not deletable
+      let o = shownRemote.faces.length; // the remote scene's faces come first and are not deletable
       if (face < o) return null;
       for (const p of placed) {
         if (p.from) continue;
@@ -706,7 +722,7 @@
     };
     const paintFaces = (faces) => {
       const color = palette[current].color;
-      const inRemote = [...faces].filter((i) => i < remote.faces.length);
+      const inRemote = [...faces].filter((i) => i < shownRemote.faces.length).map((i) => (soloMap ? soloMap[i] : i));
       if (inRemote.length) {
         const f = remote.faces.slice();
         for (const i of inRemote) {
@@ -723,6 +739,15 @@
       }
       rebuild();
       redraw();
+    };
+    // /: only the model under the cross stays in the picture; / again brings the whole scene back.
+    const isolate = () => {
+      if (solo) solo = null;
+      else if (hit && hit.face < shownRemote.faces.length) solo = connected(remote, soloMap ? soloMap[hit.face] : hit.face);
+      else return;
+      rebuild();
+      focused = false;
+      goTo({ ...overview(), yaw, pitch }); // frame what is left (or everything again), keep the viewing direction
     };
     // Shift+press: the face under the cross (the palette must be on). Shift+double click: its whole model.
     const paintFace = () => {
@@ -784,6 +809,9 @@
       } else if (e.key === 'v' || e.key === 'V') {
         e.preventDefault();
         if (!e.repeat) spider();
+      } else if (e.key === '/') {
+        e.preventDefault();
+        if (!e.repeat) isolate();
       } else if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         if (!e.repeat) togglePalette();
@@ -828,7 +856,7 @@
     if (new URLSearchParams(location.search).has('debug')) {
       globalThis.__3draft = {
         load: (data) => applyScene(data),
-        state: () => ({ paints: paints.size, palette: !paletteEl.hidden, cursor: getComputedStyle(stage).cursor, center: fit.center, dist: fit.dist, radius: fit.radius, level: { ...level }, yaw, pitch, fly, placed: placed.length }),
+        state: () => ({ solo: solo ? solo.size : 0, faces: scene.faces.length, paints: paints.size, palette: !paletteEl.hidden, cursor: getComputedStyle(stage).cursor, center: fit.center, dist: fit.dist, radius: fit.radius, level: { ...level }, yaw, pitch, fly, placed: placed.length }),
         grab: async () => {
           const r = await renderGpu(true);
           const o = document.createElement('canvas');
@@ -855,6 +883,7 @@
         },
       );
       remote = merge(nothing, ...meshes);
+      solo = null; // the face numbers of an isolated model are gone with the old scene
       rebuild();
       if (!focused) Object.assign(fit, overview()); // a camera parked on an object stays there
 
