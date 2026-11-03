@@ -16,6 +16,8 @@ export { createGpu, viewProjection, buildVertices, buildInstances, defaultLight,
 export type { Gpu, GpuLight, GpuMaterial, GpuRenderOptions, Instance, Pixels } from './gpu.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
 export type { RenderOptions } from './svg.js';
+export { surfaceOf, DEFAULTS as MATERIAL_DEFAULTS } from './material.js';
+export type { Material, Palette, Surface } from './material.js';
 export { displayVersion } from './version.js';
 export interface Info {
     name: string;

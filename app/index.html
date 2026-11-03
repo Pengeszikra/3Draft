@@ -127,6 +127,8 @@
     #palette .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
     #palette .sw { aspect-ratio: 1; padding: 0; border-radius: 3px; border: 1px solid var(--line); }
     #palette .sw.on { outline: 2px solid var(--cursor); outline-offset: 1px; }
+    #palette label { display: grid; grid-template-columns: 52px 1fr 30px; gap: 6px; align-items: center; }
+    #palette input[type=range] { width: 100%; margin: 0; }
     #palette .row { display: flex; gap: 6px; align-items: center; }
     #palette input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--line); background: none; }
     #palette b { color: var(--fg); font-weight: 500; }
@@ -189,9 +191,14 @@
   <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <aside id="palette" hidden aria-label="Material palette">
-    <span>palette · shift+click: paint a face · shift+double click: paint the whole model</span>
+    <span>materials · shift+click: paint a face · shift+double click: the whole object</span>
     <div class="grid" id="swatches"></div>
-    <div class="row"><input type="color" id="custom" value="#c0392b" aria-label="Custom colour" /><button id="addColor" type="button">+ add</button><b id="current">–</b></div>
+    <b id="current">–</b>
+    <label>metal <input type="range" id="p-metal" min="0" max="1" step="0.05" /><span id="v-metal"></span></label>
+    <label>rough <input type="range" id="p-rough" min="0" max="1" step="0.05" /><span id="v-rough"></span></label>
+    <label>alpha <input type="range" id="p-alpha" min="0" max="1" step="0.05" /><span id="v-alpha"></span></label>
+    <label>emit <input type="range" id="p-emit" min="0" max="1" step="0.05" /><span id="v-emit"></span></label>
+    <div class="row"><input type="color" id="custom" value="#c0392b" aria-label="Colour of the material" /><button id="addColor" type="button">+ new</button></div>
   </aside>
 
   <div class="fab" aria-label="Controls">
@@ -212,7 +219,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: palette (shift+click paints a face, shift+double click the whole model) · space: place · v: spider bar (two points) · x: delete the object · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · space: place · v: spider bar (two points) · x: delete the object · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -511,6 +518,7 @@
         const a = lightAngle;
         renderGpu = (readback = false) =>
           gpu[readback ? 'pixels' : 'render'](scene, view, {
+            palette: paletteMap,
             instances: { mesh: PROTO, data: instances(now, flights.length > 0) },
             size,
             fit,
@@ -522,7 +530,7 @@
         layer.innerHTML = renderView(nothing, view, { size, fit, marks });
       } else {
         layer.className = '';
-        layer.innerHTML = renderView(shown, view, { size, fit, marks, occlude: true });
+        layer.innerHTML = renderView(shown, view, { size, fit, marks, occlude: true, palette: paletteMap });
       }
       fabMode.classList.toggle('on', mode === 'gpu' && Boolean(gpu));
       speedEl.textContent = `${level.f}·${level.r}·${level.u}`;
@@ -702,39 +710,93 @@
       redraw();
     };
 
-    // The material palette. An entry is plain data ({ name, color }); more fields (metal, rough, alpha ...)
-    // can join later. The scene stores only the colour of a face, so painting is a colour write.
-    const palette = ['#e9e4d8', '#c9b79a', '#8a5a36', '#5a3d2b', '#8c8c88', '#4f5358', '#7d9b4e', '#3d5a80', '#9fb4c4', '#c0392b', '#e8a33d', '#222222'].map((color, i) => ({ name: `m${i}`, color }));
+    // The material palette is data: { name, color, metal, rough, alpha, emit } per entry. A face points at an entry by
+    // name (`face.mat`), so editing an entry changes every face made of it. With a db the palette is the collection
+    // "palette" (one document per material), so Claude can read and write it the same way.
+    const MATERIALS = [
+      { name: 'plaster', color: '#e9e4d8', metal: 0, rough: 0.9, alpha: 1, emit: 0 },
+      { name: 'sand', color: '#c9b79a', metal: 0, rough: 0.95, alpha: 1, emit: 0 },
+      { name: 'wood', color: '#8a5a36', metal: 0, rough: 0.8, alpha: 1, emit: 0 },
+      { name: 'dark-wood', color: '#5a3d2b', metal: 0, rough: 0.7, alpha: 1, emit: 0 },
+      { name: 'concrete', color: '#8c8c88', metal: 0, rough: 1, alpha: 1, emit: 0 },
+      { name: 'slate', color: '#4f5358', metal: 0, rough: 0.6, alpha: 1, emit: 0 },
+      { name: 'grass', color: '#7d9b4e', metal: 0, rough: 1, alpha: 1, emit: 0 },
+      { name: 'brick', color: '#b5473a', metal: 0, rough: 0.85, alpha: 1, emit: 0 },
+      { name: 'steel', color: '#9aa7b4', metal: 1, rough: 0.3, alpha: 1, emit: 0 },
+      { name: 'gold', color: '#d9b04a', metal: 1, rough: 0.25, alpha: 1, emit: 0 },
+      { name: 'glass', color: '#a9d3e8', metal: 0.2, rough: 0.05, alpha: 0.3, emit: 0 },
+      { name: 'lamp', color: '#ffd36b', metal: 0, rough: 0.5, alpha: 1, emit: 1 },
+    ];
+    let materials = MATERIALS.map((m) => ({ ...m }));
+    const toMap = () => Object.fromEntries(materials.map(({ name, ...m }) => [name, m]));
+    let paletteMap = toMap(); // what the renderers get: a NEW object on every change, so they rebuild
+    const syncPalette = () => {
+      paletteMap = toMap();
+      rebuild();
+      redraw();
+    };
     let current = 0;
+    let paletteCol = null; // db collection "palette"
     const paletteEl = document.getElementById('palette');
     const swatchesEl = document.getElementById('swatches');
     const currentEl = document.getElementById('current');
+    const PROPS = ['metal', 'rough', 'alpha', 'emit'];
+    const saveMaterial = (m) => paletteCol && paletteCol.doc(m.name).set({ ...m, order: materials.indexOf(m) }).catch((err) => (liveEl.title = String(err?.message ?? err)));
     const showPalette = () => {
       swatchesEl.innerHTML = '';
-      palette.forEach((m, i) => {
+      materials.forEach((m, i) => {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = `sw${i === current ? ' on' : ''}`;
-        b.style.background = m.color;
-        b.title = `${m.name} ${m.color}`;
+        // a see-through material shows its color over a checker
+        b.style.background = m.alpha < 1 ? `linear-gradient(${m.color}${Math.round(m.alpha * 255).toString(16).padStart(2, '0')}, ${m.color}${Math.round(m.alpha * 255).toString(16).padStart(2, '0')}), repeating-conic-gradient(#888 0 25%, #ccc 0 50%) 0 0 / 8px 8px` : m.color;
+        if (m.metal > 0.5) b.style.boxShadow = 'inset 0 0 0 2px #ffffff55, inset 0 -6px 8px #00000044';
+        b.title = `${m.name}: metal ${m.metal} rough ${m.rough} alpha ${m.alpha} emit ${m.emit}`;
         b.addEventListener('click', () => ((current = i), showPalette()));
         swatchesEl.append(b);
       });
-      currentEl.textContent = palette[current].color;
+      const m = materials[current];
+      currentEl.textContent = m.name;
+      document.getElementById('custom').value = m.color;
+      for (const k of PROPS) {
+        document.getElementById(`p-${k}`).value = m[k];
+        document.getElementById(`v-${k}`).textContent = m[k].toFixed(2);
+      }
     };
+    for (const k of PROPS) {
+      document.getElementById(`p-${k}`).addEventListener('input', (e) => {
+        const m = materials[current];
+        m[k] = Number(e.target.value);
+        document.getElementById(`v-${k}`).textContent = m[k].toFixed(2);
+        syncPalette();
+      });
+      document.getElementById(`p-${k}`).addEventListener('change', () => saveMaterial(materials[current]));
+    }
+    document.getElementById('custom').addEventListener('input', (e) => {
+      materials[current].color = e.target.value;
+      showPalette();
+      syncPalette();
+    });
+    document.getElementById('custom').addEventListener('change', () => saveMaterial(materials[current]));
     const togglePalette = () => {
       paletteEl.hidden = !paletteEl.hidden;
       if (!paletteEl.hidden) showPalette();
     };
     document.getElementById('addColor').addEventListener('click', () => {
-      palette.push({ name: `m${palette.length}`, color: document.getElementById('custom').value });
-      current = palette.length - 1;
+      // a new material starts as a copy of the selected one
+      let n = materials.length;
+      while (materials.some((m) => m.name === `m${n}`)) n++;
+      const m = { ...materials[current], name: `m${n}`, color: document.getElementById('custom').value };
+      materials.push(m);
+      current = materials.length - 1;
+      saveMaterial(m);
       showPalette();
+      syncPalette();
     });
     const paintFaces = (obj, faces) => {
-      const color = palette[current].color;
+      const m = materials[current];
       const base = owners.find((o) => o.obj === obj).start;
-      change(obj, { ...obj.mesh, faces: obj.mesh.faces.map((f, i) => (!faces || faces.has(i + base) ? { ...f, color } : f)) });
+      change(obj, { ...obj.mesh, faces: obj.mesh.faces.map((f, i) => (!faces || faces.has(i + base) ? { ...f, color: m.color, mat: m.name } : f)) });
       redraw();
     };
     // /: only the model under the cross stays in the picture; / again brings the whole scene back.
@@ -907,6 +969,18 @@
             liveEl.textContent = 'db error';
             liveEl.title = String(err?.message ?? err);
           },
+        );
+        paletteCol = db.collection('palette');
+        paletteCol.onSnapshot(
+          (snap) => {
+            const docs = snap.docs.map((d) => ({ name: d.id, ...d.data() })).filter((m) => typeof m.color === 'string');
+            if (!docs.length) return; // nothing stored yet: the built-in materials stay
+            materials = docs.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(({ order, ...m }) => ({ metal: 0, rough: 0.7, alpha: 1, emit: 0, ...m }));
+            current = Math.min(current, materials.length - 1);
+            if (!paletteEl.hidden) showPalette();
+            syncPalette();
+          },
+          () => {},
         );
         // what was made here before the db answered goes into it now
         for (const o of mine.splice(0)) {

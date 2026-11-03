@@ -14,6 +14,7 @@ export { standOn } from './place.js';
 export { paintOrder } from './order.js';
 export { createGpu, viewProjection, buildVertices, buildInstances, defaultLight, defaultMaterial } from './gpu.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
+export { surfaceOf, DEFAULTS as MATERIAL_DEFAULTS } from './material.js';
 export { displayVersion } from './version.js';
 /** Short, machine-readable description of the current state of the package. */
 export const info = () => ({

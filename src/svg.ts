@@ -7,6 +7,8 @@ import { faceNormal } from './mesh.js';
 import { paintOrder } from './order.js';
 import type { PaintItem } from './order.js';
 import { VIEW_ORDER, makeCamera, project } from './camera.js';
+import { surfaceOf } from './material.js';
+import type { Palette } from './material.js';
 import type { Fit, Mark, Mesh, Vec3, ViewName, ViewSpec } from './types.js';
 
 export interface RenderOptions {
@@ -22,6 +24,8 @@ export interface RenderOptions {
    * point no visible face reaches. The picture stays the same, the SVG gets much smaller.
    */
   occlude?: boolean;
+  /** Named materials (`face.mat`). The SVG shows their color and alpha; metal, rough and emit are for the GPU view. */
+  palette?: Palette;
   stroke?: string;
   pointColor?: string;
   background?: string;
@@ -38,12 +42,17 @@ type Settings = RenderOptions & Required<Pick<RenderOptions, 'size' | 'cull' | '
  * perspective view, -depth in an orthographic one) and is linear across a planar face on the screen.
  * A pixel that ties with what is there (coplanar faces) keeps both ids alive for the painter's order.
  */
-const fill = (ids: Int32Array, zb: Float32Array, size: number, pts: { x: number; y: number }[], w: number[], id: number, alive: Set<number>): void => {
+const fill = (ids: Int32Array, zb: Float32Array, size: number, pts: { x: number; y: number }[], w: number[], id: number, alive: Set<number>, solid = true): void => {
   const test = (x: number, y: number, v: number): void => {
     if (x < 0 || y < 0 || x >= size || y >= size) return;
     const at = y * size + x;
     const old = zb[at];
     const tie = Math.abs(v - old) <= 1e-5 * Math.abs(old);
+    if (!solid) {
+      // a see-through face is visible where nothing nearer hides it, and hides nothing itself
+      if (v > old || tie) alive.add(id);
+      return;
+    }
     if (v > old || tie) {
       if (tie && ids[at] >= 0) alive.add(ids[at]);
       zb[at] = Math.max(v, old);
@@ -95,6 +104,7 @@ const fill = (ids: Int32Array, zb: Float32Array, size: number, pts: { x: number;
 interface Item extends PaintItem {
   vs: number[];
   color: string;
+  alpha: number;
   pts: string;
 }
 
@@ -149,6 +159,7 @@ const panel = (mesh: Mesh, view: ViewName | ViewSpec, o: Settings, x = 0, y = 0)
       screen = world.map((p) => project(cam, p));
     }
     if (!seen(screen)) return; // outside the panel
+    const surface = surfaceOf(face, o.palette);
     items.push({
       i,
       vs: face.v,
@@ -157,7 +168,8 @@ const panel = (mesh: Mesh, view: ViewName | ViewSpec, o: Settings, x = 0, y = 0)
       n: normal |> norm,
       p: world[0],
       eye: facing ? 1 : -1,
-      color: face.color ?? '#c8c8c8',
+      color: surface.color,
+      alpha: surface.alpha,
       depth: screen.reduce((s, p) => s + p.depth, 0) / screen.length,
       pts: screen.map((p) => `${num(p.x)},${num(p.y)}`).join(' '),
     });
@@ -172,7 +184,7 @@ const panel = (mesh: Mesh, view: ViewName | ViewSpec, o: Settings, x = 0, y = 0)
     const alive = new Set<number>();
     items.forEach((it, idx) => {
       const w = (it.screen as { x: number; y: number; depth: number }[]).map((p) => (cam.ortho ? -p.depth : 1 / p.depth));
-      fill(buf, zb, o.size, it.screen, w, idx, alive);
+      fill(buf, zb, o.size, it.screen, w, idx, alive, it.alpha >= 1);
     });
     for (const id of buf) if (id >= 0) alive.add(id);
     const remap = new Map<number, number>(); // item index -> index among the visible faces
@@ -213,7 +225,7 @@ const panel = (mesh: Mesh, view: ViewName | ViewSpec, o: Settings, x = 0, y = 0)
   const body = ordered.flatMap((it, idx) => {
     const polygon =
       `<polygon data-face="${it.i}" data-depth="${num(it.depth)}" points="${it.pts}" ` +
-      `fill="${it.color}" stroke="${o.stroke}" stroke-width="1.5" stroke-linejoin="round"/>`;
+      `fill="${it.color}"${it.alpha < 1 ? ` fill-opacity="${num(it.alpha)}"` : ''} stroke="${o.stroke}" stroke-width="1.5" stroke-linejoin="round"/>`;
     const dots = o.points
       ? it.vs
           .filter((k) => last.get(k) === idx && (cam.ortho || proj[k].depth >= NEAR) && (!idBuf || reached(k)))

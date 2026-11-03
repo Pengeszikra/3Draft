@@ -1,3 +1,4 @@
+import type { Palette } from './material.js';
 import type { Fit, Mark, Mesh, ViewName, ViewSpec } from './types.js';
 export interface RenderOptions {
     /** Panel size in px (default 400). */
@@ -12,6 +13,8 @@ export interface RenderOptions {
      * point no visible face reaches. The picture stays the same, the SVG gets much smaller.
      */
     occlude?: boolean;
+    /** Named materials (`face.mat`). The SVG shows their color and alpha; metal, rough and emit are for the GPU view. */
+    palette?: Palette;
     stroke?: string;
     pointColor?: string;
     background?: string;

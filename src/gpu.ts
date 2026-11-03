@@ -6,6 +6,8 @@
 import { dot, norm } from './vec.js';
 import { faceNormal } from './mesh.js';
 import { makeCamera } from './camera.js';
+import { surfaceOf } from './material.js';
+import type { Palette } from './material.js';
 import type { Axes, Camera, Fit, Mesh, Vec3, ViewName, ViewSpec } from './types.js';
 
 type Handle = any; // a GPU object: buffers, textures and pipelines are used through duck typing
@@ -31,6 +33,8 @@ export interface GpuRenderOptions {
   background?: Vec3;
   light?: GpuLight;
   material?: GpuMaterial;
+  /** Named materials the faces point at (`face.mat`); pass a new object when an entry changes. */
+  palette?: Palette;
   dpr?: number;
   /** Many copies of one prototype mesh (modelled around the origin), drawn after `mesh`. */
   instances?: { mesh: Mesh; data: Float32Array };
@@ -55,7 +59,7 @@ export interface Gpu {
   adapter: Handle;
 }
 
-const FLOATS = 9; // position(3) normal(3) color(3)
+const FLOATS = 13; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit)
 
 /**
  * Column-major 4x4 matrix (for WebGPU, z in 0..1) that maps world points exactly
@@ -80,8 +84,8 @@ const rgb = (color?: string): Vec3 => {
   return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255) as Vec3;
 };
 
-/** Triangle list for the GPU: flat face normals and face colors. Float32Array, 9 floats per vertex. */
-export const buildVertices = (mesh: Mesh): Float32Array => {
+/** Triangle list for the GPU: flat face normals, face colors and materials. Float32Array, 13 floats per vertex. */
+export const buildVertices = (mesh: Mesh, palette?: Palette): Float32Array => {
   let tris = 0;
   for (const f of mesh.faces) tris += Math.max(0, f.v.length - 2);
   const out = new Float32Array(tris * 3 * FLOATS);
@@ -89,10 +93,12 @@ export const buildVertices = (mesh: Mesh): Float32Array => {
   for (const face of mesh.faces) {
     const pts = face.v.map((k) => mesh.positions[k]);
     const n = pts |> faceNormal |> norm;
-    const c = rgb(face.color);
+    const s = surfaceOf(face, palette);
+    const c = rgb(s.color);
+    const mat = [s.metal, s.rough, s.alpha, s.emit];
     for (let j = 1; j < pts.length - 1; j++) {
       for (const p of [pts[0], pts[j], pts[j + 1]]) {
-        out.set([...p, ...n, ...c], o);
+        out.set([...p, ...n, ...c, ...mat], o);
         o += FLOATS;
       }
     }
@@ -126,12 +132,13 @@ struct U {
 };
 @group(0) @binding(0) var<uniform> u : U;
 
-struct VIn { @location(0) pos : vec3<f32>, @location(1) nrm : vec3<f32>, @location(2) col : vec3<f32> };
+struct VIn { @location(0) pos : vec3<f32>, @location(1) nrm : vec3<f32>, @location(2) col : vec3<f32>, @location(8) mat : vec4<f32> };
 struct VOut {
   @builtin(position) p : vec4<f32>,
   @location(0) n : vec3<f32>,
   @location(1) c : vec3<f32>,
   @location(2) w : vec3<f32>,
+  @location(3) m : vec4<f32>,   // metal, rough, alpha, emit
 };
 
 @vertex fn vs(i : VIn) -> VOut {
@@ -140,6 +147,7 @@ struct VOut {
   o.n = i.nrm;
   o.c = i.col;
   o.w = i.pos;
+  o.m = i.mat;
   return o;
 }
 
@@ -158,6 +166,7 @@ struct IIn {
   o.n = normalize(i.ex) * i.nrm.x + normalize(i.ey) * i.nrm.y + normalize(i.ez) * i.nrm.z;
   o.c = i.col;
   o.w = w;
+  o.m = vec4<f32>(0.0, 0.7, 1.0, 0.0);
   return o;
 }
 
@@ -166,12 +175,22 @@ struct IIn {
   if (!front) { n = -n; }
   let l = normalize(u.light.xyz);
   let v = normalize(u.eye.xyz - i.w);
+  let metal = i.m.x;
+  let rough = i.m.y;
   let hemi = mix(u.ground.rgb, u.sky.rgb, n.y * 0.5 + 0.5) * u.mat.x;
   let diff = max(dot(n, l), 0.0) * u.mat.y;
   let h = normalize(l + v);
-  let spec = pow(max(dot(n, h), 0.0), u.mat.w) * u.mat.z * step(0.0, dot(n, l));
-  let lit = i.c * (hemi + vec3<f32>(diff)) + vec3<f32>(spec);
-  return vec4<f32>(clamp(lit, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
+  // roughness widens the highlight; metal makes it strong and tinted by the color
+  let shin = mix(u.mat.w * 7.0, u.mat.w * 0.15, rough);
+  let spec = pow(max(dot(n, h), 0.0), shin) * mix(u.mat.z, 1.0, metal) * mix(1.0, 0.35, rough) * step(0.0, dot(n, l));
+  // metal mirrors the sky above and the ground below, blurred by roughness
+  let r = reflect(-v, n);
+  let env = mix(u.ground.rgb * 1.2, u.sky.rgb * 1.5, smoothstep(-0.25 - rough * 0.5, 0.25 + rough * 0.5, r.y));
+  var lit = i.c * (hemi + vec3<f32>(diff)) * (1.0 - metal)
+          + i.c * env * metal * (1.0 - 0.6 * rough)
+          + vec3<f32>(spec) * mix(vec3<f32>(1.0), i.c, metal);
+  lit = mix(lit, i.c * 1.15, i.m.w);
+  return vec4<f32>(clamp(lit, vec3<f32>(0.0), vec3<f32>(1.0)), i.m.z);
 }
 `;
 
@@ -201,6 +220,7 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
       { shaderLocation: 0, offset: 0, format: 'float32x3' },
       { shaderLocation: 1, offset: 12, format: 'float32x3' },
       { shaderLocation: 2, offset: 24, format: 'float32x3' },
+      { shaderLocation: 8, offset: 36, format: 'float32x4' },
     ],
   };
   const instanceLayout = {
@@ -215,7 +235,8 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
       fragment: { module, entryPoint: 'fs', targets: [{ format }] },
       primitive: { topology: 'triangle-list', cullMode: 'none' },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
-      multisample: { count: sampleCount },
+      // the fragment alpha becomes coverage: a half transparent face covers half of the samples (one pass, no sorting)
+      multisample: sampleCount > 1 ? { count: sampleCount, alphaToCoverageEnabled: true } : { count: sampleCount },
     });
   const pipeline = make('vs', [meshLayout]);
   // the instanced pipeline reads position and normal only from the prototype (locations 0, 1)
@@ -226,6 +247,7 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
 
   // Geometry that did not change since the last frame is not rebuilt or uploaded again.
   let uploaded: Mesh | null = null; // the mesh now in vertexBuffer
+  let uploadedPalette: Palette | undefined; // and the palette it was built with
   let vertexCount = 0;
   let protoMesh: Mesh | null = null;
   let protoBuffer: Handle = null;
@@ -255,7 +277,7 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, dpr = globalThis.devicePixelRatio || 1, instances }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
@@ -263,8 +285,8 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
     const cam = makeCamera(view, mesh, size, fit);
     targets(Math.max(1, Math.round(size * dpr)));
 
-    if (mesh !== uploaded) {
-      const verts = buildVertices(mesh);
+    if (mesh !== uploaded || palette !== uploadedPalette) {
+      const verts = buildVertices(mesh, palette);
       if (verts.byteLength > capacity) {
         vertexBuffer?.destroy();
         capacity = Math.max(verts.byteLength, 4096);
@@ -273,6 +295,7 @@ export const createGpu = async (canvas: HTMLCanvasElement, { sampleCount = 4 }: 
       if (verts.byteLength) device.queue.writeBuffer(vertexBuffer, 0, verts);
       vertexCount = verts.length / FLOATS;
       uploaded = mesh;
+      uploadedPalette = palette;
     }
     if (instances?.mesh && instances.mesh !== protoMesh) {
       const v = buildVertices(instances.mesh);

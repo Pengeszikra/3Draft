@@ -1,3 +1,4 @@
+import type { Palette } from './material.js';
 import type { Axes, Camera, Fit, Mesh, Vec3, ViewName, ViewSpec } from './types.js';
 type Handle = any;
 export interface GpuLight {
@@ -21,6 +22,8 @@ export interface GpuRenderOptions {
     background?: Vec3;
     light?: GpuLight;
     material?: GpuMaterial;
+    /** Named materials the faces point at (`face.mat`); pass a new object when an entry changes. */
+    palette?: Palette;
     dpr?: number;
     /** Many copies of one prototype mesh (modelled around the origin), drawn after `mesh`. */
     instances?: {
@@ -52,8 +55,8 @@ export interface Gpu {
  * like camera.project(): the same pixels, plus a depth between near and far.
  */
 export declare const viewProjection: (cam: Camera, near?: number, far?: number) => Float32Array;
-/** Triangle list for the GPU: flat face normals and face colors. Float32Array, 9 floats per vertex. */
-export declare const buildVertices: (mesh: Mesh) => Float32Array;
+/** Triangle list for the GPU: flat face normals, face colors and materials. Float32Array, 13 floats per vertex. */
+export declare const buildVertices: (mesh: Mesh, palette?: Palette) => Float32Array;
 /**
  * Per-instance data for drawInstances: one entry { at, axes: [ex, ey, ez], color } per copy of a
  * prototype mesh (modelled around the origin). Float32Array, 15 floats per instance.

@@ -6,6 +6,8 @@ export interface Face {
   /** Point indices, CCW seen from outside. */
   v: number[];
   color?: string;
+  /** Name of a palette entry (see material.ts); `color` is the fallback. */
+  mat?: string;
 }
 
 export interface Mesh {

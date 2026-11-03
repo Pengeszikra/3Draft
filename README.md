@@ -258,3 +258,16 @@ The kernel exports its linear memory (`EXPM "memory"`, needs hexaw with JS-compa
 ### Sending only what is seen (`occlude`)
 
 `renderView(mesh, view, { occlude: true })` paints the faces into a small depth buffer first and sends only the faces and points that own a pixel. On the 5000-face house this is 2793 -> about 680 polygons and 802 KB -> 175 KB with the same picture (about 0.05% of the pixels differ), and about 40% less time because the painter's order only sorts the visible faces. The viewer uses it. It is off by default so that existing output stays byte for byte the same.
+
+### Materials
+
+The palette is data: `{ name: { color, metal, rough, alpha, emit } }` (`Palette`, `Material` in `src/material.ts`). A face points at an entry with `face.mat`; its own `color` stays as the fallback, so a mesh without the palette still looks right. Editing an entry changes every face made of it.
+
+| field | meaning | how it is drawn |
+|---|---|---|
+| `metal` 0..1 | paint ... metal | reflects the sky above and the ground below, tinted by the color; strong, tinted highlight |
+| `rough` 0..1 | mirror ... matte | widens the highlight, blurs the reflection |
+| `alpha` 1..0 | solid ... invisible | alpha-to-coverage: one pass, no sorting (WebGPU); `fill-opacity` in the SVG, where a see-through face hides nothing behind it |
+| `emit` 0..1 | lit ... glowing | the color shows without shading |
+
+`gpu.render(mesh, view, { palette })` and `renderView(mesh, view, { palette })` take the palette; pass a new object when an entry changes. In the viewer (P) every material has four sliders and a colour; with the artifact `db` the palette is the collection `palette` (one document per material), so the AI reads and edits it the same way as the objects. SVG shows color and alpha only; metal, rough and emit are for the WebGPU view.

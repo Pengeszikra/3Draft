@@ -42,3 +42,16 @@ test('occlude leaves a scene without hidden parts unchanged', () => {
   const one = box({ size: [1, 1, 1] });
   assert.equal(renderView(one, 'persp', { occlude: true }), renderView(one, 'persp'));
 });
+
+test('palette: a face takes color and alpha from its palette entry; see-through faces hide nothing', () => {
+  const wall = box({ size: [2, 2, 0.2], at: [0, 0, -1], color: '#222222' });
+  const pane = box({ size: [1, 1, 0.1], at: [0, 0, 1], color: '#ffffff' });
+  pane.faces.forEach((f) => (f.mat = 'glass'));
+  const scene = merge(wall, pane);
+  const palette = { glass: { color: '#88ccee', alpha: 0.3 } };
+  const svg = renderView(scene, 'front', { size: 200, palette, occlude: true });
+  assert.ok(svg.includes('#88ccee') && svg.includes('fill-opacity="0.3"'));
+  assert.ok(!svg.includes('#ffffff'), 'the palette color wins over the face color');
+  assert.ok(svg.includes('#222222'), 'the wall behind the glass is still sent');
+  assert.ok(!renderView(scene, 'front', { size: 200 }).includes('fill-opacity'), 'without a palette: plain colors');
+});

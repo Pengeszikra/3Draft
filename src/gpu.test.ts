@@ -45,12 +45,12 @@ test('nearer points get a smaller GPU depth', () => {
 test('buildVertices: triangles with flat outward normals and face colors', () => {
   const m = box({ color: '#ff8000' });
   const v = buildVertices(m);
-  assert.equal(v.length, 6 * 2 * 3 * 9, '6 quads = 12 triangles = 36 vertices');
+  assert.equal(v.length, 6 * 2 * 3 * 13, '6 quads = 12 triangles = 36 vertices');
   // first face is +z: normal (0,0,1), color (1, 0.502, 0)
   assert.deepEqual([...v.slice(3, 6)], [0, 0, 1]);
   assert.ok(Math.abs(v[7] - 128 / 255) < 1e-6 && v[6] === 1 && v[8] === 0);
   // every normal points away from the box center
-  for (let i = 0; i < v.length; i += 9) {
+  for (let i = 0; i < v.length; i += 13) {
     const out = v[i] * v[i + 3] + v[i + 1] * v[i + 4] + v[i + 2] * v[i + 5];
     assert.ok(out > 0, 'normal points outwards');
   }
