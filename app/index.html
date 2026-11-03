@@ -522,7 +522,7 @@
         layer.innerHTML = renderView(nothing, view, { size, fit, marks });
       } else {
         layer.className = '';
-        layer.innerHTML = renderView(shown, view, { size, fit, marks });
+        layer.innerHTML = renderView(shown, view, { size, fit, marks, occlude: true });
       }
       fabMode.classList.toggle('on', mode === 'gpu' && Boolean(gpu));
       speedEl.textContent = `${level.f}·${level.r}·${level.u}`;

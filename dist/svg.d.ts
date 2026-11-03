@@ -6,6 +6,12 @@ export interface RenderOptions {
     cull?: boolean;
     /** Draw the vertices as circles (default true). */
     points?: boolean;
+    /**
+     * Send only what can be seen (default false). Faces are first painted into a small id buffer, far to
+     * near; a face none of whose pixels survives is covered by nearer ones and is left out, and so is a
+     * point no visible face reaches. The picture stays the same, the SVG gets much smaller.
+     */
+    occlude?: boolean;
     stroke?: string;
     pointColor?: string;
     background?: string;

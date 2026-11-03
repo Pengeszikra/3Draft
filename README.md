@@ -254,3 +254,7 @@ The picking hot loop (ray against every triangle, Moller-Trumbore, the same arit
 - Measured on 1200 prisms (7200 faces): 1.7 ms per pick in JavaScript, 0.14 ms with the kernel.
 
 The kernel exports its linear memory (`EXPM "memory"`, needs hexaw with JS-compatible memory), so the mesh is written straight into it with `Float64Array` / `Int32Array` views and the distance is read back from address 0; the former `setf`/`seti`/`getf`/`grow`/`size` helper functions are gone.
+
+### Sending only what is seen (`occlude`)
+
+`renderView(mesh, view, { occlude: true })` paints the faces into a small depth buffer first and sends only the faces and points that own a pixel. On the 5000-face house this is 2793 -> about 680 polygons and 802 KB -> 175 KB with the same picture (about 0.05% of the pixels differ), and about 40% less time because the painter's order only sorts the visible faces. The viewer uses it. It is off by default so that existing output stays byte for byte the same.

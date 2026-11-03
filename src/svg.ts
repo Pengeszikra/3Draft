@@ -16,6 +16,12 @@ export interface RenderOptions {
   cull?: boolean;
   /** Draw the vertices as circles (default true). */
   points?: boolean;
+  /**
+   * Send only what can be seen (default false). Faces are first painted into a small id buffer, far to
+   * near; a face none of whose pixels survives is covered by nearer ones and is left out, and so is a
+   * point no visible face reaches. The picture stays the same, the SVG gets much smaller.
+   */
+  occlude?: boolean;
   stroke?: string;
   pointColor?: string;
   background?: string;
@@ -26,6 +32,65 @@ export interface RenderOptions {
 }
 
 type Settings = RenderOptions & Required<Pick<RenderOptions, 'size' | 'cull' | 'points' | 'stroke' | 'pointColor' | 'background'>>;
+
+/**
+ * Depth-tested scanline fill of one polygon into an id buffer. `w` grows towards the eye (1/depth in a
+ * perspective view, -depth in an orthographic one) and is linear across a planar face on the screen.
+ * A pixel that ties with what is there (coplanar faces) keeps both ids alive for the painter's order.
+ */
+const fill = (ids: Int32Array, zb: Float32Array, size: number, pts: { x: number; y: number }[], w: number[], id: number, alive: Set<number>): void => {
+  const test = (x: number, y: number, v: number): void => {
+    if (x < 0 || y < 0 || x >= size || y >= size) return;
+    const at = y * size + x;
+    const old = zb[at];
+    const tie = Math.abs(v - old) <= 1e-5 * Math.abs(old);
+    if (v > old || tie) {
+      if (tie && ids[at] >= 0) alive.add(ids[at]);
+      zb[at] = Math.max(v, old);
+      ids[at] = id;
+    }
+  };
+  // the outline too: a face thinner than a pixel still shows as a line
+  for (let a = 0; a < pts.length; a++) {
+    const b = (a + 1) % pts.length;
+    const n = Math.ceil(Math.max(Math.abs(pts[b].x - pts[a].x), Math.abs(pts[b].y - pts[a].y)));
+    for (let i = 0; i <= n; i++) {
+      const t = n ? i / n : 0;
+      test(Math.floor(pts[a].x + t * (pts[b].x - pts[a].x)), Math.floor(pts[a].y + t * (pts[b].y - pts[a].y)), w[a] + t * (w[b] - w[a]));
+    }
+  }
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const p of pts) (lo = Math.min(lo, p.y), (hi = Math.max(hi, p.y)));
+  const y0 = Math.max(0, Math.ceil(lo - 0.5));
+  const y1 = Math.min(size - 1, Math.floor(hi - 0.5));
+  const cross: { x: number; w: number }[] = [];
+  for (let y = y0; y <= y1; y++) {
+    const yc = y + 0.5;
+    cross.length = 0;
+    for (let a = 0; a < pts.length; a++) {
+      const b = (a + 1) % pts.length;
+      const p = pts[a];
+      const q = pts[b];
+      if ((p.y <= yc && q.y > yc) || (q.y <= yc && p.y > yc)) {
+        const t = (yc - p.y) / (q.y - p.y);
+        cross.push({ x: p.x + t * (q.x - p.x), w: w[a] + t * (w[b] - w[a]) });
+      }
+    }
+    cross.sort((a, b) => a.x - b.x);
+    for (let k = 0; k + 1 < cross.length; k += 2) {
+      const l = cross[k];
+      const r = cross[k + 1];
+      const x0 = Math.max(0, Math.ceil(l.x - 0.5));
+      const x1 = Math.min(size - 1, Math.floor(r.x - 0.5));
+      const span = r.x - l.x || 1;
+      for (let x = x0; x <= x1; x++) {
+        const v = l.w + ((x + 0.5 - l.x) / span) * (r.w - l.w);
+        test(x, y, v);
+      }
+    }
+  }
+};
 
 interface Item extends PaintItem {
   vs: number[];
@@ -98,12 +163,52 @@ const panel = (mesh: Mesh, view: ViewName | ViewSpec, o: Settings, x = 0, y = 0)
     });
   });
 
-  const ordered = paintOrder(items); // far to near
+  // Occlusion: a depth buffer finds the faces that own a pixel; only those go on to the painter's order.
+  let idBuf: Int32Array | null = null;
+  let visible = items;
+  if (o.occlude) {
+    const buf = new Int32Array(o.size * o.size).fill(-1);
+    const zb = new Float32Array(o.size * o.size).fill(-Infinity);
+    const alive = new Set<number>();
+    items.forEach((it, idx) => {
+      const w = (it.screen as { x: number; y: number; depth: number }[]).map((p) => (cam.ortho ? -p.depth : 1 / p.depth));
+      fill(buf, zb, o.size, it.screen, w, idx, alive);
+    });
+    for (const id of buf) if (id >= 0) alive.add(id);
+    const remap = new Map<number, number>(); // item index -> index among the visible faces
+    visible = items.filter((_, idx) => alive.has(idx) && (remap.set(idx, remap.size), true));
+    idBuf = buf.map((id) => (id < 0 ? -1 : (remap.get(id) ?? -1)));
+  }
+  let ordered = paintOrder(visible); // far to near
+  if (idBuf) {
+    // ids point into `visible`; the painter's order permutes it
+    const at = new Map<PaintItem, number>();
+    visible.forEach((it, n) => at.set(it, n));
+    const perm = new Int32Array(visible.length);
+    ordered.forEach((it, n) => (perm[at.get(it)!] = n));
+    idBuf = idBuf.map((id) => (id < 0 ? -1 : perm[id]));
+  }
 
   // A point is drawn right after the nearest painted face that holds it, so
   // faces painted later (closer to the camera) still cover it.
   const last = new Map();
   ordered.forEach((it, idx) => it.vs.forEach((k) => last.set(k, idx)));
+
+  // a point is visible when a visible face that holds it owns a pixel at (or right next to) it
+  const reached = (k: number): boolean => {
+    const px = Math.round(proj[k].x);
+    const py = Math.round(proj[k].y);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const x = px + dx;
+        const y = py + dy;
+        if (x < 0 || y < 0 || x >= o.size || y >= o.size) continue;
+        const id = idBuf![y * o.size + x];
+        if (id >= 0 && ordered[id].vs.includes(k)) return true;
+      }
+    }
+    return false;
+  };
 
   const body = ordered.flatMap((it, idx) => {
     const polygon =
@@ -111,7 +216,7 @@ const panel = (mesh: Mesh, view: ViewName | ViewSpec, o: Settings, x = 0, y = 0)
       `fill="${it.color}" stroke="${o.stroke}" stroke-width="1.5" stroke-linejoin="round"/>`;
     const dots = o.points
       ? it.vs
-          .filter((k) => last.get(k) === idx && (cam.ortho || proj[k].depth >= NEAR))
+          .filter((k) => last.get(k) === idx && (cam.ortho || proj[k].depth >= NEAR) && (!idBuf || reached(k)))
           .sort((a, b) => a - b)
           .map(
             (k) =>

@@ -20,3 +20,19 @@ test('faces behind the eye are skipped', () => {
     const svg = renderView(m, orbit({ yaw: 0, pitch: 0 }), { size: 400, fit: { center: [0, 0, 0], radius: 1, dist: 0.05 } });
     assert.equal(polys(svg), 0);
 });
+test('occlude: faces and points hidden behind a nearer box are not sent, the rest is the same', () => {
+    const front = box({ size: [2, 2, 0.2], at: [0, 0, 1], color: '#ff0000' });
+    const back = box({ size: [0.5, 0.5, 0.5], at: [0, 0, -1], color: '#0000ff' }); // fully behind the big one
+    const scene = merge(front, back);
+    const full = renderView(scene, 'front', { size: 200 });
+    const lean = renderView(scene, 'front', { size: 200, occlude: true });
+    const count = (svg, tag) => (svg.match(new RegExp(`<${tag} `, 'g')) ?? []).length;
+    assert.ok(count(full, 'polygon') > count(lean, 'polygon'), 'hidden faces dropped');
+    assert.ok(count(full, 'circle') > count(lean, 'circle'), 'hidden points dropped');
+    assert.ok(!lean.includes('#0000ff'), 'nothing of the hidden box is left');
+    assert.ok(lean.includes('#ff0000'), 'the front box stays');
+});
+test('occlude leaves a scene without hidden parts unchanged', () => {
+    const one = box({ size: [1, 1, 1] });
+    assert.equal(renderView(one, 'persp', { occlude: true }), renderView(one, 'persp'));
+});
