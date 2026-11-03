@@ -7,7 +7,7 @@
 import { sub, dot, cross, len } from './vec.js';
 import { faceNormal, bounds } from './mesh.js';
 import { validate } from './check.js';
-let EPS = 1e-6; // set per operation, relative to the size of the two solids
+let CSG_EPS = 1e-6; // set per operation, relative to the size of the two solids
 const unit = (v) => {
     const l = len(v) || 1;
     return [v[0] / l, v[1] / l, v[2] / l];
@@ -27,7 +27,7 @@ const splitPoly = (plane, p, cf, cb, front, back) => {
     let type = 0;
     const types = p.pts.map((q) => {
         const t = dot(plane.n, q) - plane.w;
-        const k = t < -EPS ? BACK : t > EPS ? FRONT : COPLANAR;
+        const k = t < -CSG_EPS ? BACK : t > CSG_EPS ? FRONT : COPLANAR;
         type |= k;
         return k;
     });
@@ -202,7 +202,7 @@ export const boolean = (a, b, op) => {
     const sa = bounds(a);
     const sb = bounds(b);
     const scale = Math.max(sa.radius, sb.radius, 1e-9) * 2 + len(sub(sa.center, sb.center));
-    EPS = scale * 1e-9 * 1000;
+    CSG_EPS = scale * 1e-9 * 1000;
     const A = tree(polysOf(a));
     const B = tree(polysOf(b));
     if (op === 'union') {

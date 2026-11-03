@@ -24,7 +24,7 @@ interface Plane {
   w: number;
 }
 
-let EPS = 1e-6; // set per operation, relative to the size of the two solids
+let CSG_EPS = 1e-6; // set per operation, relative to the size of the two solids
 
 const unit = (v: Vec3): Vec3 => {
   const l = len(v) || 1;
@@ -49,7 +49,7 @@ const splitPoly = (plane: Plane, p: Poly, cf: Poly[], cb: Poly[], front: Poly[],
   let type = 0;
   const types = p.pts.map((q) => {
     const t = dot(plane.n, q) - plane.w;
-    const k = t < -EPS ? BACK : t > EPS ? FRONT : COPLANAR;
+    const k = t < -CSG_EPS ? BACK : t > CSG_EPS ? FRONT : COPLANAR;
     type |= k;
     return k;
   });
@@ -209,7 +209,7 @@ export const boolean = (a: Mesh, b: Mesh, op: BooleanOp): Mesh => {
   const sa = bounds(a);
   const sb = bounds(b);
   const scale = Math.max(sa.radius, sb.radius, 1e-9) * 2 + len(sub(sa.center, sb.center));
-  EPS = scale * 1e-9 * 1000;
+  CSG_EPS = scale * 1e-9 * 1000;
   const A = tree(polysOf(a));
   const B = tree(polysOf(b));
   if (op === 'union') {
