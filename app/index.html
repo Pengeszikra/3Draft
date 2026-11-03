@@ -142,6 +142,7 @@
       cursor: pointer;
     }
     button:hover { border-color: var(--muted); }
+    .actions button.on { border-color: var(--cursor); }
     button:focus, button:focus-visible { outline: none; }
 
     /* Phones and tablets: the stage fills the screen, no text, four round translucent buttons. */
@@ -219,12 +220,13 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
       <button id="travel" type="button">Travel</button>
       <button id="lines" type="button">Edges</button>
+      <button id="keys" type="button" title="Show the shortcut hints (?)">Keys</button>
       <button id="gpuBtn" type="button">WebGPU</button>
       <button id="light" type="button">Light</button>
       <button id="undo" type="button">Undo</button>
@@ -359,7 +361,7 @@
       travel = {
         start: performance.now(),
         from: { center: [...fit.center], radius: fit.radius, dist: fit.dist ?? orbitDist(fit.radius), yaw, pitch },
-        to: { ...to, dist: orbitDist(to.radius), yaw: turnBy(yaw, to.yaw ?? yaw), pitch: to.pitch ?? pitch },
+        to: { ...to, dist: to.dist ?? orbitDist(to.radius), keepDist: to.dist !== undefined, yaw: turnBy(yaw, to.yaw ?? yaw), pitch: to.pitch ?? pitch },
       };
       fly = false;
       stop();
@@ -378,7 +380,7 @@
       pitch = mix(from.pitch, to.pitch);
       if (t >= 1) {
         travel = null;
-        delete fit.dist; // back to the normal orbit framing
+        if (!to.keepDist) delete fit.dist; // back to the normal orbit framing (a flown pose keeps its own)
       } else redraw();
     };
 
@@ -811,13 +813,30 @@
       redraw();
     };
     // /: only the model under the cross stays in the picture; / again brings the whole scene back.
+    // The camera pose from before the isolation is remembered; leaving it flies back exactly there.
+    let beforeSolo = null;
     const isolate = () => {
-      if (solo) solo = null;
-      else if (hit && owner(hit.face)) solo = owner(hit.face).id;
-      else return;
+      if (solo) {
+        solo = null;
+        rebuild();
+        const v = beforeSolo;
+        beforeSolo = null;
+        if (v) {
+          focused = v.focused;
+          goTo({ center: v.center, radius: v.radius, dist: v.dist, yaw: v.yaw, pitch: v.pitch });
+          fly = v.fly; // goTo leaves the fly mode; a flown pose goes back to it
+        } else {
+          focused = false;
+          goTo({ ...overview(), yaw, pitch });
+        }
+        return;
+      }
+      if (!(hit && owner(hit.face))) return;
+      beforeSolo = { center: [...fit.center], radius: fit.radius, dist: fit.dist, yaw, pitch, fly, focused };
+      solo = owner(hit.face).id;
       rebuild();
       focused = false;
-      goTo({ ...overview(), yaw, pitch }); // frame what is left (or everything again), keep the viewing direction
+      goTo({ ...overview(), yaw, pitch }); // frame the isolated object, keep the viewing direction
     };
     // Shift+press: the face under the cross (the palette must be on). Shift+double click: its whole model.
     const paintFace = () => {
@@ -885,6 +904,9 @@
       } else if (e.key === 'v' || e.key === 'V') {
         e.preventDefault();
         if (!e.repeat) spider();
+      } else if (e.key === '?') {
+        e.preventDefault();
+        if (!e.repeat) toggleHint();
       } else if (e.key === '/') {
         e.preventDefault();
         if (!e.repeat) isolate();
@@ -922,6 +944,13 @@
     document.getElementById('fabDelete').addEventListener('click', remove);
     document.getElementById('fabMode').addEventListener('click', toggleMode);
     document.getElementById('lines').addEventListener('click', () => stage.classList.toggle('clean'));
+    // ?: the shortcut hints, hidden at the start
+    const hintEl = document.getElementById('hint');
+    const toggleHint = () => {
+      hintEl.hidden = !hintEl.hidden;
+      document.getElementById('keys').classList.toggle('on', !hintEl.hidden);
+    };
+    document.getElementById('keys').addEventListener('click', toggleHint);
     document.getElementById('gpuBtn').addEventListener('click', toggleMode);
     document.getElementById('light').addEventListener('click', turnLight);
     document.getElementById('undo').addEventListener('click', undo);

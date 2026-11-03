@@ -95,10 +95,11 @@ A single `app/index.html` plus a dependency-free static server (`app/serve.js`, 
 | `Space` | stop moving (all speeds to zero) |
 | `V` | Spider bar: two surface points joined by a thin prism |
 | `X`, `Backspace` | delete the object under the cross, undo |
-| `/` | only the object under the cross; again: the whole scene |
+| `/` | only the object under the cross; again: the whole scene, and the camera flies back to where it was before |
 | `P` | show / hide the materials; `Shift`+press paints a face, `Shift`+double click the whole object |
 | `T` | fly to the object under the cross; over nothing, or when too close or inside a model: out to the nearest object |
 | `H`, `G`, `L` | edges and points, SVG / WebGPU view, light |
+| `?` | show / hide the shortcut hints under the view (hidden at the start; also the `Keys` button) |
 
 **Materials (P).** Twelve starting materials (plaster, sand, wood, dark wood, concrete, slate, grass, brick, steel, gold, glass, lamp), four sliders (`metal`, `rough`, `alpha`, `emit`) and a colour for the selected one, `+ new` copies it. A painted face stores the material name, so editing a material changes every face made of it.
 
