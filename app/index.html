@@ -188,7 +188,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. Space puts a prism down there, or shoots one into empty space. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <aside id="palette" hidden aria-label="Material palette">
     <span>materials · shift+click: paint a face · shift+double click: the whole object</span>
@@ -203,7 +203,7 @@
 
   <div class="fab" aria-label="Controls">
     <button id="fabTravel" type="button" aria-label="Travel to the object under the cross (T)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
-    <button id="fabPlace" type="button" aria-label="Place or shoot a prism (Space)"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/></svg></button>
+    <button id="fabPlace" type="button" aria-label="Place or shoot a prism (M)"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/></svg></button>
     <button id="fabDelete" type="button" aria-label="Delete the prism under the cross (X)"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
     <button id="fabMode" type="button" aria-label="Switch SVG / WebGPU view (G)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg></button>
   </div>
@@ -219,7 +219,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · space: place · v: spider bar (two points) · x: delete the object · t: travel (t on nothing: stop) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint">drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -447,7 +447,7 @@
       return { center: b.center, radius: Math.max(b.radius * 1.05, 0.25) };
     };
 
-    // T: fly straight to the front of the object under the cross; T on nothing stops the movement.
+    // T: fly straight to the front of the object under the cross; T on nothing: out to the nearest object.
     const travelTo = () => {
       if (hit) {
         const b = bounds(objectAround(scene, hit.face));
@@ -458,8 +458,19 @@
           // no yaw/pitch: the view keeps its direction and the eye flies in a straight line
         });
       } else {
-        stop(); // T on nothing: zero the speed
-        redraw();
+        // Nothing under the cross (too close to a model, or inside one, where its faces are seen from behind):
+        // fly out to the object nearest to the eye and frame it from outside. Space is the stop key.
+        const eye = makeCamera(orbit({ yaw, pitch }), nothing, 100, fit).eye;
+        let best = null;
+        for (const { obj } of owners) {
+          if (!obj.mesh.positions.length) continue;
+          const b = bounds(obj.mesh);
+          const gap = Math.hypot(...b.center.map((c, i) => c - eye[i])) - b.radius; // < 0: the eye is inside its sphere
+          if (!best || gap < best.gap) best = { gap, b };
+        }
+        if (!best) return;
+        focused = true;
+        goTo({ center: best.b.center, radius: Math.max(best.b.radius * 1.15, 0.12) });
       }
     };
 
@@ -863,6 +874,12 @@
         e.preventDefault();
         if (!e.repeat) speed(...fk);
       } else if (e.key === ' ') {
+        e.preventDefault();
+        if (!e.repeat) {
+          stop(); // Space: stop moving
+          redraw();
+        }
+      } else if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         if (!e.repeat) place();
       } else if (e.key === 'v' || e.key === 'V') {

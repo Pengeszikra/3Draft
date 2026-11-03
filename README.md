@@ -91,12 +91,13 @@ A single `app/index.html` plus a dependency-free static server (`app/serve.js`, 
 | key | does |
 | --- | --- |
 | `w a s d r f` | fly: forward, left, back, right, up, down; every press is a speed step, the opposite key slows down |
-| `Space` | place a prism on the surface (or shoot one into empty space) |
+| `M` | place a prism on the surface (or shoot one into empty space) |
+| `Space` | stop moving (all speeds to zero) |
 | `V` | Spider bar: two surface points joined by a thin prism |
 | `X`, `Backspace` | delete the object under the cross, undo |
 | `/` | only the object under the cross; again: the whole scene |
 | `P` | show / hide the materials; `Shift`+press paints a face, `Shift`+double click the whole object |
-| `T` | fly to the object under the cross; over nothing: stop |
+| `T` | fly to the object under the cross; over nothing, or when too close or inside a model: out to the nearest object |
 | `H`, `G`, `L` | edges and points, SVG / WebGPU view, light |
 
 **Materials (P).** Twelve starting materials (plaster, sand, wood, dark wood, concrete, slate, grass, brick, steel, gold, glass, lamp), four sliders (`metal`, `rough`, `alpha`, `emit`) and a colour for the selected one, `+ new` copies it. A painted face stores the material name, so editing a material changes every face made of it.
