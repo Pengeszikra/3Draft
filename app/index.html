@@ -94,7 +94,8 @@
       flex: 1;
       min-height: 0;
       display: grid;
-      place-items: center;
+      grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+      place-items: unsafe center;
       overflow: hidden;
       cursor: crosshair;
       user-select: none;
@@ -193,7 +194,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <aside id="boolq" hidden aria-label="Boolean operation">
     <span id="boolText"></span>
@@ -236,7 +237,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: edges · g: svg/gpu · l: light · backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: edges · g: svg/gpu · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -512,9 +513,15 @@
       const r = stage.getBoundingClientRect();
       const touchy = matchMedia('(pointer: coarse), (max-width: 640px)').matches;
       // on a phone the drawing is a little larger than the short side and the rest of the screen is panel color
-      const size = Math.max(160, Math.min(900, Math.floor(Math.min(r.width, r.height) * (touchy ? 1.12 : 1))));
+      // on a desktop the drawing covers the whole stage (the square's long side), the eye backs off to keep the framing
+      const cover = touchy ? 1.12 : Math.max(r.width, r.height) / Math.max(1, Math.min(r.width, r.height));
+      const size = Math.max(160, Math.min(1800, Math.floor(Math.min(r.width, r.height) * cover)));
       if (!pointer && touchy) pointer = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; // no mouse: aim at the middle
       const view = orbit({ yaw, pitch }); // the camera orbits, the scene stays in object space
+      const base = Math.max(160, Math.min(900, Math.floor(Math.min(r.width, r.height) * (touchy ? 1.12 : 1))));
+      const eye0 = makeCamera(view, nothing, 100, fit).eye;
+      const dist = Math.hypot(...eye0.map((e, i) => e - fit.center[i]));
+      const shown_fit = size > base ? { ...fit, dist: dist * (size / base) } : fit;
 
       const now = performance.now();
       land(now);
@@ -528,7 +535,7 @@
         // the square panel is centered in the stage
         const x = pointer.x - r.left - (r.width - size) / 2;
         const y = pointer.y - r.top - (r.height - size) / 2;
-        cam = makeCamera(view, scene, size, fit);
+        cam = makeCamera(view, scene, size, shown_fit);
         hit = kernel ? kernel.pick(scene, cam, x, y) : pick(scene, cam, x, y);
         cam.at = { x, y };
       }
@@ -562,16 +569,16 @@
             palette: paletteMap,
             instances: { mesh: PROTO, data: instances(now, flights.length > 0) },
             size,
-            fit,
+            fit: shown_fit,
             background: rgb,
             light: { direction: [Math.sin(a) * 0.6, 0.8, Math.cos(a) * 0.6] },
           });
         renderGpu();
         layer.className = 'over';
-        layer.innerHTML = renderView(nothing, view, { size, fit, marks });
+        layer.innerHTML = renderView(nothing, view, { size, fit: shown_fit, marks });
       } else {
         layer.className = '';
-        layer.innerHTML = renderView(shown, view, { size, fit, marks, occlude: true, palette: paletteMap });
+        layer.innerHTML = renderView(shown, view, { size, fit: shown_fit, marks, occlude: true, palette: paletteMap });
       }
       fabMode.classList.toggle('on', mode === 'gpu' && Boolean(gpu));
       speedEl.textContent = `${level.f}·${level.r}·${level.u}`;
@@ -582,7 +589,7 @@
         ? `surface <b>face ${hit.face} · n ${hit.normal.map(signed).join(' ')}</b>`
         : 'surface <b>–</b>';
     };
-    // SVG is the default view; WebGPU is set up on first use and falls back to SVG if it fails.
+    // WebGPU is the starting view (set up right after the first frame); it falls back to SVG if it is unavailable or lost.
     let mode = 'svg';
     let gpu = null;
     let lightAngle = 0.8;
@@ -1035,7 +1042,7 @@
       } else if (e.key === 'h' || e.key === 'H') {
         e.preventDefault();
         stage.classList.toggle('clean');
-      } else if (e.key === 'Backspace') {
+      } else if (e.key === 'Backspace' || e.key === 'u' || e.key === 'U') {
         e.preventDefault();
         undo();
       } else if (moves[e.key]) {
@@ -1063,6 +1070,7 @@
     document.getElementById('undo').addEventListener('click', undo);
     document.getElementById('reset').addEventListener('click', reset);
     new ResizeObserver(redraw).observe(stage);
+    setMode('gpu'); // the starting view; falls back to SVG on its own
 
     // ?debug: read the WebGPU frame back through an offscreen texture (a headless browser shows no canvas)
     if (new URLSearchParams(location.search).has('debug')) {

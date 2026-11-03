@@ -96,7 +96,8 @@ A single `app/index.html` plus a dependency-free static server (`app/serve.js`, 
 | `Space` | stop moving (all speeds to zero) |
 | `O` | boolean: `O` marks an object (orange), `O` on another one (green) asks: `1` union, `2` A − B, `3` B − A, `4` intersect, `5`/`Esc` cancel; the result replaces both, Backspace brings them back |
 | `V` | Spider bar: two surface points joined by a thin prism |
-| `X`, `Backspace` | delete the object under the cross, undo |
+| `X` | delete the object under the cross |
+| `U`, `Backspace` | undo |
 | `/` | only the object under the cross; again: the whole scene, and the camera flies back to where it was before |
 | `P` | show / hide the materials; `Shift`+press paints a face, `Shift`+double click the whole object |
 | `T` | fly to the object under the cross; over nothing, or when too close or inside a model: out to the nearest object |
