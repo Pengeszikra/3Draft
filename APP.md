@@ -25,7 +25,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `T` | fly to the object under the cross. Over nothing, or when too close or inside a model: out to the nearest object |
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
 | `M` | place a prism on the surface under the cross, or shoot one into empty space |
-| `V` | Spider bar: the first `V` remembers a surface point, the second joins the two with a thin prism. `V` over empty space forgets the first point |
+| `V` | Spider bar: the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
 | `X`, `Delete` | delete the object under the cross |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
 | `P` | show / hide the material palette |

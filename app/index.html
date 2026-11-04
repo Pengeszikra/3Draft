@@ -708,7 +708,7 @@
       redraw();
     };
     // V: the Spider bar. The first V remembers the surface point under the cross, the second one
-    // joins the two points with a thin prism (half the base of a shot prism, a bit darker brown).
+    // joins the two points with a thin prism (a quarter of the base of a shot prism) made of the selected material.
     // V over empty space forgets a pending first point.
     let spiderFrom = null;
     const spider = () => {
@@ -732,10 +732,11 @@
       const zl = Math.hypot(...ez0);
       const ez = ez0.map((c) => c / zl);
       const ex = [ey[1] * ez[2] - ey[2] * ez[1], ey[2] * ez[0] - ey[0] * ez[2], ey[0] * ez[1] - ey[1] * ez[0]];
-      const base = LEG.base / 2;
+      const base = LEG.base / 4;
       const at = a.map((c, i) => c + d[i] / 2);
-      const color = brown(true);
-      const mesh = box({ size: [base, length, base], at, axes: [ex, ey, ez], color });
+      const m = materials[current];
+      const solid = box({ size: [base, length, base], at, axes: [ex, ey, ez], color: m.color });
+      const mesh = { ...solid, faces: solid.faces.map((f) => ({ ...f, mat: m.name })) };
       // the shared prototype is base x 3*base x base: scaled axes turn it into this bar
       const sx = base / LEG.base;
       const sy = length / (3 * LEG.base);
