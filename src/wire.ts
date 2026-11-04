@@ -209,3 +209,26 @@ export const wireFromSegments = (mesh: Mesh, wire: Wire, segments: [Vec3, Vec3][
   }
   return { mesh: m, wire: w };
 };
+
+/**
+ * Moves several vertices at once: `moves` is [[index, newPosition], ...]. A polygon whose vertices all moved by the
+ * same step (a face dragged as a whole) stays as it is; any other polygon that uses a moved vertex becomes triangles,
+ * so every face stays planar.
+ */
+export const moveVertexSet = (mesh: Mesh, moves: [number, Vec3][]): Mesh => {
+  const to = new Map(moves);
+  const positions = mesh.positions.map((p, k) => to.get(k) ?? p);
+  const step = (v: number): Vec3 => sub(positions[v], mesh.positions[v]);
+  const faces: Face[] = [];
+  for (const f of mesh.faces) {
+    if (f.v.length <= 3 || !f.v.some((v) => to.has(v))) {
+      faces.push(f);
+      continue;
+    }
+    const first = step(f.v[0]);
+    const rigid = f.v.every((v) => len(sub(step(v), first)) < 1e-9 * (bounds(mesh).radius || 1));
+    if (rigid) faces.push(f);
+    else for (let j = 1; j < f.v.length - 1; j++) faces.push({ ...f, v: [f.v[0], f.v[j], f.v[j + 1]] });
+  }
+  return withFaces(mesh, faces, positions);
+};

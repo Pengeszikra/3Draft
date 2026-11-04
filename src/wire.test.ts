@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { box, validate, insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, nearestSurface, wireFromSegments } from './index.js';
+import { box, validate, insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, nearestSurface, wireFromSegments, moveVertexSet } from './index.js';
 
 const cube = () => box({ size: [2, 2, 2], at: [0, 0, 0], color: '#ff0000' });
 const topFace = (m: ReturnType<typeof cube>) => m.faces.findIndex((f) => f.v.every((v) => m.positions[v][1] > 0.99));
@@ -79,4 +79,15 @@ test('segments drawn near a surface become wire on it, ends in the air stay free
   assert.ok(Math.abs(onTop[1] - 1) < 1e-9, 'the end was put on the surface');
   // the vertex shared by both segments is one vertex
   assert.equal(new Set(r.wire.flat()).size, 3);
+});
+
+test('moving a whole face keeps it flat, its neighbours turn into triangles, the cube stays closed', () => {
+  const m = cube();
+  const f = topFace(m);
+  const ids = m.faces[f].v;
+  const moved = moveVertexSet(m, ids.map((v) => [v, [m.positions[v][0], m.positions[v][1] + 0.5, m.positions[v][2]]]));
+  assert.ok(moved.faces.some((g) => g.v.length === 4 && g.v.every((v) => Math.abs(moved.positions[v][1] - 1.5) < 1e-9)), 'the dragged face is still one quad');
+  const v = validate(moved);
+  assert.ok(v.closed && v.nonPlanarFaces.length === 0, v.notes.join('; '));
+  assert.ok(Math.abs((v.volume ?? 0) - 10) < 1e-9, 'taller by 0.5: 2*2*2.5');
 });

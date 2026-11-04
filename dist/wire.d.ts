@@ -49,3 +49,9 @@ export declare const wireFromSegments: (mesh: Mesh, wire: Wire, segments: [Vec3,
     mesh: Mesh;
     wire: Wire;
 };
+/**
+ * Moves several vertices at once: `moves` is [[index, newPosition], ...]. A polygon whose vertices all moved by the
+ * same step (a face dragged as a whole) stays as it is; any other polygon that uses a moved vertex becomes triangles,
+ * so every face stays planar.
+ */
+export declare const moveVertexSet: (mesh: Mesh, moves: [number, Vec3][]) => Mesh;

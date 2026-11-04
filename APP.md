@@ -63,12 +63,17 @@ The idea: there is a base model, and you refine or extend it by drawing lines on
 - **Two points on one face cut it.** The line becomes a real edge of the mesh: the surface gets detail exactly where you drew.
 - **Points in the air extend the model.** With a line in progress, `V` over empty space puts the next point on the plane that faces the camera through the last point. So you can draw a new part out from the model, and lines that end on existing vertices are attached to it.
 - **`Enter` closes a loop into a face.** The shortest closed loop (up to 8 lines) through the last line becomes a face with the selected material, wound away from the middle of the object. A loop of 4 or more becomes triangles, so faces stay flat.
-- **Move a vertex:** drag it with the mouse (it slides in the plane that faces the camera), or select it and drag a gizmo arrow for one axis. Everything that uses the vertex follows: lines, faces, and the base surface, so this is how you reshape the original model. A polygon that gets a moved vertex turns into triangles.
+- **Nothing moves by default** (and never while you draw with `V`). Moving is Blender-style, with a key per mode, and every drag is one `U` step:
+  - `1` **move points:** hover a vertex (white cross), drag it.
+  - `2` **move lines:** hover an edge or a line (white), drag it; both ends move.
+  - `3` **move faces:** hover a face (white outline), drag it; all its vertices move together and the face stays flat.
+  - The drag slides in the plane that faces the camera. A selected point, line or face (orange) also gets a gizmo: drag an arrow to move along one axis. Everything that uses the moved vertices follows: lines, faces and the base surface, so this is how you reshape the original model. A polygon that gets only some of its vertices moved turns into triangles.
+  - `V` goes back to drawing (and drops the selection); `Esc` does the same.
 - **`B` turns the spider bars into lines.** The prisms made with `V` in object mode (they are objects named `bar`) become lines on the edited object: each end snaps to a vertex that is close, or is put on the surface if it is near it, or stays a free point. The bars are removed (one `U` brings them back). So a plan sketched as bars can be worked on as a wire.
-- **`X`** removes the lines at the selected vertex (or the last line); the points stay. `U` undoes every step, one key press at a time.
-- **`Esc`** stops the line you are drawing; `Esc` again, or `Tab`, leaves edit mode. The lines are only shown in edit mode.
+- **`X`** removes the lines at the selected point or line (or the last line); the points stay. `U` undoes every step, one key press at a time.
+- **`Esc`** stops the line you are drawing; then it leaves a move mode back to drawing; then it leaves edit mode (so does `Tab`). The lines are only shown in edit mode.
 
-The lines live next to the mesh as `wire: [[a, b], ...]` (vertex pairs) in the object's document, so the AI sees them too. The geometry is in the engine (README part 1): `insertVertex`, `cutFace`, `moveVertex`, `fillLoop`, `addLine`, `findLoop`.
+The lines live next to the mesh as `wire: [[a, b], ...]` (vertex pairs) in the object's document, so the AI sees them too. The geometry is in the engine (README part 1): `insertVertex`, `cutFace`, `moveVertex`, `moveVertexSet`, `fillLoop`, `addLine`, `findLoop`.
 
 Limits for now: a face made from a non-flat or non-convex loop is only as good as its triangle fan, there is no mirror yet, and the lines are not deformation weights (a surface does not bend around a moved vertex, it just follows the vertices that are in the mesh).
 
