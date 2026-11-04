@@ -138,3 +138,82 @@ export const findLoop = (wire, [a, b], max = 8) => {
         path.unshift(v);
     return path.length <= max ? path : null;
 };
+/** The point of triangle a-b-c closest to p (Ericson, Real-Time Collision Detection). */
+const closestOnTriangle = (p, a, b, c) => {
+    const ab = sub(b, a);
+    const ac = sub(c, a);
+    const ap = sub(p, a);
+    const d1 = dot(ab, ap);
+    const d2 = dot(ac, ap);
+    if (d1 <= 0 && d2 <= 0)
+        return a;
+    const bp = sub(p, b);
+    const d3 = dot(ab, bp);
+    const d4 = dot(ac, bp);
+    if (d3 >= 0 && d4 <= d3)
+        return b;
+    const vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0)
+        return add(a, scale(ab, d1 / (d1 - d3)));
+    const cp = sub(p, c);
+    const d5 = dot(ab, cp);
+    const d6 = dot(ac, cp);
+    if (d6 >= 0 && d5 <= d6)
+        return c;
+    const vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0)
+        return add(a, scale(ac, d2 / (d2 - d6)));
+    const va = d3 * d6 - d5 * d4;
+    if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0)
+        return add(b, scale(sub(c, b), (d4 - d3) / (d4 - d3 + (d5 - d6))));
+    const denom = 1 / (va + vb + vc);
+    return add(a, add(scale(ab, vb * denom), scale(ac, vc * denom)));
+};
+/**
+ * The surface point of the mesh nearest to `p`, if it is within `tolerance`: { face, point } (point lies on the face),
+ * otherwise null. For placing a point that was drawn near a surface on the surface.
+ */
+export const nearestSurface = (mesh, p, tolerance) => {
+    let best = null;
+    mesh.faces.forEach((f, face) => {
+        const pts = f.v.map((v) => mesh.positions[v]);
+        for (let j = 1; j < pts.length - 1; j++) {
+            const q = closestOnTriangle(p, pts[0], pts[j], pts[j + 1]);
+            const d = len(sub(q, p));
+            if (d <= tolerance && (!best || d < best.d))
+                best = { face, point: q, d };
+        }
+    });
+    return best ? { face: best.face, point: best.point } : null;
+};
+/**
+ * Turns line segments (pairs of points) into wire on the mesh: each end becomes a vertex (an existing one within
+ * `tolerance`, a new one on the surface when it is near it, otherwise a free point in the air), each segment a line,
+ * and two ends on one face cut that face. Returns the new mesh and wire.
+ */
+export const wireFromSegments = (mesh, wire, segments, tolerance) => {
+    let m = mesh;
+    let w = wire;
+    const vertexAt = (p) => {
+        const near = m.positions.findIndex((q) => len(sub(q, p)) <= tolerance);
+        if (near >= 0)
+            return near;
+        const s = nearestSurface(m, p, tolerance);
+        if (s) {
+            const r = insertVertex(m, s.face, s.point);
+            m = r.mesh;
+            return r.index;
+        }
+        m = { ...m, positions: [...m.positions, p] };
+        return m.positions.length - 1;
+    };
+    for (const [a, b] of segments) {
+        const ia = vertexAt(a);
+        const ib = vertexAt(b);
+        if (ia === ib)
+            continue;
+        w = addLine(w, ia, ib);
+        m = cutFace(m, ia, ib).mesh;
+    }
+    return { mesh: m, wire: w };
+};

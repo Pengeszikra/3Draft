@@ -209,7 +209,7 @@
 
   <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light, C switches the filmic look. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H puts the move gizmo (helper) on the object under the cross with the world axes, the next H switches to the object's own axes, the third takes it off; drag an arrow to move the object; E toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
-  <div id="editbar" hidden><b id="editText"></b> <span>V: line from point to point (snaps to points; two points on one face cut it) · drag a point · Enter: close a loop into a face · X: remove lines · Esc: stop the line, again: leave · Tab: leave</span></div>
+  <div id="editbar" hidden><b id="editText"></b> <span>V: line from point to point (snaps to points; two points on one face cut it) · drag a point · Enter: close a loop into a face · B: turn the V bars into lines · X: remove lines · Esc: stop the line, again: leave · Tab: leave</span></div>
 
   <aside id="boolq" hidden aria-label="Boolean operation">
     <span id="boolText"></span>
@@ -252,7 +252,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, drag a point) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, drag a point) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -276,7 +276,7 @@
   </footer>
 
   <script type="module">
-    import { boolean, insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
+    import { boolean, insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, wireFromSegments, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
     import { LEG, table } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -1357,6 +1357,35 @@
       noteEdit(`face made from ${loop.length} lines`);
       redraw();
     };
+    // B: the Spider bars made in object mode (V) become lines on the edited object, so a plan drawn as prisms can be
+    // worked on as a wire: the ends snap to vertices, or are put on the surface, or stay in the air.
+    const barEnds = (o) => {
+      // a bar is a box: its ends are the middles of the two faces farthest apart
+      const { positions: P, faces: F } = o.mesh;
+      const mid = F.map((f) => f.v.reduce((t, i) => t.map((c, k) => c + P[i][k] / f.v.length), [0, 0, 0]));
+      let far = 0;
+      let pair = null;
+      for (let i = 0; i < F.length; i++) for (let j = i + 1; j < F.length; j++) {
+        const d = Math.hypot(...mid[i].map((c, k) => c - mid[j][k]));
+        if (d > far) ((far = d), (pair = [mid[i], mid[j]]));
+      }
+      return pair;
+    };
+    const barsToLines = () => {
+      const bars = allObjects().filter((o) => o.id !== editing.id && o.name === 'bar');
+      if (!bars.length) return noteEdit('no bars to turn into lines (V in object mode makes them)');
+      const r = wireFromSegments(editing.mesh, editing.wire ?? [], bars.map(barEnds), 0.03 * bounds(editing.mesh).radius);
+      asOneStep(() => {
+        commit(r.mesh, r.wire);
+        for (const b of bars) {
+          erase(b);
+          history.push(() => has(b) || restore(b));
+        }
+      });
+      wireFrom = null;
+      noteEdit(`${bars.length} bar${bars.length === 1 ? '' : 's'} became lines`);
+      redraw();
+    };
     // X: the lines at the selected vertex (or the last line) go; the points stay
     const eraseLines = () => {
       const wire = editing.wire ?? [];
@@ -1481,6 +1510,9 @@
       } else if (editing && e.key === 'Escape') {
         if (wireFrom !== null) ((wireFrom = null), redraw());
         else leaveEdit();
+      } else if (editing && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        barsToLines();
       } else if (editing && (e.key === 'x' || e.key === 'X' || e.key === 'Delete')) {
         e.preventDefault();
         eraseLines();

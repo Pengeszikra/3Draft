@@ -64,6 +64,7 @@ The idea: there is a base model, and you refine or extend it by drawing lines on
 - **Points in the air extend the model.** With a line in progress, `V` over empty space puts the next point on the plane that faces the camera through the last point. So you can draw a new part out from the model, and lines that end on existing vertices are attached to it.
 - **`Enter` closes a loop into a face.** The shortest closed loop (up to 8 lines) through the last line becomes a face with the selected material, wound away from the middle of the object. A loop of 4 or more becomes triangles, so faces stay flat.
 - **Move a vertex:** drag it with the mouse (it slides in the plane that faces the camera), or select it and drag a gizmo arrow for one axis. Everything that uses the vertex follows: lines, faces, and the base surface, so this is how you reshape the original model. A polygon that gets a moved vertex turns into triangles.
+- **`B` turns the spider bars into lines.** The prisms made with `V` in object mode (they are objects named `bar`) become lines on the edited object: each end snaps to a vertex that is close, or is put on the surface if it is near it, or stays a free point. The bars are removed (one `U` brings them back). So a plan sketched as bars can be worked on as a wire.
 - **`X`** removes the lines at the selected vertex (or the last line); the points stay. `U` undoes every step, one key press at a time.
 - **`Esc`** stops the line you are drawing; `Esc` again, or `Tab`, leaves edit mode. The lines are only shown in edit mode.
 

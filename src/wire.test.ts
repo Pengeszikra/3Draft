@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { box, validate, insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop } from './index.js';
+import { box, validate, insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, nearestSurface, wireFromSegments } from './index.js';
 
 const cube = () => box({ size: [2, 2, 2], at: [0, 0, 0], color: '#ff0000' });
 const topFace = (m: ReturnType<typeof cube>) => m.faces.findIndex((f) => f.v.every((v) => m.positions[v][1] > 0.99));
@@ -66,4 +66,17 @@ test('lines close into a face, wound away from the middle of the mesh', () => {
   const normal = [(p[1][1] - p[0][1]) * (p[2][2] - p[0][2]) - (p[1][2] - p[0][2]) * (p[2][1] - p[0][1])];
   assert.ok(normal[0] > 0, 'faces +x, away from the cube');
   assert.equal(findLoop([[0, 1], [1, 2]], [0, 1]), null, 'an open chain has no loop');
+});
+
+test('segments drawn near a surface become wire on it, ends in the air stay free', () => {
+  const m = cube();
+  assert.ok(nearestSurface(m, [0.3, 1.02, 0.1], 0.05), 'near the top');
+  assert.equal(nearestSurface(m, [0.3, 1.5, 0.1], 0.05), null, 'too far');
+  const r = wireFromSegments(m, [], [[[0.3, 1.01, 0.2], [-0.4, 1.0, 0.3]], [[-0.4, 1.0, 0.3], [-0.4, 2, 0.3]]], 0.05);
+  assert.equal(r.wire.length, 2);
+  assert.equal(r.mesh.positions.length, m.positions.length + 3, 'two on the surface, one in the air');
+  const onTop = r.mesh.positions[m.positions.length];
+  assert.ok(Math.abs(onTop[1] - 1) < 1e-9, 'the end was put on the surface');
+  // the vertex shared by both segments is one vertex
+  assert.equal(new Set(r.wire.flat()).size, 3);
 });

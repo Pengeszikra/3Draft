@@ -32,3 +32,20 @@ export declare const addLine: (wire: Wire, a: number, b: number) => Wire;
  * Close it with fillLoop.
  */
 export declare const findLoop: (wire: Wire, [a, b]: [number, number], max?: number) => number[] | null;
+/**
+ * The surface point of the mesh nearest to `p`, if it is within `tolerance`: { face, point } (point lies on the face),
+ * otherwise null. For placing a point that was drawn near a surface on the surface.
+ */
+export declare const nearestSurface: (mesh: Mesh, p: Vec3, tolerance: number) => {
+    face: number;
+    point: Vec3;
+} | null;
+/**
+ * Turns line segments (pairs of points) into wire on the mesh: each end becomes a vertex (an existing one within
+ * `tolerance`, a new one on the surface when it is near it, otherwise a free point in the air), each segment a line,
+ * and two ends on one face cut that face. Returns the new mesh and wire.
+ */
+export declare const wireFromSegments: (mesh: Mesh, wire: Wire, segments: [Vec3, Vec3][], tolerance: number) => {
+    mesh: Mesh;
+    wire: Wire;
+};
