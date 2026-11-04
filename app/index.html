@@ -336,6 +336,9 @@
     let hostObjects = [];
     let mine = [];
     const allObjects = () => [...hostObjects, ...mine];
+    // objects are told apart by id: a db snapshot (also the echo of our own write) hands out new instances
+    const live = (o) => allObjects().find((x) => x.id === o.id);
+    const has = (o) => Boolean(live(o));
     let scene = nothing; // what is on screen and what picking sees: all objects (or the isolated one)
     let owners = []; // [{ obj, start, end }]: which object owns which faces of `scene`
     let cam = null; // camera of the last drawn frame
@@ -573,7 +576,7 @@
       const handles = gizmoHandles();
       const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
       for (const [o, color] of [[boolFrom, '#e8590c'], [boolPair?.b, '#2f9e44']]) {
-        if (!o || !allObjects().includes(o)) continue;
+        if (!o || !has(o)) continue;
         const lo = [Infinity, Infinity, Infinity];
         const hi = [-Infinity, -Infinity, -Infinity];
         for (const p of o.mesh.positions) p.forEach((c, i) => ((lo[i] = Math.min(lo[i], c)), (hi[i] = Math.max(hi[i], c))));
@@ -584,7 +587,7 @@
         }
         marks.push({ name: 'bool', color, width: 3, lines: edges });
       }
-      if (editing && allObjects().includes(editing)) {
+      if (editing && has(editing)) {
         const P = editing.mesh.positions;
         const e = fit.radius * 0.012;
         const cross = (q, k = 1) => [[[q[0] - e * k, q[1], q[2]], [q[0] + e * k, q[1], q[2]]], [[q[0], q[1] - e * k, q[2]], [q[0], q[1] + e * k, q[2]]], [[q[0], q[1], q[2] - e * k], [q[0], q[1], q[2] + e * k]]];
@@ -797,7 +800,8 @@
       rebuild();
       return obj;
     };
-    const change = (obj, mesh, wire = obj.wire) => {
+    const change = (stale, mesh, wire = stale.wire) => {
+      const obj = live(stale) ?? stale;
       obj.mesh = mesh;
       obj.wire = wire;
       if (obj.host) save(obj, () => col.doc(obj.id).set(docOf(obj)));
@@ -807,12 +811,13 @@
       const o = hit && owner(hit.face);
       if (!o) return;
       erase(o);
-      history.push(() => allObjects().includes(o) || restore(o));
+      history.push(() => has(o) || restore(o));
       redraw();
     };
-    const erase = (o) => {
-      hostObjects = hostObjects.filter((x) => x !== o);
-      mine = mine.filter((x) => x !== o);
+    const erase = (stale) => {
+      const o = live(stale) ?? stale;
+      hostObjects = hostObjects.filter((x) => x.id !== o.id);
+      mine = mine.filter((x) => x.id !== o.id);
       if (o.host) save(o, () => col.doc(o.id).delete());
       rebuild();
     };
@@ -834,7 +839,7 @@
       asOneStep(() =>
         all.forEach((o) => {
           erase(o);
-          history.push(() => allObjects().includes(o) || restore(o));
+          history.push(() => has(o) || restore(o));
         }),
       );
       reset();
@@ -898,7 +903,7 @@
         boolFrom = null;
         return redraw();
       }
-      if (!boolFrom || !allObjects().includes(boolFrom) || boolFrom === o) {
+      if (!boolFrom || !has(boolFrom) || boolFrom === o) {
         boolFrom = o;
         return redraw();
       }
@@ -1060,7 +1065,7 @@
       const m = materials[current];
       const base = owners.find((o) => o.obj === obj).start;
       const before = obj.mesh;
-      history.push(() => allObjects().includes(obj) && change(obj, before));
+      history.push(() => has(obj) && change(obj, before));
       change(obj, { ...obj.mesh, faces: obj.mesh.faces.map((f, i) => (!faces || faces.has(i + base) ? { ...f, color: m.color, mat: m.name } : f)) });
       redraw();
     };
@@ -1113,10 +1118,10 @@
     const gizmoFrame = () => {
       if (editing) {
         // while editing the gizmo belongs to the selected vertex
-        if (vsel === null || !allObjects().includes(editing) || vsel >= editing.mesh.positions.length) return (vsel = null);
+        if (vsel === null || !has(editing) || vsel >= editing.mesh.positions.length) return (vsel = null);
         return { c: editing.mesh.positions[vsel], L: fit.radius * 0.08, axes: AXES };
       }
-      if (!gizmo || !allObjects().includes(gizmo)) return (gizmo = null);
+      if (!gizmo || !has(gizmo)) return (gizmo = null);
       const lo = [Infinity, Infinity, Infinity];
       const hi = [-Infinity, -Infinity, -Infinity];
       for (const q of gizmo.mesh.positions) q.forEach((c, i) => ((lo[i] = Math.min(lo[i], c)), (hi[i] = Math.max(hi[i], c))));
@@ -1234,7 +1239,7 @@
       const mesh = g.vertex === null ? obj.mesh : moveVertex(mesh0, g.vertex, obj.mesh.positions[g.vertex]);
       obj.mesh = mesh0;
       change(obj, mesh); // one write for the whole drag
-      history.push(() => allObjects().includes(obj) && change(obj, mesh0));
+      history.push(() => has(obj) && change(obj, mesh0));
     };
 
     // Edit mode (Tab): draw on the object under the cross. V puts points on its surface (or on a vertex that is already
@@ -1303,9 +1308,9 @@
     // one undo step for whatever a single key press changed
     const commit = (mesh, wire) => {
       const obj = editing;
-      const before = { mesh: obj.mesh, wire: obj.wire };
+      const before = { mesh: obj.mesh, wire: obj.wire ?? [] }; // (undefined would mean "keep the lines")
       change(obj, mesh, wire);
-      history.push(() => allObjects().includes(obj) && change(obj, before.mesh, before.wire));
+      history.push(() => has(obj) && change(obj, before.mesh, before.wire));
     };
     // the vertex a V press means: the one snapped to, a new one on the surface, or one in the air
     const vertexHere = (mesh) => {
@@ -1580,6 +1585,18 @@
     const applyScene = (data) => {
       hostObjects = (data.objects ?? []).map((o, n) => ({ id: o.id ?? o.name ?? `o${n}`, name: o.name ?? `o${n}`, mesh: o.mesh, wire: o.wire, host: true }));
       rebuild();
+      // a snapshot (also the echo of our own write) makes new objects: whatever points at one follows it by id
+      const same = (o) => (o ? allObjects().find((x) => x.id === o.id) ?? null : null);
+      editing = same(editing);
+      if (!editing) wireFrom = vsel = vdrag = null;
+      showBar();
+      gizmo = same(gizmo);
+      boolFrom = same(boolFrom);
+      if (boolPair) {
+        const pair = { a: same(boolPair.a), b: same(boolPair.b) };
+        if (pair.a && pair.b) boolPair = pair;
+        else closeBool();
+      }
       // the camera frames the scene once for a db (its snapshots also echo our own edits), at every push for MCP
       if (!focused && (!framed || data.rev !== 'db')) Object.assign(fit, overview());
       if (scene.faces.length) framed = true;
