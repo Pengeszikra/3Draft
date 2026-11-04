@@ -43,7 +43,7 @@ gpu.render(table, orbit({ yaw: -0.6, pitch: 0.45 }), { size: 600 });
 ![table sheet](examples/out/table.sheet.svg)
 
 - **SVG** is the deterministic preview (the same calls give the same text). Every `<polygon>` has `data-face` and `data-depth`, every `<circle>` has `data-v`. `occlude: true` paints into a small depth buffer first and sends only the faces and points that are seen (on the 5000-face house: 2793 -> about 680 polygons, 802 KB -> 175 KB, same picture).
-- **WebGPU** draws the same scene through the same camera (`viewProjection` is tested to hit the same pixels as `project`), with one shader, one light, alpha-to-coverage transparency and instancing.
+- **WebGPU** draws the same scene through the same camera (`viewProjection` is tested to hit the same pixels as `project`), with one shader, one light, real alpha blending (see-through faces in a second pass, sorted far to near) and instancing.
 - Cameras: `front`, `side`, `top` (orthographic) and `persp`; `orbit({ yaw, pitch })` is a turntable; any `{ dir, up, ortho }` works.
 - Faces are painter-sorted with plane tests; interpenetrating solids can show artifacts, hidden edges are not drawn, back-face culling assumes closed CCW meshes.
 
@@ -55,7 +55,7 @@ The palette is data: `{ name: { color, metal, rough, alpha, emit } }`. A face po
 |---|---|---|
 | `metal` 0..1 | paint ... metal | reflects sky and ground, tinted; strong highlight |
 | `rough` 0..1 | mirror ... matte | widens the highlight, blurs the reflection |
-| `alpha` 1..0 | solid ... invisible | alpha-to-coverage, one pass, no sorting (SVG: `fill-opacity`, and a see-through face hides nothing) |
+| `alpha` 1..0 | solid ... invisible | blended in a second pass, far to near (SVG: `fill-opacity`, and a see-through face hides nothing) |
 | `emit` 0..5 | lit ... glowing | up to 1 the colour fades to unshaded; above 1 (with `tonemap`) it is a light source, that many times brighter |
 
 Pass the palette to the renderers: `renderView(mesh, view, { palette })`, `gpu.render(mesh, view, { palette })` (a new object when an entry changes). SVG shows colour and alpha only.

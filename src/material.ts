@@ -11,7 +11,7 @@ export interface Material {
   metal?: number;
   /** 0 = mirror-like, 1 = matte; widens the highlight. */
   rough?: number;
-  /** 1 = solid, 0 = invisible. Drawn with alpha-to-coverage: one pass, no sorting. */
+  /** 1 = solid, 0 = invisible. Blended over what is behind it (WebGPU: a second pass, far to near). */
   alpha?: number;
   /** 0..5: how much the color glows on its own, unlit. Up to 1 it fades from lit to flat colour; above 1 (WebGPU `tonemap`) it is a light source: that many times brighter. */
   emit?: number;

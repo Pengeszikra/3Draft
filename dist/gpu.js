@@ -208,16 +208,31 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
         stepMode: 'instance',
         attributes: [3, 4, 5, 6, 7].map((loc, k) => ({ shaderLocation: loc, offset: k * 12, format: 'float32x3' })),
     };
-    const make = (entry, buffers) => device.createRenderPipeline({
+    const make = (entry, buffers, glass = false) => device.createRenderPipeline({
         layout: 'auto',
         vertex: { module, entryPoint: entry, buffers },
-        fragment: { module, entryPoint: 'fs', targets: [{ format }] },
+        fragment: {
+            module,
+            entryPoint: 'fs',
+            targets: [
+                glass
+                    ? {
+                        format,
+                        blend: {
+                            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                        },
+                    }
+                    : { format },
+            ],
+        },
         primitive: { topology: 'triangle-list', cullMode: 'none' },
-        depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
-        // the fragment alpha becomes coverage: a half transparent face covers half of the samples (one pass, no sorting)
-        multisample: sampleCount > 1 ? { count: sampleCount, alphaToCoverageEnabled: true } : { count: sampleCount },
+        // see-through faces (alpha < 1) are blended over what is behind them: they test depth but do not write it
+        depthStencil: { format: 'depth24plus', depthWriteEnabled: !glass, depthCompare: 'less' },
+        multisample: { count: sampleCount },
     });
     const pipeline = make('vs', [meshLayout]);
+    const glassPipeline = make('vs', [meshLayout], true);
     // the instanced pipeline reads position and normal only from the prototype (locations 0, 1)
     const instPipeline = make('vsi', [{ ...meshLayout, attributes: meshLayout.attributes.slice(0, 2) }, instanceLayout]);
     const uniforms = device.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
@@ -236,6 +251,12 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
     let instCount = 0;
     let vertexBuffer = null;
     let capacity = 0;
+    let glassBuffer = null; // the see-through triangles, sorted far to near for the eye
+    let glassCapacity = 0;
+    let glassTris = []; // centroid and offset (in floats) in glassSource
+    let glassSource = new Float32Array(0);
+    let glassCount = 0;
+    let glassEye = '';
     let px = 0;
     let depth = null;
     let color = null;
@@ -257,7 +278,23 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
         const cam = makeCamera(view, mesh, size, fit);
         targets(Math.max(1, Math.round(size * dpr)));
         if (mesh !== uploaded || palette !== uploadedPalette) {
-            const verts = buildVertices(mesh, palette);
+            const all = buildVertices(mesh, palette);
+            // split: solid triangles are drawn first; triangles with alpha < 1 are kept apart and blended afterwards
+            const tri = 3 * FLOATS;
+            const solid = [];
+            glassTris = [];
+            for (let o = 0; o < all.length; o += tri) {
+                if (all[o + 11] < 1) {
+                    const c = [0, 1, 2].map((k) => (all[o + k] + all[o + FLOATS + k] + all[o + 2 * FLOATS + k]) / 3);
+                    glassTris.push({ c, at: o });
+                }
+                else
+                    for (let k = 0; k < tri; k++)
+                        solid.push(all[o + k]);
+            }
+            glassSource = all;
+            glassEye = '';
+            const verts = Float32Array.from(solid);
             if (verts.byteLength > capacity) {
                 vertexBuffer?.destroy();
                 capacity = Math.max(verts.byteLength, 4096);
@@ -291,6 +328,24 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
         }
         if (!instances)
             instCount = 0;
+        const eyeKey = cam.eye.join(',');
+        if (glassTris.length && eyeKey !== glassEye) {
+            glassEye = eyeKey;
+            const [ex, ey, ez] = cam.eye;
+            const far = (t) => (t.c[0] - ex) ** 2 + (t.c[1] - ey) ** 2 + (t.c[2] - ez) ** 2;
+            const sorted = [...glassTris].sort((a, b) => far(b) - far(a)); // far first
+            const out = new Float32Array(sorted.length * 3 * FLOATS);
+            sorted.forEach((t, k) => out.set(glassSource.subarray(t.at, t.at + 3 * FLOATS), k * 3 * FLOATS));
+            if (out.byteLength > glassCapacity) {
+                glassBuffer?.destroy();
+                glassCapacity = Math.max(out.byteLength, 4096);
+                glassBuffer = device.createBuffer({ size: glassCapacity, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+            }
+            device.queue.writeBuffer(glassBuffer, 0, out);
+            glassCount = sorted.length * 3;
+        }
+        if (!glassTris.length)
+            glassCount = 0;
         const u = new Float32Array(40);
         u.set(viewProjection(cam), 0);
         u.set([...(norm(L.direction)), 0], 16);
@@ -330,6 +385,13 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
             pass.setVertexBuffer(1, instBuffer);
             pass.draw(protoCount, instCount);
         }
+        if (glassCount) {
+            // after everything solid (and the instances): see-through faces, far to near
+            pass.setPipeline(glassPipeline);
+            pass.setBindGroup(0, bind);
+            pass.setVertexBuffer(0, glassBuffer);
+            pass.draw(glassCount);
+        }
         pass.end();
         if (!offscreen) {
             device.queue.submit([encoder.finish()]);
@@ -367,6 +429,7 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
     const pixels = (mesh, view, options) => draw(mesh, view, options, true);
     const destroy = () => {
         vertexBuffer?.destroy();
+        glassBuffer?.destroy();
         protoBuffer?.destroy();
         instBuffer?.destroy();
         depth?.destroy();
