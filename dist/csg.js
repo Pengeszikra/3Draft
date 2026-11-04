@@ -194,11 +194,14 @@ const closedSolid = (name, m) => {
 };
 /**
  * Boolean of two closed solids (outward CCW faces): 'union', 'subtract' (a minus b) or 'intersect'.
- * Throws with a reason when an input is open or inside out.
+ * Throws with a reason when an input is open or inside out (unless `strict: false`).
  */
-export const boolean = (a, b, op) => {
-    closedSolid('a', a);
-    closedSolid('b', b);
+export const boolean = (a, b, op, { strict = true } = {}) => {
+    // `strict: false` skips the check, for a mesh with a few open edges (a bullet carving a model that is not quite closed)
+    if (strict) {
+        closedSolid('a', a);
+        closedSolid('b', b);
+    }
     const sa = bounds(a);
     const sb = bounds(b);
     const scale = Math.max(sa.radius, sb.radius, 1e-9) * 2 + len(sub(sa.center, sb.center));

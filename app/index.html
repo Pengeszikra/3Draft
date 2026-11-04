@@ -690,7 +690,7 @@
       if (!target) return;
       let mesh;
       try {
-        mesh = boolean(target.mesh, p.mesh, 'subtract');
+        mesh = boolean(target.mesh, p.mesh, 'subtract', { strict: false }); // a model with a few open edges can still be carved
       } catch (err) {
         // the bullet only carves closed solids; say so for a moment
         const was = liveEl.textContent;
@@ -715,10 +715,10 @@
       const { origin, dir } = ray(cam, cam.at.x, cam.at.y);
       const L = 3 * LEG.base;
       const target = hit && owner(hit.face);
-      const { center, radius } = bounds(scene); // the isolated object
+      const { center } = bounds(scene); // the isolated object
       const toCentre = Math.hypot(...center.map((c, i) => c - origin[i]));
-      // a miss flies on until it is 3 object sizes behind the model
-      const reach = toCentre + 3 * radius;
+      // a miss flies on to 4 times the camera-to-model distance, far behind the model, and vanishes there
+      const reach = 4 * toCentre;
       const end = target
         ? hit.point.map((c, i) => c + dir[i] * (L / 2 - SHOT_DEPTH)) // its tip SHOT_DEPTH below the surface
         : origin.map((c, i) => c + dir[i] * reach);
