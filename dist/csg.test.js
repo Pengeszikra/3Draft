@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { box, validate, union, subtract, intersect, boolean, merge } from './index.js';
+import { box, validate, union, subtract, intersect, boolean, merge, health } from './index.js';
 const A = () => box({ size: [2, 2, 2], at: [0, 0, 0], color: '#ff0000' });
 const B = () => box({ size: [1, 1, 1], at: [1, 0, 0], color: '#0000ff' }); // sticks out of A on +x
 const solid = (m, volume, label) => {
@@ -44,4 +44,47 @@ test('open and inside-out inputs are refused with a reason', () => {
     const inverted = { positions: A().positions, faces: A().faces.map((f) => ({ ...f, v: [...f.v].reverse() })) };
     assert.throws(() => boolean(A(), inverted, 'union'), /inside out/);
     void merge;
+});
+test('health: connected parts, closed or open; strict:false leaves the open parts out of the calculation', () => {
+    const open = box({ size: [1, 1, 1], at: [5, 0, 0], color: '#00ff00' });
+    open.faces.splice(3, 1); // a box without one side: an open part
+    const model = merge(A(), open);
+    const h = health(model);
+    assert.equal(h.parts.length, 2);
+    assert.equal(h.hasSolid, true);
+    assert.equal(h.allSolid, false);
+    assert.equal(h.usableFaces, 6);
+    assert.equal(h.skippedFaces, 5);
+    assert.throws(() => subtract(model, B()), /closed solids/);
+    const cut = boolean(model, B(), 'subtract', { strict: false });
+    const hc = health(cut);
+    assert.equal(hc.skippedFaces, 5, 'the open part comes through unchanged');
+    assert.ok(hc.hasSolid);
+    const solidPart = hc.parts.find((p) => p.closed);
+    assert.ok(solidPart.faces.length > 6, 'the closed box got a notch');
+    assert.throws(() => boolean(open, B(), 'subtract', { strict: false }), /no closed part/);
+    assert.equal(health(A()).allSolid, true);
+});
+test('carving a solid again and again keeps it a closed solid, or leaves it alone', () => {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const unit = (v) => v.map((c) => c / Math.hypot(...v));
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let mesh = box({ size: [1, 1, 1], at: [0, 0, 0], color: '#c8a' });
+    let carved = 0;
+    for (let k = 0; k < 10; k++) {
+        const dir = unit([rnd() - 0.5, rnd() - 0.5, rnd() - 0.5]);
+        const ex = unit(cross(Math.abs(dir[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0], dir));
+        const bullet = box({ size: [0.12, 0.36, 0.12], at: [(rnd() - 0.5) * 0.8, (rnd() - 0.5) * 0.8, (rnd() - 0.5) * 0.8], axes: [ex, dir, cross(ex, dir)], color: '#00f' });
+        try {
+            mesh = subtract(mesh, bullet);
+            carved++;
+        }
+        catch {
+            /* the model stays as it was */
+        }
+        const v = validate(mesh);
+        assert.ok(v.closed && !v.inside_out, `after carve ${k}: closed ${v.closed} (${v.notes.join('; ')})`);
+    }
+    assert.ok(carved >= 5, `most carves go through (${carved} of 10)`);
 });

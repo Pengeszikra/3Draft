@@ -88,6 +88,9 @@
     .read b { display: inline-block; min-width: 4ch; font-weight: 500; color: var(--fg); }
     .read .surface { min-width: 34ch; }
     .read .surface b { min-width: 0; }
+    .read .surface b.ok { color: #2f9e44; }
+    .read .surface b.warn { color: #e67700; }
+    .read .surface b.bad { color: #e03131; }
     .actions { display: flex; gap: 8px; }
 
     #stage {
@@ -276,7 +279,7 @@
   </footer>
 
   <script type="module">
-    import { boolean, insertVertex, cutFace, fillLoop, addLine, findLoop, wireFromSegments, moveVertexSet, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
+    import { boolean, health, insertVertex, cutFace, fillLoop, addLine, findLoop, wireFromSegments, moveVertexSet, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
     import { LEG, table } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -357,16 +360,18 @@
     const shifted = (mesh, d) => ({ ...mesh, positions: mesh.positions.map((q) => [q[0] + d[0], q[1] + d[1], q[2] + d[2]]) });
     // how far a flying prism still is from where it lands, as a fraction of its flight
     const remaining = (p, now) => {
-      const t = Math.min(1, (now - p.start) / FLIGHT_MS);
-      return t >= 1 ? 0 : (1 - t) ** 3; // ease out: fast at the start, settles softly
+      const t = Math.min(1, (now - p.start) / (p.dur ?? FLIGHT_MS));
+      return t >= 1 ? 0 : p.shot ? 1 - t : (1 - t) ** 3; // ease out: fast at the start, settles softly (a shot flies at a steady speed)
     };
     // lands the flights that are over: a landed prism is an ordinary object like any other
     const land = (now) => {
       let any = false;
       for (const p of [...placed]) {
-        if (now - p.start < FLIGHT_MS) continue;
+        if (now - p.start < (p.dur ?? FLIGHT_MS)) continue;
         placed.splice(placed.indexOf(p), 1);
-        create('prism', p.mesh);
+        placedVer++; // the GPU instances are rebuilt without it (a bullet that missed would hang where it was last drawn)
+        if (p.shot) carve(p); // a shot that hit carves, one that missed just vanishes
+        else create('prism', p.mesh);
         any = true;
       }
       return any;
@@ -388,6 +393,18 @@
       return instCache.data;
     };
 
+    // The health check of the object under the cross: which of its parts are closed solids (booleans and bullets only
+    // calculate with those; open parts, such as a surface or a box without a bottom, are ignored).
+    const healthCache = new WeakMap();
+    const healthText = (o) => {
+      if (!o) return '';
+      let h = healthCache.get(o.mesh);
+      if (!h) healthCache.set(o.mesh, (h = health(o.mesh)));
+      const closed = h.parts.filter((p) => p.closed && !p.insideOut).length;
+      if (h.allSolid) return `<b class="ok" title="every part is a closed solid">${closed === 1 ? 'solid' : `${closed} solids`}</b>`;
+      if (!h.hasSolid) return `<b class="bad" title="no closed part: a boolean or a bullet cannot work with it">no closed part · ${h.skippedFaces} faces open</b>`;
+      return `<b class="warn" title="booleans and bullets work with the closed parts only">${closed} of ${h.parts.length} parts closed · ${h.skippedFaces} faces open</b>`;
+    };
     const deg = (r) => `${Math.round((r * 180) / Math.PI)}°`;
     const signed = (n) => {
       const v = Math.round(n * 100) / 100 + 0;
@@ -656,7 +673,7 @@
       pitchEl.textContent = deg(pitch);
       countEl.textContent = String(allObjects().length + placed.length);
       surfaceEl.innerHTML = hit
-        ? `surface <b>face ${hit.face} · n ${hit.normal.map(signed).join(' ')}</b>`
+        ? `surface <b>face ${hit.face} · n ${hit.normal.map(signed).join(' ')}</b> · ${healthText(owner(hit.face))}`
         : 'surface <b>–</b>';
     };
     // WebGPU is the starting view (set up right after the first frame); it falls back to SVG if it is unavailable or lost.
@@ -721,9 +738,68 @@
       goTo({ ...overview(), yaw: START.yaw, pitch: START.pitch });
     };
 
+    // Isolated mode (`/`): M fires a bullet (the same prism, lying along the cursor ray). When it hits the isolated object it
+    // sinks in a fixed depth and carves that part out of the surface (object A minus the bullet B), made of the selected
+    // material on the cut; when it misses, it flies on and vanishes.
+    const SHOT_MS = 380;
+    const SHOT_DEPTH = 1.5 * LEG.base; // how deep it sinks: half of its length
+    const carve = (p) => {
+      const target = allObjects().find((o) => o.id === p.shot.id);
+      if (!target) return;
+      let mesh;
+      try {
+        mesh = boolean(target.mesh, p.mesh, 'subtract', { strict: false }); // only its closed parts are carved; open parts stay as they are
+      } catch (err) {
+        // the bullet only carves closed parts; say so for a moment
+        // a failed carve never touches the model: it stays exactly as it was
+        const was = liveEl.textContent;
+        const note = /no closed part/.test(String(err?.message)) ? 'shot: no closed part' : 'shot: left as it was (numerical trouble)';
+        liveEl.textContent = note;
+        liveEl.title = String(err?.message ?? err);
+        setTimeout(() => (liveEl.textContent === note ? (liveEl.textContent = was) : 0), 2500);
+        return;
+      }
+      if (!mesh.faces.length) return;
+      const before = target.mesh;
+      change(target, mesh);
+      history.push(() => {
+        const now = allObjects().find((o) => o.id === p.shot.id);
+        if (now) change(now, before);
+        redraw();
+      });
+    };
+    const shoot = () => {
+      if (!pointer || !cam?.at) return;
+      // The bullet starts at the camera point and flies along the ray through the cursor, toward a target behind the model:
+      // the ray always runs along its long axis, so on screen it never turns and we always look straight at its back.
+      const { origin, dir } = ray(cam, cam.at.x, cam.at.y);
+      const L = 3 * LEG.base;
+      const target = hit && owner(hit.face);
+      const { center } = bounds(scene); // the isolated object
+      const toCentre = Math.hypot(...center.map((c, i) => c - origin[i]));
+      // a miss flies on to 4 times the camera-to-model distance, far behind the model, and vanishes there
+      const reach = 4 * toCentre;
+      const end = target
+        ? hit.point.map((c, i) => c + dir[i] * (L / 2 - SHOT_DEPTH)) // its tip SHOT_DEPTH below the surface
+        : origin.map((c, i) => c + dir[i] * reach);
+      const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      const along = cam.u.reduce((t, c, i) => t + c * dir[i], 0);
+      const ex = cam.u.map((c, i) => c - dir[i] * along);
+      const exLen = Math.hypot(...ex) || 1;
+      const axes = [ex.map((c) => c / exLen), dir, cross(ex.map((c) => c / exLen), dir)];
+      const m = materials[current];
+      let mesh = box({ size: [LEG.base, L, LEG.base], at: end, axes, color: m.color });
+      mesh = { ...mesh, faces: mesh.faces.map((f) => ({ ...f, mat: m.name })) };
+      const back = Math.hypot(...end.map((c, i) => c - origin[i])); // it starts at the camera point
+      const D = orbitDist(fit.radius);
+      const dur = Math.max(200, Math.min(900, (back / (10 * D)) * 1000));
+      placed.push({ mesh, inst: { at: end, axes, color: m.color }, from: dir.map((c) => -c * back), start: performance.now(), dur, shot: target ? { id: target.id } : {} });
+      redraw();
+    };
     // A prism like the old table leg (same base), three times as tall as it is wide,
     // standing on the surface under the cross.
     const place = () => {
+      if (solo) return shoot();
       if (hit) {
         const color = brown();
         const mesh = standOn(scene, hit, { base: LEG.base, color });
@@ -930,7 +1006,7 @@
       const [a, b] = swap ? [boolPair.b, boolPair.a] : [boolPair.a, boolPair.b];
       let mesh;
       try {
-        mesh = boolean(a.mesh, b.mesh, op);
+        mesh = boolean(a.mesh, b.mesh, op, { strict: false }); // open parts are left out of the calculation
       } catch (err) {
         boolNote.textContent = String(err?.message ?? err);
         return;

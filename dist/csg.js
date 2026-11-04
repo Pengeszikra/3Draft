@@ -145,8 +145,8 @@ const toMesh = (polys, scale) => {
             v.pop();
         if (v.length < 3)
             return [];
-        const n = faceNormal(v.map((k) => positions[k]));
-        return len(n) < 1e-9 * scale * scale ? [] : [{ v, color: p.color, mat: p.mat }];
+        // slivers stay for now: their vertices still give the neighbours' edges something to join to (see below)
+        return [{ v, color: p.color, mat: p.mat }];
     });
     // T-junctions: a vertex lying on the edge of a neighbouring face gets inserted into that edge
     const used = new Set(faces.flatMap((f) => f.v));
@@ -167,8 +167,8 @@ const toMesh = (polys, scale) => {
                     continue;
                 const on = [];
                 for (const k of verts) {
-                    if (k === a || k === b)
-                        continue;
+                    if (k === a || k === b || f.v.includes(k))
+                        continue; // never twice in one face
                     const pk = positions[k];
                     const t = dot(sub(pk, pa), d) / (dl * dl);
                     if (t <= 0 || t >= 1)
@@ -183,6 +183,10 @@ const toMesh = (polys, scale) => {
             return { ...f, v: out };
         });
     }
+    // Now the slivers can go: a face with no area (its corners are in a line, the neighbours already have the extra vertices)
+    // closes up around it. Dropping one before the T-junctions are done would leave a hole (an open edge) behind.
+    const flat = 1e-9 * scale * scale;
+    faces = faces.filter((f) => len(faceNormal(f.v.map((k) => positions[k]))) >= flat);
     return { positions, faces };
 };
 const closedSolid = (name, m) => {
@@ -192,13 +196,100 @@ const closedSolid = (name, m) => {
     if (v.inside_out)
         throw new Error(`boolean needs outward faces: ${name} is inside out`);
 };
+const subMesh = (mesh, idx) => {
+    const map = new Map();
+    const positions = [];
+    const faces = idx.map((i) => {
+        const f = mesh.faces[i];
+        return { ...f, v: f.v.map((k) => (map.has(k) ? map.get(k) : (map.set(k, positions.length), positions.push(mesh.positions[k]), positions.length - 1))) };
+    });
+    return { ...mesh, positions, faces };
+};
+/** Splits a mesh into connected parts and says which of them are closed solids (the health check). */
+export const health = (mesh) => {
+    const n = mesh.faces.length;
+    const root = Array.from({ length: n }, (_, i) => i);
+    const find = (i) => (root[i] === i ? i : (root[i] = find(root[i])));
+    const seen = new Map();
+    mesh.faces.forEach((f, i) => f.v.forEach((v, k) => {
+        const w = f.v[(k + 1) % f.v.length];
+        const key = v < w ? `${v},${w}` : `${w},${v}`;
+        const j = seen.get(key);
+        if (j === undefined)
+            seen.set(key, i);
+        else
+            root[find(i)] = find(j);
+    }));
+    const groups = new Map();
+    for (let i = 0; i < n; i++)
+        groups.set(find(i), [...(groups.get(find(i)) ?? []), i]);
+    const parts = [...groups.values()].map((faces) => {
+        const v = validate(subMesh(mesh, faces));
+        return { faces, closed: v.closed, insideOut: v.inside_out, openEdges: v.openEdges };
+    });
+    const usable = parts.filter((p) => p.closed && !p.insideOut);
+    const usableFaces = usable.reduce((t, p) => t + p.faces.length, 0);
+    return { parts, usableFaces, skippedFaces: n - usableFaces, hasSolid: usable.length > 0, allSolid: usable.length === parts.length && parts.length > 0 };
+};
+const append = (base, extra) => {
+    const o = base.positions.length;
+    return { ...base, positions: [...base.positions, ...extra.positions], faces: [...base.faces, ...extra.faces.map((f) => ({ ...f, v: f.v.map((k) => k + o) }))] };
+};
 /**
  * Boolean of two closed solids (outward CCW faces): 'union', 'subtract' (a minus b) or 'intersect'.
- * Throws with a reason when an input is open or inside out.
+ * Throws with a reason when an input is open or inside out. With `strict: false` the parts that are not closed solids are
+ * left out of the calculation instead (see `health`): a union keeps them as they are, a subtract keeps those of `a`,
+ * an intersect drops them; it throws only when `a` has no closed part at all.
  */
-export const boolean = (a, b, op) => {
-    closedSolid('a', a);
-    closedSolid('b', b);
+export const boolean = (a, b, op, { strict = true } = {}) => {
+    if (strict) {
+        closedSolid('a', a);
+        closedSolid('b', b);
+        return run(a, b, op);
+    }
+    const ha = health(a);
+    const hb = health(b);
+    if (!ha.hasSolid)
+        throw new Error('boolean: the model has no closed part (nothing to calculate with)');
+    if (!hb.hasSolid)
+        throw new Error('boolean: the second model has no closed part');
+    const pick = (m, h, closed) => subMesh(m, h.parts.filter((p) => (p.closed && !p.insideOut) === closed).flatMap((p) => p.faces).sort((x, y) => x - y));
+    let out = run(pick(a, ha, true), pick(b, hb, true), op);
+    if (ha.skippedFaces)
+        out = append(out, pick(a, ha, false));
+    if (op === 'union' && hb.skippedFaces)
+        out = append(out, pick(b, hb, false));
+    return out;
+};
+// A result is sound when it is a closed, outward solid with consistent winding (and the inputs were).
+const sound = (m) => {
+    if (!m.faces.length)
+        return true; // nothing is a fine result (disjoint intersect)
+    const v = validate(m);
+    return v.closed && !v.inside_out && !v.notes.some((n) => /wound inconsistently/.test(n));
+};
+const shiftBy = (m, d) => ({ ...m, positions: m.positions.map((p) => [p[0] + d[0], p[1] + d[1], p[2] + d[2]]) });
+/**
+ * BSP booleans hit numerical trouble when faces are (nearly) coincident or a cut passes within a hair of a vertex; the
+ * result then comes out with a crack or a flipped face. A solid must stay a solid, so a result that is not sound is
+ * thrown away and the operation is repeated with the second operand moved by a tiny amount (a few tries, growing).
+ * When no try gives a sound solid it throws, so the caller keeps the original.
+ */
+const run = (a, b, op) => {
+    const first = run0(a, b, op);
+    if (sound(first) || !sound(a) || !sound(b))
+        return first;
+    const size = Math.max(bounds(a).radius, bounds(b).radius, 1e-9);
+    for (let k = 1; k <= 12; k++) {
+        const mag = size * 1e-4 * k;
+        const d = [Math.sin(k * 12.9898) * mag, Math.sin(k * 78.233) * mag, Math.sin(k * 37.719) * mag];
+        const r = run0(a, shiftBy(b, d), op);
+        if (sound(r))
+            return r;
+    }
+    throw new Error('boolean: the result would not be a closed solid (numerical trouble); the operands were left alone');
+};
+const run0 = (a, b, op) => {
     const sa = bounds(a);
     const sb = bounds(b);
     const scale = Math.max(sa.radius, sb.radius, 1e-9) * 2 + len(sub(sa.center, sb.center));
