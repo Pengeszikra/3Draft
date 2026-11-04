@@ -156,8 +156,8 @@ const toMesh = (polys: Poly[], scale: number): Mesh => {
     }
     if (v.length > 1 && v[0] === v[v.length - 1]) v.pop();
     if (v.length < 3) return [];
-    const n = faceNormal(v.map((k) => positions[k]));
-    return len(n) < 1e-9 * scale * scale ? [] : [{ v, color: p.color, mat: p.mat }];
+    // slivers stay for now: their vertices still give the neighbours' edges something to join to (see below)
+    return [{ v, color: p.color, mat: p.mat }];
   });
 
   // T-junctions: a vertex lying on the edge of a neighbouring face gets inserted into that edge
@@ -178,7 +178,7 @@ const toMesh = (polys: Poly[], scale: number): Mesh => {
         if (dl < tol * 4) continue;
         const on: { t: number; k: number }[] = [];
         for (const k of verts) {
-          if (k === a || k === b) continue;
+          if (k === a || k === b || f.v.includes(k)) continue; // never twice in one face
           const pk = positions[k];
           const t = dot(sub(pk, pa), d) / (dl * dl);
           if (t <= 0 || t >= 1) continue;
@@ -190,6 +190,10 @@ const toMesh = (polys: Poly[], scale: number): Mesh => {
       return { ...f, v: out };
     });
   }
+  // Now the slivers can go: a face with no area (its corners are in a line, the neighbours already have the extra vertices)
+  // closes up around it. Dropping one before the T-junctions are done would leave a hole (an open edge) behind.
+  const flat = 1e-9 * scale * scale;
+  faces = faces.filter((f) => len(faceNormal(f.v.map((k) => positions[k]))) >= flat);
   return { positions, faces };
 };
 
@@ -284,7 +288,34 @@ export const boolean = (a: Mesh, b: Mesh, op: BooleanOp, { strict = true }: { st
   return out;
 };
 
+// A result is sound when it is a closed, outward solid with consistent winding (and the inputs were).
+const sound = (m: Mesh): boolean => {
+  if (!m.faces.length) return true; // nothing is a fine result (disjoint intersect)
+  const v = validate(m);
+  return v.closed && !v.inside_out && !v.notes.some((n) => /wound inconsistently/.test(n));
+};
+const shiftBy = (m: Mesh, d: Vec3): Mesh => ({ ...m, positions: m.positions.map((p) => [p[0] + d[0], p[1] + d[1], p[2] + d[2]] as Vec3) });
+
+/**
+ * BSP booleans hit numerical trouble when faces are (nearly) coincident or a cut passes within a hair of a vertex; the
+ * result then comes out with a crack or a flipped face. A solid must stay a solid, so a result that is not sound is
+ * thrown away and the operation is repeated with the second operand moved by a tiny amount (a few tries, growing).
+ * When no try gives a sound solid it throws, so the caller keeps the original.
+ */
 const run = (a: Mesh, b: Mesh, op: BooleanOp): Mesh => {
+  const first = run0(a, b, op);
+  if (sound(first) || !sound(a) || !sound(b)) return first;
+  const size = Math.max(bounds(a).radius, bounds(b).radius, 1e-9);
+  for (let k = 1; k <= 12; k++) {
+    const mag = size * 1e-4 * k;
+    const d: Vec3 = [Math.sin(k * 12.9898) * mag, Math.sin(k * 78.233) * mag, Math.sin(k * 37.719) * mag];
+    const r = run0(a, shiftBy(b, d), op);
+    if (sound(r)) return r;
+  }
+  throw new Error('boolean: the result would not be a closed solid (numerical trouble); the operands were left alone');
+};
+
+const run0 = (a: Mesh, b: Mesh, op: BooleanOp): Mesh => {
   const sa = bounds(a);
   const sb = bounds(b);
   const scale = Math.max(sa.radius, sb.radius, 1e-9) * 2 + len(sub(sa.center, sb.center));

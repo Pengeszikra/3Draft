@@ -65,3 +65,26 @@ test('health: connected parts, closed or open; strict:false leaves the open part
     assert.throws(() => boolean(open, B(), 'subtract', { strict: false }), /no closed part/);
     assert.equal(health(A()).allSolid, true);
 });
+test('carving a solid again and again keeps it a closed solid, or leaves it alone', () => {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const unit = (v) => v.map((c) => c / Math.hypot(...v));
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let mesh = box({ size: [1, 1, 1], at: [0, 0, 0], color: '#c8a' });
+    let carved = 0;
+    for (let k = 0; k < 10; k++) {
+        const dir = unit([rnd() - 0.5, rnd() - 0.5, rnd() - 0.5]);
+        const ex = unit(cross(Math.abs(dir[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0], dir));
+        const bullet = box({ size: [0.12, 0.36, 0.12], at: [(rnd() - 0.5) * 0.8, (rnd() - 0.5) * 0.8, (rnd() - 0.5) * 0.8], axes: [ex, dir, cross(ex, dir)], color: '#00f' });
+        try {
+            mesh = subtract(mesh, bullet);
+            carved++;
+        }
+        catch {
+            /* the model stays as it was */
+        }
+        const v = validate(mesh);
+        assert.ok(v.closed && !v.inside_out, `after carve ${k}: closed ${v.closed} (${v.notes.join('; ')})`);
+    }
+    assert.ok(carved >= 5, `most carves go through (${carved} of 10)`);
+});

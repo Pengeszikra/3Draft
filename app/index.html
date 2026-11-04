@@ -709,10 +709,12 @@
         mesh = boolean(target.mesh, p.mesh, 'subtract', { strict: false }); // only its closed parts are carved; open parts stay as they are
       } catch (err) {
         // the bullet only carves closed parts; say so for a moment
+        // a failed carve never touches the model: it stays exactly as it was
         const was = liveEl.textContent;
-        liveEl.textContent = 'shot: no closed part';
+        const note = /no closed part/.test(String(err?.message)) ? 'shot: no closed part' : 'shot: left as it was (numerical trouble)';
+        liveEl.textContent = note;
         liveEl.title = String(err?.message ?? err);
-        setTimeout(() => (liveEl.textContent === 'shot: no closed part' ? (liveEl.textContent = was) : 0), 2500);
+        setTimeout(() => (liveEl.textContent === note ? (liveEl.textContent = was) : 0), 2500);
         return;
       }
       if (!mesh.faces.length) return;
