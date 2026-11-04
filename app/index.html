@@ -127,6 +127,9 @@
     #palette[hidden] { display: none; }
     #boolq { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 6; max-width: min(92vw, 520px); padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: grid; gap: 8px; font: 500 12px/1.3 var(--font-mono); color: var(--muted); }
     #boolq[hidden] { display: none; }
+    #editbar { position: fixed; left: 50%; top: 70px; transform: translateX(-50%); z-index: 6; max-width: min(94vw, 760px); padding: 6px 10px; background: var(--panel); border: 1px solid #ff4d3d; border-radius: 6px; font: 500 12px/1.4 var(--font-mono); color: var(--muted); text-align: center; pointer-events: none; }
+    #editbar b { color: #ff4d3d; display: block; }
+    #editbar[hidden] { display: none; }
     #boolq .row { display: flex; flex-wrap: wrap; gap: 6px; }
     #boolq i { color: #e8590c; font-style: normal; }
     #palette .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
@@ -206,6 +209,8 @@
 
   <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light, C switches the filmic look. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H puts the move gizmo (helper) on the object under the cross with the world axes, the next H switches to the object's own axes, the third takes it off; drag an arrow to move the object; E toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
+  <div id="editbar" hidden><b id="editText"></b> <span>V: line from point to point (snaps to points; two points on one face cut it) · drag a point · Enter: close a loop into a face · X: remove lines · Esc: stop the line, again: leave · Tab: leave</span></div>
+
   <aside id="boolq" hidden aria-label="Boolean operation">
     <span id="boolText"></span>
     <div class="row">
@@ -247,7 +252,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, drag a point) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -271,7 +276,7 @@
   </footer>
 
   <script type="module">
-    import { boolean, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
+    import { boolean, insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
     import { LEG, table } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -559,9 +564,12 @@
         cam = makeCamera(view, scene, size, shown_fit);
         hit = kernel ? kernel.pick(scene, cam, x, y) : pick(scene, cam, x, y);
         cam.at = { x, y };
-      }
+        panelPointer = { x, y };
+      } else panelPointer = null;
       gcam = makeCamera(view, scene, size, shown_fit);
       drawing = { left: r.left + (r.width - size) / 2, top: r.top + (r.height - size) / 2 };
+      gcam = makeCamera(view, scene, size, shown_fit);
+      snapV = vdrag ? vdrag.i : findSnap();
       const handles = gizmoHandles();
       const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
       for (const [o, color] of [[boolFrom, '#e8590c'], [boolPair?.b, '#2f9e44']]) {
@@ -575,6 +583,24 @@
           edges.push([c(a, b, 0), c(a, b, 1)], [c(a, 0, b), c(a, 1, b)], [c(0, a, b), c(1, a, b)]);
         }
         marks.push({ name: 'bool', color, width: 3, lines: edges });
+      }
+      if (editing && allObjects().includes(editing)) {
+        const P = editing.mesh.positions;
+        const e = fit.radius * 0.012;
+        const cross = (q, k = 1) => [[[q[0] - e * k, q[1], q[2]], [q[0] + e * k, q[1], q[2]]], [[q[0], q[1] - e * k, q[2]], [q[0], q[1] + e * k, q[2]]], [[q[0], q[1], q[2] - e * k], [q[0], q[1], q[2] + e * k]]];
+        const wire = (editing.wire ?? []).filter(([a, b]) => a < P.length && b < P.length);
+        if (P.length <= 600) marks.push({ name: 'verts', color: '#9aa0a6', width: 1.5, lines: P.flatMap((q) => cross(q)) });
+        if (wire.length) marks.push({ name: 'wire', color: '#ff4d3d', width: 3, lines: wire.map(([a, b]) => [P[a], P[b]]) });
+        const ends = [...new Set(wire.flat())];
+        if (ends.length) marks.push({ name: 'wire-ends', color: '#ff4d3d', width: 2.5, lines: ends.flatMap((i) => cross(P[i], 1.6)) });
+        if (wireFrom !== null && wireFrom < P.length) {
+          // the line being drawn: from the last point to where V would put the next one
+          const to = snapV >= 0 ? P[snapV] : hit && owner(hit.face) === editing ? hit.point : planePoint(P[wireFrom]);
+          marks.push({ name: 'start', color: '#2f9e44', width: 3, lines: cross(P[wireFrom], 2.2) });
+          if (to) marks.push({ name: 'rubber', color: '#ff4d3d', width: 1.5, lines: [[P[wireFrom], to]] });
+        }
+        if (vsel !== null && vsel < P.length) marks.push({ name: 'selected', color: '#e8590c', width: 3.5, lines: cross(P[vsel], 2.4) });
+        if (snapV >= 0 && snapV < P.length) marks.push({ name: 'snap', color: '#ffffff', width: 3, lines: cross(P[snapV], 2.6) });
       }
       if (handles) {
         for (const h of handles) marks.push({ name: `gizmo-${'xyz'[h.axis]}`, color: h.color, width: h.axis === (gdrag?.axis ?? gHover) ? 6 : 3, lines: h.lines });
@@ -758,20 +784,23 @@
       });
       writes.set(obj.id, next);
     };
+    // the stored document of an object; the lines drawn on it ride along
+    const docOf = (o) => ({ name: o.name, mesh: o.mesh, ...(o.wire?.length ? { wire: o.wire } : {}) });
     const uid = (name) => `${name}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const create = (name, mesh) => {
       const obj = { id: uid(name), name, mesh };
       history.push(() => erase(obj));
       if (col) {
         hostObjects.push({ ...obj, host: true });
-        save(obj, () => col.doc(obj.id).set({ name, mesh }));
+        save(obj, () => col.doc(obj.id).set(docOf(obj)));
       } else mine.push(obj);
       rebuild();
       return obj;
     };
-    const change = (obj, mesh) => {
+    const change = (obj, mesh, wire = obj.wire) => {
       obj.mesh = mesh;
-      if (obj.host) save(obj, () => col.doc(obj.id).set({ name: obj.name, mesh: obj.mesh }));
+      obj.wire = wire;
+      if (obj.host) save(obj, () => col.doc(obj.id).set(docOf(obj)));
       rebuild();
     };
     const remove = () => {
@@ -853,7 +882,7 @@
     const restore = (o) => {
       if (o.host) {
         hostObjects.push(o);
-        save(o, () => col.doc(o.id).set({ name: o.name, mesh: o.mesh }));
+        save(o, () => col.doc(o.id).set(docOf(o)));
       } else mine.push(o);
       rebuild();
     };
@@ -1082,6 +1111,11 @@
     const AXES = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
     const GCOLORS = ['#e03131', '#2f9e44', '#1c7ed6'];
     const gizmoFrame = () => {
+      if (editing) {
+        // while editing the gizmo belongs to the selected vertex
+        if (vsel === null || !allObjects().includes(editing) || vsel >= editing.mesh.positions.length) return (vsel = null);
+        return { c: editing.mesh.positions[vsel], L: fit.radius * 0.08, axes: AXES };
+      }
       if (!gizmo || !allObjects().includes(gizmo)) return (gizmo = null);
       const lo = [Infinity, Infinity, Infinity];
       const hi = [-Infinity, -Infinity, -Infinity];
@@ -1133,6 +1167,7 @@
         return { axis, color: GCOLORS[axis], lines, from: g.c, to: tip, L: g.L, dir: a };
       });
     };
+    const grab0 = (e) => nearAxis(e); // a gizmo arrow wins over a vertex
     const toPanel = (e) => ({ x: e.clientX - drawing.left, y: e.clientY - drawing.top });
     const nearAxis = (e) => {
       const hs = gizmoHandles();
@@ -1164,19 +1199,167 @@
       const q = toPanel(e);
       const s = ((q.x - g.from.x) * g.unit.x + (q.y - g.from.y) * g.unit.y) / g.perUnit;
       g.d = s;
-      g.obj.mesh = shifted(g.mesh0, g.dir.map((c) => c * s));
+      g.obj.mesh = g.vertex === null ? shifted(g.mesh0, g.dir.map((c) => c * s)) : { ...g.mesh0, positions: g.mesh0.positions.map((q, k) => (k === g.vertex ? q.map((c, i) => c + g.dir[i] * s) : q)) };
       rebuild();
       redraw();
+    };
+    // dragging a vertex itself moves it in the plane that faces the camera
+    const dragVertex = () => {
+      panelPointer = toPanelXY();
+      const q = planePoint(vdrag.p0);
+      if (!q) return;
+      const dist = Math.hypot(pointer.x - vdrag.at.x, pointer.y - vdrag.at.y);
+      if (!vdrag.moved && dist < 4) return;
+      vdrag.moved = true;
+      vdrag.to = q;
+      editing.mesh = { ...vdrag.mesh0, positions: vdrag.mesh0.positions.map((p, k) => (k === vdrag.i ? q : p)) };
+      rebuild();
+      redraw();
+    };
+    const toPanelXY = () => ({ x: pointer.x - drawing.left, y: pointer.y - drawing.top });
+    const dropVertex = () => {
+      const d = vdrag;
+      vdrag = null;
+      if (!d || !d.moved) return;
+      const obj = editing;
+      obj.mesh = d.mesh0;
+      commit(moveVertex(d.mesh0, d.i, d.to), obj.wire);
     };
     const dropGizmo = () => {
       const g = gdrag;
       gdrag = null;
       if (!g || Math.abs(g.d) < 1e-9) return;
       const { obj, mesh0 } = g;
-      const mesh = obj.mesh;
+      // a moved vertex turns the polygons it touches into triangles, so every face stays planar
+      const mesh = g.vertex === null ? obj.mesh : moveVertex(mesh0, g.vertex, obj.mesh.positions[g.vertex]);
       obj.mesh = mesh0;
       change(obj, mesh); // one write for the whole drag
       history.push(() => allObjects().includes(obj) && change(obj, mesh0));
+    };
+
+    // Edit mode (Tab): draw on the object under the cross. V puts points on its surface (or on a vertex that is already
+    // there: they snap) and joins them with lines; two points on one face cut it along the line, so the surface gets
+    // detail where you draw. Points in the air extend the model: Enter closes a loop of lines into a face.
+    // A vertex can be dragged (or moved with the gizmo arrows) and everything that uses it follows.
+    let editing = null; // the object being edited
+    let wireFrom = null; // the vertex the next V continues from
+    let vsel = null; // the selected vertex
+    let snapV = -1; // the vertex the pointer snaps to
+    let vdrag = null; // { i, p0, mesh0, to, moved }
+    let panelPointer = null; // the pointer in panel pixels, as of the last frame
+    const bar = document.getElementById('editbar');
+    const barText = document.getElementById('editText');
+    let barNote = '';
+    const noteEdit = (text) => {
+      barNote = text;
+      showBar();
+    };
+    const showBar = () => {
+      bar.hidden = !editing;
+      if (editing) barText.textContent = `edit ${editing.name}${barNote ? ` · ${barNote}` : ''}`;
+    };
+    const vsub = (a, b) => a.map((c, i) => c - b[i]);
+    const vdot = (a, b) => a.reduce((t, c, i) => t + c * b[i], 0);
+    // where the pointer ray meets the plane through p0 that faces the camera: free drawing in the air, vertex dragging
+    const planePoint = (p0) => {
+      if (!gcam || !panelPointer) return null;
+      const r = ray(gcam, panelPointer.x, panelPointer.y);
+      const den = vdot(r.dir, gcam.f);
+      if (Math.abs(den) < 1e-6) return null;
+      const t = vdot(vsub(p0, r.origin), gcam.f) / den;
+      return r.origin.map((c, i) => c + r.dir[i] * t);
+    };
+    // the vertex of the edited object near the pointer (the visible ones: not far behind the surface under it)
+    const findSnap = () => {
+      if (!editing || !gcam || !panelPointer) return -1;
+      const limit = hit ? project(gcam, hit.point).depth + fit.radius * 0.03 : Infinity;
+      let best = -1;
+      let bestD = 12;
+      editing.mesh.positions.forEach((q, i) => {
+        const a = project(gcam, q);
+        if (a.depth <= 0 || a.depth > limit) return;
+        const d = Math.hypot(a.x - panelPointer.x, a.y - panelPointer.y);
+        if (d < bestD) ((bestD = d), (best = i));
+      });
+      return best;
+    };
+    const enterEdit = () => {
+      const o = hit && owner(hit.face);
+      if (!o) return noteEdit('') || redraw();
+      editing = o;
+      gizmo = null;
+      wireFrom = vsel = null;
+      barNote = '';
+      showBar();
+      redraw();
+    };
+    const leaveEdit = () => {
+      editing = null;
+      wireFrom = vsel = null;
+      vdrag = null;
+      showBar();
+      redraw();
+    };
+    // one undo step for whatever a single key press changed
+    const commit = (mesh, wire) => {
+      const obj = editing;
+      const before = { mesh: obj.mesh, wire: obj.wire };
+      change(obj, mesh, wire);
+      history.push(() => allObjects().includes(obj) && change(obj, before.mesh, before.wire));
+    };
+    // the vertex a V press means: the one snapped to, a new one on the surface, or one in the air
+    const vertexHere = (mesh) => {
+      if (snapV >= 0) return { mesh, index: snapV };
+      if (hit && owner(hit.face) === editing) return insertVertex(mesh, hit.face - owners.find((o) => o.obj === editing).start, hit.point);
+      const from = wireFrom !== null ? mesh.positions[wireFrom] : null;
+      const q = from && planePoint(from);
+      if (q) return { mesh: { ...mesh, positions: [...mesh.positions, q] }, index: mesh.positions.length };
+      return null;
+    };
+    const drawLine = () => {
+      let mesh = editing.mesh;
+      let wire = editing.wire ?? [];
+      const here = vertexHere(mesh);
+      if (!here) {
+        wireFrom = null;
+        return redraw();
+      }
+      mesh = here.mesh;
+      const b = here.index;
+      if (wireFrom === null) {
+        if (mesh !== editing.mesh) commit(mesh, wire);
+        wireFrom = vsel = b;
+        return redraw();
+      }
+      if (b === wireFrom) return;
+      wire = addLine(wire, wireFrom, b);
+      mesh = cutFace(mesh, wireFrom, b).mesh; // two points on one face: the line cuts it
+      commit(mesh, wire);
+      wireFrom = vsel = b; // the chain goes on from here
+      redraw();
+    };
+    // Enter: the shortest closed loop of lines through the last line becomes a face (the selected material)
+    const fillFace = () => {
+      const wire = editing.wire ?? [];
+      const last = wire.at(-1);
+      const loop = last && findLoop(wire, last);
+      if (!loop) return noteEdit('no closed loop of up to 8 lines through the last line');
+      const key = [...loop].sort((a, b) => a - b).join();
+      if (editing.mesh.faces.some((f) => f.v.length === loop.length && [...f.v].sort((a, b) => a - b).join() === key)) return noteEdit('that loop is already a face');
+      const m = materials[current];
+      commit(fillLoop(editing.mesh, loop, { color: m.color, mat: m.name }), wire);
+      wireFrom = null;
+      noteEdit(`face made from ${loop.length} lines`);
+      redraw();
+    };
+    // X: the lines at the selected vertex (or the last line) go; the points stay
+    const eraseLines = () => {
+      const wire = editing.wire ?? [];
+      const keep = vsel !== null ? wire.filter(([a, b]) => a !== vsel && b !== vsel) : wire.slice(0, -1);
+      if (keep.length === wire.length) return;
+      commit(editing.mesh, keep);
+      wireFrom = null;
+      redraw();
     };
 
     let last = null; // drag origin
@@ -1186,6 +1369,17 @@
         return paintFace(); // Shift+press paints, it never starts a rotation
       }
       pointer = { x: e.clientX, y: e.clientY };
+      if (editing && !grab0(e)) {
+        if (snapV >= 0) {
+          const q = editing.mesh.positions[snapV];
+          vdrag = { i: snapV, p0: q, mesh0: editing.mesh, to: q, moved: false, at: { x: e.clientX, y: e.clientY } };
+          vsel = snapV;
+          stage.setPointerCapture(e.pointerId);
+          redraw();
+          return;
+        }
+        vsel = null; // a click on nothing lets go of the vertex
+      }
       if (picking) {
         pickMaterial();
         armPick(false);
@@ -1199,7 +1393,8 @@
         const q = toPanel(e);
         // the pointer may sit anywhere along the arrow: measure from where it was grabbed
         const t0 = ((q.x - grab.a.x) * dx + (q.y - grab.a.y) * dy) / (len * len);
-        gdrag = { obj: gizmo, axis: grab.h.axis, from: { x: grab.a.x + dx * t0, y: grab.a.y + dy * t0 }, mesh0: gizmo.mesh, dir: grab.h.dir, unit: { x: dx / len, y: dy / len }, perUnit: len / grab.h.L, d: 0 };
+        const target = editing ?? gizmo;
+        gdrag = { obj: target, vertex: editing ? vsel : null, axis: grab.h.axis, from: { x: grab.a.x + dx * t0, y: grab.a.y + dy * t0 }, mesh0: target.mesh, dir: grab.h.dir, unit: { x: dx / len, y: dy / len }, perUnit: len / grab.h.L, d: 0 };
         stage.setPointerCapture(e.pointerId);
         return;
       }
@@ -1211,6 +1406,7 @@
     stage.addEventListener('pointermove', (e) => {
       pointer = { x: e.clientX, y: e.clientY };
       if (gdrag) return dragGizmo(e);
+      if (vdrag) return dragVertex();
       if (!last) {
         const g = nearAxis(e);
         gHover = g ? g.h.axis : null;
@@ -1221,6 +1417,7 @@
       last = { x: e.clientX, y: e.clientY };
     });
     const release = () => {
+      dropVertex();
       dropGizmo();
       last = null;
       stage.classList.remove('drag');
@@ -1270,9 +1467,23 @@
       } else if (e.key === 'o' || e.key === 'O') {
         e.preventDefault();
         if (!e.repeat) pickBool();
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        if (!e.repeat) editing ? leaveEdit() : enterEdit();
+      } else if (editing && e.key === 'Enter') {
+        e.preventDefault();
+        fillFace();
+      } else if (editing && e.key === 'Escape') {
+        if (wireFrom !== null) ((wireFrom = null), redraw());
+        else leaveEdit();
+      } else if (editing && (e.key === 'x' || e.key === 'X' || e.key === 'Delete')) {
+        e.preventDefault();
+        eraseLines();
+      } else if (editing && (e.key === 'h' || e.key === 'H' || e.key === 'o' || e.key === 'O')) {
+        e.preventDefault(); // the object tools wait outside edit mode
       } else if (e.key === 'v' || e.key === 'V') {
         e.preventDefault();
-        if (!e.repeat) spider();
+        if (!e.repeat) editing ? drawLine() : spider();
       } else if (e.key === '?') {
         e.preventDefault();
         if (!e.repeat) toggleHint();
@@ -1367,7 +1578,7 @@
     // Live link: when served by the MCP server (`/events` exists), show what the AI builds.
     let framed = false;
     const applyScene = (data) => {
-      hostObjects = (data.objects ?? []).map((o, n) => ({ id: o.id ?? o.name ?? `o${n}`, name: o.name ?? `o${n}`, mesh: o.mesh, host: true }));
+      hostObjects = (data.objects ?? []).map((o, n) => ({ id: o.id ?? o.name ?? `o${n}`, name: o.name ?? `o${n}`, mesh: o.mesh, wire: o.wire, host: true }));
       rebuild();
       // the camera frames the scene once for a db (its snapshots also echo our own edits), at every push for MCP
       if (!focused && (!framed || data.rev !== 'db')) Object.assign(fit, overview());
@@ -1422,7 +1633,7 @@
         // what was made here before the db answered goes into it now
         for (const o of mine.splice(0)) {
           hostObjects.push({ ...o, host: true });
-          save(o, () => col.doc(o.id).set({ name: o.name, mesh: o.mesh }));
+          save(o, () => col.doc(o.id).set(docOf(o)));
         }
       });
     }

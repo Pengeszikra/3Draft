@@ -25,7 +25,8 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `T` | fly to the object under the cross. Over nothing, or when too close or inside a model: out to the nearest object |
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
 | `M` | place a prism on the surface under the cross, or shoot one into empty space |
-| `V` | Spider bar: the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
+| `Tab` | edit mode on the object under the cross / off (see below) |
+| `V` | Spider bar (in edit mode: draw a line): the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
 | `X`, `Delete` | delete the object under the cross |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
 | `P` | show / hide the material palette |
@@ -53,6 +54,22 @@ There is one gizmo at a time, and `H` cycles through three states:
 3. **Third `H`**: the gizmo goes away.
 
 Drag one of the arrows to slide the object along that axis; the arrow thickens under the pointer. While dragging only the picture changes; one write goes to the database when you let go, and one `U` takes the whole drag back.
+
+## Edit mode: drawing on a model (`Tab`)
+
+The idea: there is a base model, and you refine or extend it by drawing lines on it. Put the cross on an object and press `Tab`. A red bar at the top says which object is being edited. Its vertices show as small grey crosses.
+
+- **`V` draws a line.** The first `V` takes a point, the next `V` joins it to the new one, and the chain goes on from there. A point is either an existing vertex (the pointer **snaps** to vertices; a white cross shows which) or a new vertex put on the surface under the cross. On a face it splits the face into triangles, on an edge it goes into both faces, so the surface never cracks.
+- **Two points on one face cut it.** The line becomes a real edge of the mesh: the surface gets detail exactly where you drew.
+- **Points in the air extend the model.** With a line in progress, `V` over empty space puts the next point on the plane that faces the camera through the last point. So you can draw a new part out from the model, and lines that end on existing vertices are attached to it.
+- **`Enter` closes a loop into a face.** The shortest closed loop (up to 8 lines) through the last line becomes a face with the selected material, wound away from the middle of the object. A loop of 4 or more becomes triangles, so faces stay flat.
+- **Move a vertex:** drag it with the mouse (it slides in the plane that faces the camera), or select it and drag a gizmo arrow for one axis. Everything that uses the vertex follows: lines, faces, and the base surface, so this is how you reshape the original model. A polygon that gets a moved vertex turns into triangles.
+- **`X`** removes the lines at the selected vertex (or the last line); the points stay. `U` undoes every step, one key press at a time.
+- **`Esc`** stops the line you are drawing; `Esc` again, or `Tab`, leaves edit mode. The lines are only shown in edit mode.
+
+The lines live next to the mesh as `wire: [[a, b], ...]` (vertex pairs) in the object's document, so the AI sees them too. The geometry is in the engine (README part 1): `insertVertex`, `cutFace`, `moveVertex`, `fillLoop`, `addLine`, `findLoop`.
+
+Limits for now: a face made from a non-flat or non-convex loop is only as good as its triangle fan, there is no mirror yet, and the lines are not deformation weights (a surface does not bend around a moved vertex, it just follows the vertices that are in the mesh).
 
 ## Boolean operations (`O`)
 
