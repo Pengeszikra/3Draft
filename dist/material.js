@@ -2,7 +2,7 @@
 // (`face.mat`) and keeps its own `color` as a fallback, so a mesh still looks right without the palette.
 // One shader draws all of them; the numbers below are the only knobs.
 const clamp = (n, fallback, max = 1) => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : fallback);
-export const EMIT_MAX = 8;
+export const EMIT_MAX = 5;
 export const FALLBACK_COLOR = '#c8c8c8';
 export const DEFAULTS = { metal: 0, rough: 0.7, alpha: 1, emit: 0 };
 /** The surface of a face: its palette entry when it names one, else just its color with default properties. */

@@ -147,6 +147,16 @@
       cursor: pointer;
     }
     button:hover { border-color: var(--muted); }
+    select {
+      font: 500 13px/1 var(--font-mono);
+      color: var(--fg);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    select:hover { border-color: var(--muted); }
     .actions button.on { border-color: var(--cursor); }
     button:focus, button:focus-visible { outline: none; }
 
@@ -215,7 +225,7 @@
     <label>metal <input type="range" id="p-metal" min="0" max="1" step="0.05" /><span id="v-metal"></span></label>
     <label>rough <input type="range" id="p-rough" min="0" max="1" step="0.05" /><span id="v-rough"></span></label>
     <label>alpha <input type="range" id="p-alpha" min="0" max="1" step="0.05" /><span id="v-alpha"></span></label>
-    <label>emit <input type="range" id="p-emit" min="0" max="8" step="0.1" /><span id="v-emit"></span></label>
+    <label>emit <input type="range" id="p-emit" min="0" max="5" step="0.1" /><span id="v-emit"></span></label>
     <div class="row"><input type="color" id="custom" value="#c0392b" aria-label="Colour of the material" /><button id="addColor" type="button">+ new</button></div>
   </aside>
 
@@ -237,7 +247,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -247,6 +257,14 @@
       <button id="gpuBtn" type="button">WebGPU</button>
       <button id="light" type="button">Light</button>
       <button id="filmic" type="button" title="Filmic look: HDR light, glowing emission, tone mapping (C)">Filmic</button>
+      <select id="examples" aria-label="Add an example model to the scene" title="Add an example model to the scene">
+        <option value="">+ Example…</option>
+        <option value="house">House (Blender import)</option>
+        <option value="cessna">Cessna</option>
+        <option value="bridge">Stone bridge</option>
+        <option value="table">Table</option>
+      </select>
+      <button id="clear" type="button" title="Remove every object (U brings them back)">Clear</button>
       <button id="undo" type="button">Undo</button>
       <button id="reset" type="button">Reset view</button>
     </span>
@@ -254,7 +272,7 @@
 
   <script type="module">
     import { boolean, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
-    import { LEG } from '../examples/table-model.js';
+    import { LEG, table } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
     const frame = document.getElementById('frame');
@@ -768,6 +786,58 @@
       if (o.host) save(o, () => col.doc(o.id).delete());
       rebuild();
     };
+    // One undo step for a whole batch (a clear, an added example): the steps recorded while `run` works are folded into one.
+    const asOneStep = (run) => {
+      const from = history.length;
+      const result = run();
+      const steps = history.splice(from);
+      if (steps.length) history.push(() => steps.reverse().forEach((step) => step()));
+      return result;
+    };
+    // Clear: every object goes; one U brings them all back.
+    const clearScene = () => {
+      const all = allObjects().slice();
+      if (!all.length) return;
+      boolFrom = null;
+      closeBool();
+      gizmo = null;
+      asOneStep(() =>
+        all.forEach((o) => {
+          erase(o);
+          history.push(() => allObjects().includes(o) || restore(o));
+        }),
+      );
+      reset();
+    };
+    // Example models: added next to what is already there (to its +x side), as one undo step.
+    const sceneOf = async (name) => {
+      if (name === 'table') return { objects: [{ name: 'table', mesh: table }] };
+      return globalThis.__EXAMPLES?.[name] ?? (await fetch(`../examples/${name}.scene.json`)).json();
+    };
+    const spanOf = (meshes) => {
+      const lo = [Infinity, Infinity, Infinity];
+      const hi = [-Infinity, -Infinity, -Infinity];
+      for (const m of meshes) for (const q of m.positions) q.forEach((c, i) => ((lo[i] = Math.min(lo[i], c)), (hi[i] = Math.max(hi[i], c))));
+      return { lo, hi };
+    };
+    const addExample = async (name) => {
+      const { objects } = await sceneOf(name);
+      const gap = 0.5;
+      let dx = 0;
+      const have = allObjects();
+      if (have.length) {
+        const a = spanOf(have.map((o) => o.mesh));
+        const b = spanOf(objects.map((o) => o.mesh));
+        dx = a.hi[0] + gap - b.lo[0];
+      }
+      asOneStep(() =>
+        objects.forEach((o) => {
+          const mesh = dx ? { ...o.mesh, positions: o.mesh.positions.map(([x, y, z]) => [x + dx, y, z]) } : o.mesh;
+          create(o.name, mesh);
+        }),
+      );
+      reset();
+    };
     const undo = () => {
       history.pop()?.();
       redraw();
@@ -1136,6 +1206,10 @@
       ArrowDown: [0, STEP],
     };
     const FLY_KEYS = { w: ['f', 1], s: ['f', -1], d: ['r', 1], a: ['r', -1], r: ['u', 1], f: ['u', -1] };
+    // a click on a button hands the keyboard back to the view (a keyboard activation keeps the focus)
+    document.addEventListener('click', (e) => {
+      if (e.detail > 0 && e.target instanceof HTMLButtonElement) e.target.blur();
+    });
     document.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLButtonElement) return; // Space and Enter belong to a focused button
       const fk = !e.ctrlKey && !e.metaKey && !e.altKey && FLY_KEYS[e.key.toLowerCase()];
@@ -1221,6 +1295,14 @@
     document.getElementById('light').addEventListener('click', turnLight);
     document.getElementById('filmic').addEventListener('click', toggleFilmic);
     document.getElementById('filmic').classList.add('on');
+    document.getElementById('clear').addEventListener('click', clearScene);
+    const exampleEl = document.getElementById('examples');
+    exampleEl.addEventListener('change', async () => {
+      const name = exampleEl.value;
+      exampleEl.value = '';
+      exampleEl.blur(); // so the shortcuts (U, ...) work right away
+      if (name) await addExample(name);
+    });
     document.getElementById('undo').addEventListener('click', undo);
     document.getElementById('reset').addEventListener('click', reset);
     new ResizeObserver(redraw).observe(stage);

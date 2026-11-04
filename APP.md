@@ -38,6 +38,11 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `G`, `L` | SVG / WebGPU, turn the light |
 | `?` | show / hide these shortcuts under the view (hidden at the start; also the `Keys` button) |
 
+## Clear and example models
+
+- **`Clear`** (footer) removes every object in the scene. It is one undo step: `U` brings them all back.
+- **`+ Example…`** (the drop-down in the footer) adds a ready-made model to the scene: the house (the Blender import, 45 objects), the Cessna, the stone bridge or the table. It is placed beside what is already there, on its +x side, and the view frames everything. One `U` removes the whole example again. Examples are normal objects after that: paint, move, boolean and delete them like any other.
+
 ## Moving an object: the gizmo (`H`)
 
 There is one gizmo at a time, and `H` cycles through three states:
@@ -68,7 +73,7 @@ The math is the engine's `boolean(a, b, op)` (README, part 1). Both objects must
 
 Twelve starting materials: plaster, sand, wood, dark wood, concrete, slate, grass, brick, steel, gold, glass, lamp. Pick one, then `Shift`+press to paint a face or `Shift`+double click for the whole object.
 
-For the selected material there are four sliders (`metal`, `rough`, `alpha`, `emit`) and a colour; `+ new` copies it as a new material. A painted face stores the material **name**, so editing a material changes every face made of it.
+For the selected material there are four sliders (`metal`, `rough`, `alpha`, `emit`, 0 to 5) and a colour; `+ new` copies it as a new material. A painted face stores the material **name**, so editing a material changes every face made of it.
 
 ## Isolating, travelling
 

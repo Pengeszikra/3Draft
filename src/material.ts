@@ -13,7 +13,7 @@ export interface Material {
   rough?: number;
   /** 1 = solid, 0 = invisible. Drawn with alpha-to-coverage: one pass, no sorting. */
   alpha?: number;
-  /** 0..8: how much the color glows on its own, unlit. Up to 1 it fades from lit to flat colour; above 1 (WebGPU `tonemap`) it is a light source: that many times brighter. */
+  /** 0..5: how much the color glows on its own, unlit. Up to 1 it fades from lit to flat colour; above 1 (WebGPU `tonemap`) it is a light source: that many times brighter. */
   emit?: number;
 }
 export type Palette = Record<string, Material>;
@@ -28,7 +28,7 @@ export interface Surface {
 }
 
 const clamp = (n: unknown, fallback: number, max = 1): number => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : fallback);
-export const EMIT_MAX = 8;
+export const EMIT_MAX = 5;
 
 export const FALLBACK_COLOR = '#c8c8c8';
 export const DEFAULTS = { metal: 0, rough: 0.7, alpha: 1, emit: 0 } as const;

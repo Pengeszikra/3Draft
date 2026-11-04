@@ -12,8 +12,8 @@ test('surfaceOf: palette entry, defaults, clamping, fallback', () => {
     const odd = surfaceOf({ mat: 'odd' }, palette);
     assert.equal(odd.alpha, 1);
     assert.equal(odd.emit, 0);
-    assert.equal(surfaceOf({ mat: 'lamp' }, { lamp: { color: '#ffd36b', emit: 5 } }).emit, 5, 'emit goes above 1');
-    assert.equal(surfaceOf({ mat: 'lamp' }, { lamp: { color: '#ffd36b', emit: 50 } }).emit, 8, 'but stops at 8');
+    assert.equal(surfaceOf({ mat: 'lamp' }, { lamp: { color: '#ffd36b', emit: 3 } }).emit, 3, 'emit goes above 1');
+    assert.equal(surfaceOf({ mat: 'lamp' }, { lamp: { color: '#ffd36b', emit: 50 } }).emit, 5, 'but stops at 5');
 });
 test('buildVertices carries the material of every face', () => {
     const m = box({ color: '#ff0000' });

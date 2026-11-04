@@ -40,7 +40,7 @@ export interface GpuRenderOptions {
   instances?: { mesh: Mesh; data: Float32Array };
   /**
    * Filmic look: lighting in linear colour, HDR light and emission, Fresnel on the edges, ACES tone mapping.
-   * `true` for the defaults or { exposure = 1, emit = 2 } (emit: brightness of one unit of material `emit`, which goes up to 8).
+   * `true` for the defaults or { exposure = 1, emit = 2 } (emit: brightness of one unit of material `emit`, which goes up to 5).
    * Off by default (the plain flat look).
    */
   tonemap?: boolean | { exposure?: number; emit?: number };

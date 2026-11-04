@@ -56,7 +56,7 @@ The palette is data: `{ name: { color, metal, rough, alpha, emit } }`. A face po
 | `metal` 0..1 | paint ... metal | reflects sky and ground, tinted; strong highlight |
 | `rough` 0..1 | mirror ... matte | widens the highlight, blurs the reflection |
 | `alpha` 1..0 | solid ... invisible | alpha-to-coverage, one pass, no sorting (SVG: `fill-opacity`, and a see-through face hides nothing) |
-| `emit` 0..8 | lit ... glowing | up to 1 the colour fades to unshaded; above 1 (with `tonemap`) it is a light source, that many times brighter |
+| `emit` 0..5 | lit ... glowing | up to 1 the colour fades to unshaded; above 1 (with `tonemap`) it is a light source, that many times brighter |
 
 Pass the palette to the renderers: `renderView(mesh, view, { palette })`, `gpu.render(mesh, view, { palette })` (a new object when an entry changes). SVG shows colour and alpha only.
 
