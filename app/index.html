@@ -358,6 +358,7 @@
       for (const p of [...placed]) {
         if (now - p.start < (p.dur ?? FLIGHT_MS)) continue;
         placed.splice(placed.indexOf(p), 1);
+        placedVer++; // the GPU instances are rebuilt without it (a bullet that missed would hang where it was last drawn)
         if (p.shot) carve(p); // a shot that hit carves, one that missed just vanishes
         else create('prism', p.mesh);
         any = true;
