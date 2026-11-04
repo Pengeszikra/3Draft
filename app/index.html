@@ -710,13 +710,18 @@
     };
     const shoot = () => {
       if (!pointer || !cam?.at) return;
+      // The bullet starts at the camera point and flies along the ray through the cursor, toward a target behind the model:
+      // the ray always runs along its long axis, so on screen it never turns and we always look straight at its back.
       const { origin, dir } = ray(cam, cam.at.x, cam.at.y);
-      const D = orbitDist(fit.radius);
       const L = 3 * LEG.base;
       const target = hit && owner(hit.face);
+      const { center, radius } = bounds(scene); // the isolated object
+      const toCentre = Math.hypot(...center.map((c, i) => c - origin[i]));
+      // a miss flies on until it is 3 object sizes behind the model
+      const reach = toCentre + 3 * radius;
       const end = target
         ? hit.point.map((c, i) => c + dir[i] * (L / 2 - SHOT_DEPTH)) // its tip SHOT_DEPTH below the surface
-        : origin.map((c, i) => c + dir[i] * D * SHOT_MAX);
+        : origin.map((c, i) => c + dir[i] * reach);
       const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
       const along = cam.u.reduce((t, c, i) => t + c * dir[i], 0);
       const ex = cam.u.map((c, i) => c - dir[i] * along);
@@ -725,9 +730,10 @@
       const m = materials[current];
       let mesh = box({ size: [LEG.base, L, LEG.base], at: end, axes, color: m.color });
       mesh = { ...mesh, faces: mesh.faces.map((f) => ({ ...f, mat: m.name })) };
-      const dist = Math.hypot(...end.map((c, i) => c - origin[i]));
-      const back = Math.max(dist - 0.2 * D, L);
-      placed.push({ mesh, inst: { at: end, axes, color: m.color }, from: dir.map((c) => -c * back), start: performance.now(), dur: SHOT_MS, shot: target ? { id: target.id } : {} });
+      const back = Math.hypot(...end.map((c, i) => c - origin[i])); // it starts at the camera point
+      const D = orbitDist(fit.radius);
+      const dur = Math.max(200, Math.min(900, (back / (10 * D)) * 1000));
+      placed.push({ mesh, inst: { at: end, axes, color: m.color }, from: dir.map((c) => -c * back), start: performance.now(), dur, shot: target ? { id: target.id } : {} });
       redraw();
     };
     // A prism like the old table leg (same base), three times as tall as it is wide,

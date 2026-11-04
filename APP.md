@@ -24,7 +24,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `Space` | stop moving (all speeds to zero) |
 | `T` | fly to the object under the cross. Over nothing, or when too close or inside a model: out to the nearest object |
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
-| `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that flies along the cursor ray; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on and vanishes. The object must be a closed solid |
+| `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that starts at the camera point and flies along the ray through the cursor, so its long axis is always the view direction and you always see its back; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on until it is 3 object sizes behind the model and vanishes. The object must be a closed solid |
 | `V` | Spider bar: the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
 | `X`, `Delete` | delete the object under the cross |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
