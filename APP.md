@@ -24,7 +24,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `Space` | stop moving (all speeds to zero) |
 | `T` | fly to the object under the cross. Over nothing, or when too close or inside a model: out to the nearest object |
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
-| `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that starts at the camera point and flies along the ray through the cursor, so its long axis is always the view direction and you always see its back; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on to 4 times the camera-to-model distance and vanishes. The model should be a closed solid, but a few open edges are tolerated. |
+| `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that starts at the camera point and flies along the ray through the cursor, so its long axis is always the view direction and you always see its back; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on to 4 times the camera-to-model distance and vanishes. Only the closed parts of the model are carved; open parts are ignored (see the health check below). |
 | `V` | Spider bar: the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
 | `X`, `Delete` | delete the object under the cross |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
@@ -68,7 +68,7 @@ Press `O` over an object: it gets an orange box. Press `O` over another one (gre
 
 The result is a new object named like `A-B` and it replaces both operands; `U` brings the two originals back and removes the result. `O` over empty space forgets a marked object.
 
-The math is the engine's `boolean(a, b, op)` (README, part 1). Both objects must be **closed solids with outward faces**. An open shell, such as a wall without thickness, is refused with the reason in the dialog. With messy data (coincident faces) the result can come out open; the engine's `validate` says so.
+The math is the engine's `boolean(a, b, op)` (README, part 1). Only closed parts are calculated: a part that is not a closed solid (a surface, a box without a bottom) is left out, and a union keeps it as it is. The status line under the picture is the **health check** of the object under the cross: `solid`, `N of M parts closed · K faces open`, or `no closed part`. Each object needs at least one **closed solid with outward faces**; with none, the reason shows in the dialog. With messy data (coincident faces) the result can come out open; the engine's `validate` says so.
 
 ## Materials (`P`)
 

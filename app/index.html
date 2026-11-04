@@ -88,6 +88,9 @@
     .read b { display: inline-block; min-width: 4ch; font-weight: 500; color: var(--fg); }
     .read .surface { min-width: 34ch; }
     .read .surface b { min-width: 0; }
+    .read .surface b.ok { color: #2f9e44; }
+    .read .surface b.warn { color: #e67700; }
+    .read .surface b.bad { color: #e03131; }
     .actions { display: flex; gap: 8px; }
 
     #stage {
@@ -271,7 +274,7 @@
   </footer>
 
   <script type="module">
-    import { boolean, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
+    import { boolean, health, project, initKernel, createGpu, buildInstances, bounds, orbit, makeCamera, ray, pick, crosshair, standOn, box, merge, renderView, version, displayVersion } from '../dist/index.js';
     import { LEG, table } from '../examples/table-model.js';
 
     const stage = document.getElementById('stage');
@@ -382,6 +385,18 @@
       return instCache.data;
     };
 
+    // The health check of the object under the cross: which of its parts are closed solids (booleans and bullets only
+    // calculate with those; open parts, such as a surface or a box without a bottom, are ignored).
+    const healthCache = new WeakMap();
+    const healthText = (o) => {
+      if (!o) return '';
+      let h = healthCache.get(o.mesh);
+      if (!h) healthCache.set(o.mesh, (h = health(o.mesh)));
+      const closed = h.parts.filter((p) => p.closed && !p.insideOut).length;
+      if (h.allSolid) return `<b class="ok" title="every part is a closed solid">${closed === 1 ? 'solid' : `${closed} solids`}</b>`;
+      if (!h.hasSolid) return `<b class="bad" title="no closed part: a boolean or a bullet cannot work with it">no closed part · ${h.skippedFaces} faces open</b>`;
+      return `<b class="warn" title="booleans and bullets work with the closed parts only">${closed} of ${h.parts.length} parts closed · ${h.skippedFaces} faces open</b>`;
+    };
     const deg = (r) => `${Math.round((r * 180) / Math.PI)}°`;
     const signed = (n) => {
       const v = Math.round(n * 100) / 100 + 0;
@@ -616,7 +631,7 @@
       pitchEl.textContent = deg(pitch);
       countEl.textContent = String(allObjects().length + placed.length);
       surfaceEl.innerHTML = hit
-        ? `surface <b>face ${hit.face} · n ${hit.normal.map(signed).join(' ')}</b>`
+        ? `surface <b>face ${hit.face} · n ${hit.normal.map(signed).join(' ')}</b> · ${healthText(owner(hit.face))}`
         : 'surface <b>–</b>';
     };
     // WebGPU is the starting view (set up right after the first frame); it falls back to SVG if it is unavailable or lost.
@@ -691,13 +706,13 @@
       if (!target) return;
       let mesh;
       try {
-        mesh = boolean(target.mesh, p.mesh, 'subtract', { strict: false }); // a model with a few open edges can still be carved
+        mesh = boolean(target.mesh, p.mesh, 'subtract', { strict: false }); // only its closed parts are carved; open parts stay as they are
       } catch (err) {
-        // the bullet only carves closed solids; say so for a moment
+        // the bullet only carves closed parts; say so for a moment
         const was = liveEl.textContent;
-        liveEl.textContent = 'shot: not a closed solid';
+        liveEl.textContent = 'shot: no closed part';
         liveEl.title = String(err?.message ?? err);
-        setTimeout(() => (liveEl.textContent === 'shot: not a closed solid' ? (liveEl.textContent = was) : 0), 2500);
+        setTimeout(() => (liveEl.textContent === 'shot: no closed part' ? (liveEl.textContent = was) : 0), 2500);
         return;
       }
       if (!mesh.faces.length) return;
@@ -942,7 +957,7 @@
       const [a, b] = swap ? [boolPair.b, boolPair.a] : [boolPair.a, boolPair.b];
       let mesh;
       try {
-        mesh = boolean(a.mesh, b.mesh, op);
+        mesh = boolean(a.mesh, b.mesh, op, { strict: false }); // open parts are left out of the calculation
       } catch (err) {
         boolNote.textContent = String(err?.message ?? err);
         return;

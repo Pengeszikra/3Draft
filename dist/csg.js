@@ -192,16 +192,72 @@ const closedSolid = (name, m) => {
     if (v.inside_out)
         throw new Error(`boolean needs outward faces: ${name} is inside out`);
 };
+const subMesh = (mesh, idx) => {
+    const map = new Map();
+    const positions = [];
+    const faces = idx.map((i) => {
+        const f = mesh.faces[i];
+        return { ...f, v: f.v.map((k) => (map.has(k) ? map.get(k) : (map.set(k, positions.length), positions.push(mesh.positions[k]), positions.length - 1))) };
+    });
+    return { ...mesh, positions, faces };
+};
+/** Splits a mesh into connected parts and says which of them are closed solids (the health check). */
+export const health = (mesh) => {
+    const n = mesh.faces.length;
+    const root = Array.from({ length: n }, (_, i) => i);
+    const find = (i) => (root[i] === i ? i : (root[i] = find(root[i])));
+    const seen = new Map();
+    mesh.faces.forEach((f, i) => f.v.forEach((v, k) => {
+        const w = f.v[(k + 1) % f.v.length];
+        const key = v < w ? `${v},${w}` : `${w},${v}`;
+        const j = seen.get(key);
+        if (j === undefined)
+            seen.set(key, i);
+        else
+            root[find(i)] = find(j);
+    }));
+    const groups = new Map();
+    for (let i = 0; i < n; i++)
+        groups.set(find(i), [...(groups.get(find(i)) ?? []), i]);
+    const parts = [...groups.values()].map((faces) => {
+        const v = validate(subMesh(mesh, faces));
+        return { faces, closed: v.closed, insideOut: v.inside_out, openEdges: v.openEdges };
+    });
+    const usable = parts.filter((p) => p.closed && !p.insideOut);
+    const usableFaces = usable.reduce((t, p) => t + p.faces.length, 0);
+    return { parts, usableFaces, skippedFaces: n - usableFaces, hasSolid: usable.length > 0, allSolid: usable.length === parts.length && parts.length > 0 };
+};
+const append = (base, extra) => {
+    const o = base.positions.length;
+    return { ...base, positions: [...base.positions, ...extra.positions], faces: [...base.faces, ...extra.faces.map((f) => ({ ...f, v: f.v.map((k) => k + o) }))] };
+};
 /**
  * Boolean of two closed solids (outward CCW faces): 'union', 'subtract' (a minus b) or 'intersect'.
- * Throws with a reason when an input is open or inside out (unless `strict: false`).
+ * Throws with a reason when an input is open or inside out. With `strict: false` the parts that are not closed solids are
+ * left out of the calculation instead (see `health`): a union keeps them as they are, a subtract keeps those of `a`,
+ * an intersect drops them; it throws only when `a` has no closed part at all.
  */
 export const boolean = (a, b, op, { strict = true } = {}) => {
-    // `strict: false` skips the check, for a mesh with a few open edges (a bullet carving a model that is not quite closed)
     if (strict) {
         closedSolid('a', a);
         closedSolid('b', b);
+        return run(a, b, op);
     }
+    const ha = health(a);
+    const hb = health(b);
+    if (!ha.hasSolid)
+        throw new Error('boolean: the model has no closed part (nothing to calculate with)');
+    if (!hb.hasSolid)
+        throw new Error('boolean: the second model has no closed part');
+    const pick = (m, h, closed) => subMesh(m, h.parts.filter((p) => (p.closed && !p.insideOut) === closed).flatMap((p) => p.faces).sort((x, y) => x - y));
+    let out = run(pick(a, ha, true), pick(b, hb, true), op);
+    if (ha.skippedFaces)
+        out = append(out, pick(a, ha, false));
+    if (op === 'union' && hb.skippedFaces)
+        out = append(out, pick(b, hb, false));
+    return out;
+};
+const run = (a, b, op) => {
     const sa = bounds(a);
     const sb = bounds(b);
     const scale = Math.max(sa.radius, sb.radius, 1e-9) * 2 + len(sub(sa.center, sb.center));

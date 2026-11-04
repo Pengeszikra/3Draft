@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { box, validate, union, subtract, intersect, boolean, merge } from './index.js';
+import { box, validate, union, subtract, intersect, boolean, merge, health } from './index.js';
 
 const A = () => box({ size: [2, 2, 2], at: [0, 0, 0], color: '#ff0000' });
 const B = () => box({ size: [1, 1, 1], at: [1, 0, 0], color: '#0000ff' }); // sticks out of A on +x
@@ -52,4 +52,25 @@ test('open and inside-out inputs are refused with a reason', () => {
   const inverted = { positions: A().positions, faces: A().faces.map((f) => ({ ...f, v: [...f.v].reverse() })) };
   assert.throws(() => boolean(A(), inverted, 'union'), /inside out/);
   void merge;
+});
+
+test('health: connected parts, closed or open; strict:false leaves the open parts out of the calculation', () => {
+  const open = box({ size: [1, 1, 1], at: [5, 0, 0], color: '#00ff00' });
+  open.faces.splice(3, 1); // a box without one side: an open part
+  const model = merge(A(), open);
+  const h = health(model);
+  assert.equal(h.parts.length, 2);
+  assert.equal(h.hasSolid, true);
+  assert.equal(h.allSolid, false);
+  assert.equal(h.usableFaces, 6);
+  assert.equal(h.skippedFaces, 5);
+  assert.throws(() => subtract(model, B()), /closed solids/);
+  const cut = boolean(model, B(), 'subtract', { strict: false });
+  const hc = health(cut);
+  assert.equal(hc.skippedFaces, 5, 'the open part comes through unchanged');
+  assert.ok(hc.hasSolid);
+  const solidPart = hc.parts.find((p) => p.closed)!;
+  assert.ok(solidPart.faces.length > 6, 'the closed box got a notch');
+  assert.throws(() => boolean(open, B(), 'subtract', { strict: false }), /no closed part/);
+  assert.equal(health(A()).allSolid, true);
 });
