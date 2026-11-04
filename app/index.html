@@ -219,14 +219,14 @@
   </aside>
 
   <aside id="palette" hidden aria-label="Material palette">
-    <span>materials · shift+click: paint a face · shift+double click: the whole object</span>
+    <span>materials · shift+click: paint a face · shift+double click: the whole object · i: pick the material under the cross</span>
     <div class="grid" id="swatches"></div>
     <b id="current">–</b>
     <label>metal <input type="range" id="p-metal" min="0" max="1" step="0.05" /><span id="v-metal"></span></label>
     <label>rough <input type="range" id="p-rough" min="0" max="1" step="0.05" /><span id="v-rough"></span></label>
     <label>alpha <input type="range" id="p-alpha" min="0" max="1" step="0.05" /><span id="v-alpha"></span></label>
     <label>emit <input type="range" id="p-emit" min="0" max="5" step="0.1" /><span id="v-emit"></span></label>
-    <div class="row"><input type="color" id="custom" value="#c0392b" aria-label="Colour of the material" /><button id="addColor" type="button">+ new</button></div>
+    <div class="row"><input type="color" id="custom" value="#c0392b" aria-label="Colour of the material" /><button id="addColor" type="button">+ new</button><button id="pickMat" type="button" title="Take the material of a surface (I: from under the cross; the button: then click a surface)">pick</button></div>
   </aside>
 
   <div class="fab" aria-label="Controls">
@@ -247,7 +247,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -997,6 +997,35 @@
       showPalette();
       syncPalette();
     });
+    // Pick material (the eyedropper): the material of the face under the cross becomes the selected one. A face that only
+    // has a colour selects the entry with that colour, or starts a new entry from it.
+    let picking = false;
+    const pickBtn = document.getElementById('pickMat');
+    const armPick = (on) => {
+      picking = on;
+      pickBtn.classList.toggle('on', on);
+      stage.style.cursor = on ? 'copy' : '';
+    };
+    const pickMaterial = () => {
+      const face = hit && scene.faces[hit.face];
+      if (!face) return false;
+      let i = face.mat !== undefined ? materials.findIndex((m) => m.name === face.mat) : -1;
+      if (i < 0 && face.color) i = materials.findIndex((m) => m.color.toLowerCase() === face.color.toLowerCase());
+      if (i < 0) {
+        let n = materials.length;
+        while (materials.some((m) => m.name === `m${n}`)) n++;
+        const m = { ...materials[current], name: `m${n}`, color: face.color ?? '#c8c8c8' };
+        materials.push(m);
+        saveMaterial(m);
+        i = materials.length - 1;
+        syncPalette();
+      }
+      current = i;
+      if (paletteEl.hidden) paletteEl.hidden = false;
+      showPalette();
+      return true;
+    };
+    pickBtn.addEventListener('click', () => armPick(!picking));
     const paintFaces = (obj, faces) => {
       const m = materials[current];
       const base = owners.find((o) => o.obj === obj).start;
@@ -1156,6 +1185,11 @@
         return paintFace(); // Shift+press paints, it never starts a rotation
       }
       pointer = { x: e.clientX, y: e.clientY };
+      if (picking) {
+        pickMaterial();
+        armPick(false);
+        return;
+      }
       const grab = nearAxis(e);
       if (grab) {
         const dx = grab.b.x - grab.a.x;
@@ -1253,6 +1287,11 @@
       } else if (e.key === 'g' || e.key === 'G') {
         e.preventDefault();
         toggleMode();
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        if (!e.repeat) pickMaterial();
+      } else if (picking && e.key === 'Escape') {
+        armPick(false);
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
         if (!e.repeat) toggleFilmic();

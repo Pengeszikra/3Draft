@@ -29,6 +29,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `X`, `Delete` | delete the object under the cross |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
 | `P` | show / hide the material palette |
+| `I` | pick material: the material of the face under the cross becomes the selected one |
 | `Shift` + press | paint the face under the cross with the selected material (palette must be on) |
 | `Shift` + double click | paint the whole object |
 | `O` | boolean (see below) |
@@ -72,6 +73,8 @@ The math is the engine's `boolean(a, b, op)` (README, part 1). Both objects must
 ## Materials (`P`)
 
 Twelve starting materials: plaster, sand, wood, dark wood, concrete, slate, grass, brick, steel, gold, glass, lamp. Pick one, then `Shift`+press to paint a face or `Shift`+double click for the whole object.
+
+**Pick material (`I`, or the `pick` button):** the eyedropper. `I` takes the material of the face under the cross. The `pick` button arms it, and the next click on a surface takes it (`Esc` cancels). The palette opens and that material is selected, so you can read its sliders or paint with it right away. A face that has only a colour selects the material with that colour, or starts a new material from it.
 
 For the selected material there are four sliders (`metal`, `rough`, `alpha`, `emit`, 0 to 5) and a colour; `+ new` copies it as a new material. A painted face stores the material **name**, so editing a material changes every face made of it.
 
