@@ -104,7 +104,8 @@ export declare const defaultMaterial: Required<GpuMaterial>;
  * prototype mesh, data from buildInstances; drawn after the mesh), background [r,g,b] 0..1,
  * light { direction, sky, ground }, material { ambient, diffuse, specular, shininess }, dpr.
  */
-export declare const createGpu: (canvas: HTMLCanvasElement, { sampleCount }?: {
+export declare const createGpu: (canvas: HTMLCanvasElement, { sampleCount, onError }?: {
     sampleCount?: number;
+    onError?: (message: string) => void;
 }) => Promise<Gpu>;
 export {};

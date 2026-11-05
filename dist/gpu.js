@@ -243,14 +243,18 @@ fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
  * prototype mesh, data from buildInstances; drawn after the mesh), background [r,g,b] 0..1,
  * light { direction, sky, ground }, material { ambient, diffuse, specular, shininess }, dpr.
  */
-export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
+export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
     if (!globalThis.navigator?.gpu)
         throw new Error('WebGPU is not available in this browser');
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter)
         throw new Error('No WebGPU adapter found');
     const device = await adapter.requestDevice();
-    device.addEventListener('uncapturederror', (e) => console.error('WebGPU:', e.error?.message ?? e));
+    device.addEventListener('uncapturederror', (e) => {
+        const message = String(e.error?.message ?? e);
+        console.error('WebGPU:', message);
+        onError?.(message);
+    });
     device.lost.then((info) => console.error('WebGPU device lost:', info.reason, info.message));
     const context = canvas.getContext('webgpu');
     if (!context)
@@ -258,6 +262,12 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
     const format = navigator.gpu.getPreferredCanvasFormat();
     context.configure({ device, format, alphaMode: 'opaque', });
     const module = device.createShaderModule({ code: SHADER });
+    // shader compile errors are reported to onError too (the browser only logs them to the console)
+    module.getCompilationInfo?.().then((info) => {
+        for (const m of info.messages ?? [])
+            if (m.type === 'error')
+                onError?.(`shader line ${m.lineNum}: ${m.message}`);
+    });
     const meshLayout = {
         arrayStride: FLOATS * 4,
         attributes: [
