@@ -210,7 +210,7 @@
     <p class="build" id="build" title="Build, YY.MM.DD.NNN">–</p>
   </header>
 
-  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light, C switches the filmic look. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H puts the move gizmo (helper) on the object under the cross with the world axes, the next H switches to the object's own axes, the third takes it off; drag an arrow to move the object; E toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
+  <main id="stage" tabindex="0" role="img" aria-label="Empty space for prisms. G switches between the SVG and the WebGPU view, L turns the light, C switches the filmic look, N smooth shading, K the studio light. Drag, or use the arrow keys, to rotate the view. The cross follows the surface under the pointer. M puts a prism down there, or shoots one into empty space; Space stops the movement. O marks an object, a second O on another one asks for a boolean operation (union, A minus B, B minus A, intersect). V joins two surface points with a thin bar (P over empty space forgets a pending first point), X deletes the object under the cross, W A S D R F fly, / shows only the model under the cross (/ again: the whole scene), P shows the material palette (Shift+click paints a face, Shift+double click the whole model), T flies the camera to the object under the cross, H puts the move gizmo (helper) on the object under the cross with the world axes, the next H switches to the object's own axes, the third takes it off; drag an arrow to move the object; E toggles edges and points, U or Backspace takes the last one back."><div id="frame"><canvas id="gpu" hidden></canvas><div id="layer"></div></div></main>
 
   <div id="editbar" hidden><b id="editText"></b> <span>V: draw a line from point to point (snaps to points; two points on one face cut it; nothing moves while drawing) · 1 / 2 / 3: move points / lines / faces (drag, or the gizmo arrows) · Enter: close a loop into a face · B: turn the V bars into lines · X: remove lines · Esc: stop the line, then back to drawing, then leave · Tab: leave</span></div>
 
@@ -234,6 +234,7 @@
     <label>rough <input type="range" id="p-rough" min="0" max="1" step="0.05" /><span id="v-rough"></span></label>
     <label>alpha <input type="range" id="p-alpha" min="0" max="1" step="0.05" /><span id="v-alpha"></span></label>
     <label>emit <input type="range" id="p-emit" min="0" max="5" step="0.1" /><span id="v-emit"></span></label>
+    <label title="Soft, skin-like light: it wraps round the form, with a warm scattered band at the shade edge">soft <input type="range" id="p-soft" min="0" max="1" step="0.05" /><span id="v-soft"></span></label>
     <div class="row"><input type="color" id="custom" value="#c0392b" aria-label="Colour of the material" /><button id="addColor" type="button">+ new</button><button id="pickMat" type="button" title="Take the material of a surface (I: from under the cross; the button: then click a surface)">pick</button></div>
   </aside>
 
@@ -255,7 +256,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, 1/2/3 move points/lines/faces) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, 1/2/3 move points/lines/faces) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · n: smooth shading · k: studio light · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -265,6 +266,8 @@
       <button id="gpuBtn" type="button">WebGPU</button>
       <button id="light" type="button">Light</button>
       <button id="filmic" type="button" title="Filmic look: HDR light, glowing emission, tone mapping (C)">Filmic</button>
+      <button id="smooth" type="button" title="Smooth shading: faces that meet at a shallow angle share their normals (N)">Smooth</button>
+      <button id="studio" type="button" title="Studio light: key, fill and rim light that follow the camera (K)">Studio</button>
       <select id="examples" aria-label="Add an example model to the scene" title="Add an example model to the scene">
         <option value="">+ Example…</option>
         <option value="house">House (Blender import)</option>
@@ -658,6 +661,8 @@
             fit: shown_fit,
             background: rgb,
             tonemap: filmic,
+            smooth: smooth ? 40 : 0,
+            studio,
             light: { direction: [Math.sin(a) * 0.6, 0.8, Math.cos(a) * 0.6] },
           });
         renderGpu();
@@ -680,6 +685,8 @@
     let mode = 'svg';
     let gpu = null;
     let lightAngle = 0.8;
+    let smooth = true; // N: smooth shading on the WebGPU view (faces within 40 degrees share normals)
+    let studio = true; // K: studio light (key, fill, rim) that follows the camera
     let filmic = true; // C: filmic look on the WebGPU view (linear light, tone mapping, glowing emission)
     let renderGpu = null;
     const setMode = async (next) => {
@@ -715,6 +722,16 @@
     const toggleFilmic = () => {
       filmic = !filmic;
       document.getElementById('filmic').classList.toggle('on', filmic);
+      redraw();
+    };
+    const toggleSmooth = () => {
+      smooth = !smooth;
+      document.getElementById('smooth').classList.toggle('on', smooth);
+      redraw();
+    };
+    const toggleStudio = () => {
+      studio = !studio;
+      document.getElementById('studio').classList.toggle('on', studio);
       redraw();
     };
     const turnLight = () => {
@@ -1068,7 +1085,7 @@
     const paletteEl = document.getElementById('palette');
     const swatchesEl = document.getElementById('swatches');
     const currentEl = document.getElementById('current');
-    const PROPS = ['metal', 'rough', 'alpha', 'emit'];
+    const PROPS = ['metal', 'rough', 'alpha', 'emit', 'soft'];
     const saveMaterial = (m) => paletteCol && paletteCol.doc(m.name).set({ ...m, order: materials.indexOf(m) }).catch((err) => (liveEl.title = String(err?.message ?? err)));
     const showPalette = () => {
       swatchesEl.innerHTML = '';
@@ -1079,7 +1096,7 @@
         // a see-through material shows its color over a checker
         b.style.background = m.alpha < 1 ? `linear-gradient(${m.color}${Math.round(m.alpha * 255).toString(16).padStart(2, '0')}, ${m.color}${Math.round(m.alpha * 255).toString(16).padStart(2, '0')}), repeating-conic-gradient(#888 0 25%, #ccc 0 50%) 0 0 / 8px 8px` : m.color;
         if (m.metal > 0.5) b.style.boxShadow = 'inset 0 0 0 2px #ffffff55, inset 0 -6px 8px #00000044';
-        b.title = `${m.name}: metal ${m.metal} rough ${m.rough} alpha ${m.alpha} emit ${m.emit}`;
+        b.title = `${m.name}: metal ${m.metal} rough ${m.rough} alpha ${m.alpha} emit ${m.emit}${m.soft ? ` soft ${m.soft}` : ''}`;
         b.addEventListener('click', () => ((current = i), showPalette()));
         swatchesEl.append(b);
       });
@@ -1087,8 +1104,8 @@
       currentEl.textContent = m.name;
       document.getElementById('custom').value = m.color;
       for (const k of PROPS) {
-        document.getElementById(`p-${k}`).value = m[k];
-        document.getElementById(`v-${k}`).textContent = m[k].toFixed(2);
+        document.getElementById(`p-${k}`).value = m[k] ?? 0;
+        document.getElementById(`v-${k}`).textContent = (m[k] ?? 0).toFixed(2);
       }
     };
     for (const k of PROPS) {
@@ -1694,6 +1711,12 @@
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
         if (!e.repeat) toggleFilmic();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        if (!e.repeat) toggleSmooth();
+      } else if (e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        if (!e.repeat) toggleStudio();
       } else if (e.key === 'l' || e.key === 'L') {
         e.preventDefault();
         turnLight();
@@ -1733,6 +1756,10 @@
     document.getElementById('light').addEventListener('click', turnLight);
     document.getElementById('filmic').addEventListener('click', toggleFilmic);
     document.getElementById('filmic').classList.add('on');
+    document.getElementById('smooth').addEventListener('click', toggleSmooth);
+    document.getElementById('smooth').classList.add('on');
+    document.getElementById('studio').addEventListener('click', toggleStudio);
+    document.getElementById('studio').classList.add('on');
     document.getElementById('clear').addEventListener('click', clearScene);
     const exampleEl = document.getElementById('examples');
     exampleEl.addEventListener('change', async () => {
@@ -1822,7 +1849,7 @@
           (snap) => {
             const docs = snap.docs.map((d) => ({ name: d.id, ...d.data() })).filter((m) => typeof m.color === 'string');
             if (!docs.length) return; // nothing stored yet: the built-in materials stay
-            materials = docs.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(({ order, ...m }) => ({ metal: 0, rough: 0.7, alpha: 1, emit: 0, ...m }));
+            materials = docs.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(({ order, ...m }) => ({ metal: 0, rough: 0.7, alpha: 1, emit: 0, soft: 0, ...m }));
             current = Math.min(current, materials.length - 1);
             if (!paletteEl.hidden) showPalette();
             syncPalette();

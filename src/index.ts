@@ -5,7 +5,7 @@
 // shading yet.
 
 export const name = '3draft' as const;
-export const version = '26.11.4010';
+export const version = '26.11.5001';
 
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
@@ -21,7 +21,7 @@ export { standOn } from './place.js';
 export type { StandOptions, Frame } from './place.js';
 export { paintOrder } from './order.js';
 export type { PaintItem } from './order.js';
-export { createGpu, viewProjection, buildVertices, buildInstances, defaultLight, defaultMaterial } from './gpu.js';
+export { createGpu, viewProjection, buildVertices, cornerNormals, buildInstances, defaultLight, defaultMaterial } from './gpu.js';
 export type { Gpu, GpuLight, GpuMaterial, GpuRenderOptions, Instance, Pixels } from './gpu.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
 export type { RenderOptions } from './svg.js';

@@ -10,7 +10,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 
 ## The view
 
-- **Starting view: WebGPU.** If WebGPU is unavailable, or the GPU device is lost, the app falls back to SVG by itself and says so in the footer (`G` or the `WebGPU` button switches by hand). SVG shows colour and transparency only; WebGPU also shows metal, roughness and emission. The **filmic look** (`C`) adds linear light, Fresnel and tone mapping, so highlights roll off softly and `lamp`-like materials glow; switch it off for the plain flat look.
+- **Starting view: WebGPU.** If WebGPU is unavailable, or the GPU device is lost, the app falls back to SVG by itself and says so in the footer (`G` or the `WebGPU` button switches by hand). SVG shows colour and transparency only; WebGPU also shows metal, roughness and emission. The **filmic look** (`C`) adds linear light, Fresnel and tone mapping, so highlights roll off softly and `lamp`-like materials glow; switch it off for the plain flat look. **Smooth** (`N`) shades faces that meet at less than 40 degrees as one round surface (box corners stay sharp), and **Studio** (`K`) lights the model with a key, a fill and a rim light that follow the camera; both are on at the start (WebGPU view only). The palette's `soft` slider gives a material skin-like light: it wraps round the form, with a warm band where light turns to shade.
 - **The drawing fills the stage.** On a desktop it covers the whole area; on a phone it is a little larger than the short side.
 - **Drag** rotates, **double click** resets the view, the arrow keys rotate too.
 - **The cross** follows the pointer and lies on the surface under it. The cursor is always a cross. On a phone, with no mouse, it aims at the middle.
@@ -37,6 +37,8 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `H` | move gizmo (see below) |
 | `E` | edges and points on / off (also the `Edges` button) |
 | `C` | filmic look on / off (also the `Filmic` button; on at the start, WebGPU view only) |
+| `N` | smooth shading on / off (the `Smooth` button; on at the start, WebGPU view only) |
+| `K` | studio light (key, fill, rim; follows the camera) on / off (the `Studio` button; on at the start, WebGPU view only) |
 | `G`, `L` | SVG / WebGPU, turn the light |
 | `?` | show / hide these shortcuts under the view (hidden at the start; also the `Keys` button) |
 
@@ -99,7 +101,7 @@ Twelve starting materials: plaster, sand, wood, dark wood, concrete, slate, gras
 
 **Pick material (`I`, or the `pick` button):** the eyedropper. `I` takes the material of the face under the cross. The `pick` button arms it, and the next click on a surface takes it (`Esc` cancels). The palette opens and that material is selected, so you can read its sliders or paint with it right away. A face that has only a colour selects the material with that colour, or starts a new material from it.
 
-For the selected material there are four sliders (`metal`, `rough`, `alpha`, `emit`, 0 to 5) and a colour; `+ new` copies it as a new material. A painted face stores the material **name**, so editing a material changes every face made of it.
+For the selected material there are five sliders (`metal`, `rough`, `alpha`, `soft`, 0 to 1, and `emit`, 0 to 5) and a colour; `+ new` copies it as a new material. A painted face stores the material **name**, so editing a material changes every face made of it.
 
 ## Isolating, travelling
 

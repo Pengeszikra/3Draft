@@ -3,10 +3,10 @@
 // the cross marks and the framing all stay valid. The pure helpers (viewProjection,
 // buildVertices) need no GPU and are unit tested; createGpu() needs a browser.
 import { dot, norm } from './vec.js';
-import { faceNormal } from './mesh.js';
+import { bounds, faceNormal } from './mesh.js';
 import { makeCamera } from './camera.js';
 import { surfaceOf } from './material.js';
-const FLOATS = 13; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit)
+const FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit) soft(1)
 /**
  * Column-major 4x4 matrix (for WebGPU, z in 0..1) that maps world points exactly
  * like camera.project(): the same pixels, plus a depth between near and far.
@@ -29,26 +29,60 @@ const rgb = (color) => {
         return [0.78, 0.78, 0.78];
     return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255);
 };
-/** Triangle list for the GPU: flat face normals, face colors and materials. Float32Array, 13 floats per vertex. */
-export const buildVertices = (mesh, palette) => {
+/**
+ * Smooth shading: a normal for every corner of every face. The faces that meet at a point (welded by position, so a
+ * crack in the indices does not break it) are averaged, weighted by area, but only those within `crease` degrees of
+ * this face: a 90 degree box corner stays sharp, a faceted fuselage becomes round.
+ */
+export const cornerNormals = (mesh, crease) => {
+    const cosC = Math.cos((crease * Math.PI) / 180);
+    const area = mesh.faces.map((f) => faceNormal(f.v.map((k) => mesh.positions[k]))); // length = area
+    const unit = area.map((n) => (Math.hypot(...n) > 0 ? norm(n) : [0, 1, 0]));
+    const q = (bounds(mesh).radius || 1) * 1e-6;
+    const key = (p) => `${Math.round(p[0] / q)},${Math.round(p[1] / q)},${Math.round(p[2] / q)}`;
+    const at = new Map();
+    mesh.faces.forEach((f, i) => f.v.forEach((k) => {
+        const id = key(mesh.positions[k]);
+        const list = at.get(id) ?? [];
+        if (list[list.length - 1] !== i)
+            list.push(i);
+        at.set(id, list);
+    }));
+    return mesh.faces.map((f, i) => f.v.map((k) => {
+        const sum = [0, 0, 0];
+        for (const j of at.get(key(mesh.positions[k])) ?? []) {
+            if (dot(unit[i], unit[j]) < cosC)
+                continue;
+            for (let c = 0; c < 3; c++)
+                sum[c] += area[j][c];
+        }
+        return Math.hypot(...sum) > 0 ? norm(sum) : unit[i];
+    }));
+};
+/**
+ * Triangle list for the GPU: face normals (flat, or smoothed with `smooth` degrees), face colors and materials.
+ * Float32Array, 14 floats per vertex.
+ */
+export const buildVertices = (mesh, palette, { smooth = 0 } = {}) => {
     let tris = 0;
     for (const f of mesh.faces)
         tris += Math.max(0, f.v.length - 2);
     const out = new Float32Array(tris * 3 * FLOATS);
+    const corners = smooth > 0 ? cornerNormals(mesh, smooth) : null;
     let o = 0;
-    for (const face of mesh.faces) {
+    mesh.faces.forEach((face, fi) => {
         const pts = face.v.map((k) => mesh.positions[k]);
-        const n = norm(faceNormal(pts));
+        const flat = norm(faceNormal(pts));
         const s = surfaceOf(face, palette);
         const c = rgb(s.color);
         const mat = [s.metal, s.rough, s.alpha, s.emit];
         for (let j = 1; j < pts.length - 1; j++) {
-            for (const p of [pts[0], pts[j], pts[j + 1]]) {
-                out.set([...p, ...n, ...c, ...mat], o);
+            for (const k of [0, j, j + 1]) {
+                out.set([...pts[k], ...(corners ? corners[fi][k] : flat), ...c, ...mat, s.soft], o);
                 o += FLOATS;
             }
         }
-    }
+    });
     return out;
 };
 const INSTANCE_FLOATS = 15; // at(3) ex(3) ey(3) ez(3) color(3)
@@ -71,17 +105,20 @@ struct U {
   ground : vec4<f32>,
   eye : vec4<f32>,
   mat : vec4<f32>,     // ambient, diffuse, specular, shininess
-  fx : vec4<f32>,      // filmic (0 or 1), exposure, emission gain
+  fx : vec4<f32>,      // filmic (0 or 1), exposure, emission gain, studio (0 or 1)
+  fill : vec4<f32>,    // studio: xyz direction towards the fill light, w intensity
+  rim : vec4<f32>,     // studio: xyz direction towards the rim light, w intensity
 };
 @group(0) @binding(0) var<uniform> u : U;
 
-struct VIn { @location(0) pos : vec3<f32>, @location(1) nrm : vec3<f32>, @location(2) col : vec3<f32>, @location(8) mat : vec4<f32> };
+struct VIn { @location(0) pos : vec3<f32>, @location(1) nrm : vec3<f32>, @location(2) col : vec3<f32>, @location(8) mat : vec4<f32>, @location(9) soft : f32 };
 struct VOut {
   @builtin(position) p : vec4<f32>,
   @location(0) n : vec3<f32>,
   @location(1) c : vec3<f32>,
   @location(2) w : vec3<f32>,
   @location(3) m : vec4<f32>,   // metal, rough, alpha, emit
+  @location(4) s : f32,         // soft
 };
 
 @vertex fn vs(i : VIn) -> VOut {
@@ -91,6 +128,7 @@ struct VOut {
   o.c = i.col;
   o.w = i.pos;
   o.m = i.mat;
+  o.s = i.soft;
   return o;
 }
 
@@ -110,6 +148,7 @@ struct IIn {
   o.c = i.col;
   o.w = w;
   o.m = vec4<f32>(0.0, 0.7, 1.0, 0.0);
+  o.s = 0.0;
   return o;
 }
 
@@ -124,16 +163,39 @@ fn aces(x : vec3<f32>) -> vec3<f32> {
   return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
+// Direct light, shared by both looks: x diffuse, y highlight, z scattered light (soft materials).
+// Studio: the key light is u.light (placed by the camera), plus a softer fill and a rim light that only edges the shape.
+fn lights(n : vec3<f32>, v : vec3<f32>, shin : f32, soft : f32) -> vec3<f32> {
+  let key = normalize(u.light.xyz);
+  let ndl = dot(n, key);
+  // soft: the light wraps round the form, and a warm band of scattered light sits where light turns to shade
+  var diff = max((ndl + soft) / (1.0 + soft), 0.0);
+  let h = normalize(key + v);
+  var spec = pow(max(dot(n, h), 0.0), shin) * step(0.0, ndl);
+  let scat = soft * exp(-ndl * ndl * 5.0);
+  if (u.fx.w > 0.5) {
+    diff = diff * 0.85; // three lights add up: the key takes a little less
+    let fl = normalize(u.fill.xyz);
+    diff = diff + max((dot(n, fl) + soft) / (1.0 + soft), 0.0) * u.fill.w;
+    let rl = normalize(u.rim.xyz);
+    let edge = pow(1.0 - max(dot(n, v), 0.0), 2.5);
+    diff = diff + max(dot(n, rl), 0.0) * edge * u.rim.w * 2.0;
+    let rh = normalize(rl + v);
+    spec = spec + pow(max(dot(n, rh), 0.0), shin) * step(0.0, dot(n, rl)) * u.rim.w * 0.6 * edge;
+  }
+  return vec3<f32>(diff, spec, scat);
+}
+
 // The filmic path: the same light model, but in linear colour with HDR light and emission, then tone mapped.
 fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
   let metal = i.m.x;
   let rough = i.m.y;
   let albedo = toLinear(i.c);
-  let hemi = mix(toLinear(u.ground.rgb), toLinear(u.sky.rgb), n.y * 0.5 + 0.5) * u.mat.x;
-  let diff = max(dot(n, l), 0.0) * u.mat.y * 1.6;
-  let h = normalize(l + v);
+  let hemi = mix(toLinear(u.ground.rgb), toLinear(u.sky.rgb), n.y * 0.5 + 0.5) * u.mat.x * select(1.0, 0.7, u.fx.w > 0.5);
   let shin = mix(u.mat.w * 7.0, u.mat.w * 0.15, rough);
-  let spec = pow(max(dot(n, h), 0.0), shin) * mix(u.mat.z, 1.0, metal) * mix(1.0, 0.35, rough) * step(0.0, dot(n, l)) * 2.5;
+  let lt = lights(n, v, shin, i.s);
+  let diff = lt.x * u.mat.y * 1.6;
+  let spec = lt.y * mix(u.mat.z, 1.0, metal) * mix(1.0, 0.35, rough) * 2.5;
   let r = reflect(-v, n);
   // Schlick: edges mirror more, metal keeps its tint
   let f0 = mix(vec3<f32>(0.04), albedo, metal);
@@ -144,6 +206,7 @@ fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
           + env * fres * (1.0 - rough) * 0.5
           + vec3<f32>(spec) * mix(vec3<f32>(1.0), albedo, metal);
   // emission adds light, so a lamp can go above 1.0 and still keep its colour after tone mapping
+  lit = lit + albedo * vec3<f32>(1.0, 0.38, 0.26) * lt.z * 0.5 * (1.0 - metal); // soft: the warm scattered band
   lit = lit + albedo * i.m.w * u.fx.z;
   return vec4<f32>(toSrgb(aces(lit * u.fx.y)), i.m.z);
 }
@@ -156,18 +219,19 @@ fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
   if (u.fx.x > 0.5) { return filmic(i, n, l, v); }
   let metal = i.m.x;
   let rough = i.m.y;
-  let hemi = mix(u.ground.rgb, u.sky.rgb, n.y * 0.5 + 0.5) * u.mat.x;
-  let diff = max(dot(n, l), 0.0) * u.mat.y;
-  let h = normalize(l + v);
+  let hemi = mix(u.ground.rgb, u.sky.rgb, n.y * 0.5 + 0.5) * u.mat.x * select(1.0, 0.7, u.fx.w > 0.5);
   // roughness widens the highlight; metal makes it strong and tinted by the color
   let shin = mix(u.mat.w * 7.0, u.mat.w * 0.15, rough);
-  let spec = pow(max(dot(n, h), 0.0), shin) * mix(u.mat.z, 1.0, metal) * mix(1.0, 0.35, rough) * step(0.0, dot(n, l));
+  let lt = lights(n, v, shin, i.s);
+  let diff = lt.x * u.mat.y;
+  let spec = lt.y * mix(u.mat.z, 1.0, metal) * mix(1.0, 0.35, rough);
   // metal mirrors the sky above and the ground below, blurred by roughness
   let r = reflect(-v, n);
   let env = mix(u.ground.rgb * 1.2, u.sky.rgb * 1.5, smoothstep(-0.25 - rough * 0.5, 0.25 + rough * 0.5, r.y));
   var lit = i.c * (hemi + vec3<f32>(diff)) * (1.0 - metal)
           + i.c * env * metal * (1.0 - 0.6 * rough)
-          + vec3<f32>(spec) * mix(vec3<f32>(1.0), i.c, metal);
+          + vec3<f32>(spec) * mix(vec3<f32>(1.0), i.c, metal)
+          + i.c * vec3<f32>(1.0, 0.38, 0.26) * lt.z * 0.25 * (1.0 - metal);
   lit = mix(lit, i.c * 1.15, min(i.m.w, 1.0)); // the plain look: emit 0..1 fades to flat colour, more does not add
   return vec4<f32>(clamp(lit, vec3<f32>(0.0), vec3<f32>(1.0)), i.m.z);
 }
@@ -201,6 +265,7 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
             { shaderLocation: 1, offset: 12, format: 'float32x3' },
             { shaderLocation: 2, offset: 24, format: 'float32x3' },
             { shaderLocation: 8, offset: 36, format: 'float32x4' },
+            { shaderLocation: 9, offset: 52, format: 'float32' },
         ],
     };
     const instanceLayout = {
@@ -235,12 +300,13 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
     const glassPipeline = make('vs', [meshLayout], true);
     // the instanced pipeline reads position and normal only from the prototype (locations 0, 1)
     const instPipeline = make('vsi', [{ ...meshLayout, attributes: meshLayout.attributes.slice(0, 2) }, instanceLayout]);
-    const uniforms = device.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    const uniforms = device.createBuffer({ size: 192, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     const bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
     const instBind = device.createBindGroup({ layout: instPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
     // Geometry that did not change since the last frame is not rebuilt or uploaded again.
     let uploaded = null; // the mesh now in vertexBuffer
     let uploadedPalette; // and the palette it was built with
+    let uploadedSmooth = 0; // and the smoothing
     let vertexCount = 0;
     let protoMesh = null;
     let protoBuffer = null;
@@ -271,14 +337,16 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
         depth = device.createTexture({ size: [n, n], format: 'depth24plus', sampleCount, usage: GPUTextureUsage.RENDER_ATTACHMENT });
         color = sampleCount > 1 ? device.createTexture({ size: [n, n], format, sampleCount, usage: GPUTextureUsage.RENDER_ATTACHMENT }) : null;
     };
-    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, tonemap = false } = {}, readback = false) => {
+    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, tonemap = false, smooth = false, studio = false } = {}, readback = false) => {
         const L = { ...defaultLight, ...light };
         const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
         const M = { ...defaultMaterial, ...material };
         const cam = makeCamera(view, mesh, size, fit);
         targets(Math.max(1, Math.round(size * dpr)));
-        if (mesh !== uploaded || palette !== uploadedPalette) {
-            const all = buildVertices(mesh, palette);
+        const crease = smooth === true ? 40 : smooth || 0;
+        if (mesh !== uploaded || palette !== uploadedPalette || crease !== uploadedSmooth) {
+            uploadedSmooth = crease;
+            const all = buildVertices(mesh, palette, { smooth: crease });
             // split: solid triangles are drawn first; triangles with alpha < 1 are kept apart and blended afterwards
             const tri = 3 * FLOATS;
             const solid = [];
@@ -346,14 +414,19 @@ export const createGpu = async (canvas, { sampleCount = 4 } = {}) => {
         }
         if (!glassTris.length)
             glassCount = 0;
-        const u = new Float32Array(40);
+        // studio rig, relative to the camera: key upper left in front, fill from the right, rim from behind and above
+        const rig = (f, r, up) => norm([0, 1, 2].map((k) => -cam.f[k] * f + cam.r[k] * r + cam.u[k] * up));
+        const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
+        const u = new Float32Array(48);
         u.set(viewProjection(cam), 0);
-        u.set([...(norm(L.direction)), 0], 16);
+        u.set([...(S ? rig(0.7, -0.5, 0.6) : norm(L.direction)), 0], 16);
         u.set([...L.sky, 0], 20);
         u.set([...L.ground, 0], 24);
         u.set([...cam.eye, 0], 28);
         u.set([M.ambient, M.diffuse, M.specular, M.shininess], 32);
-        u.set([filmic ? 1 : 0, filmic ? filmic.exposure : 1, filmic ? filmic.emit : 0, 0], 36);
+        u.set([filmic ? 1 : 0, filmic ? filmic.exposure : 1, filmic ? filmic.emit : 0, S ? 1 : 0], 36);
+        u.set([...rig(0.6, 0.8, 0.1), S ? S.fill : 0], 40);
+        u.set([...rig(-0.8, 0.3, 0.5), S ? S.rim : 0], 44);
         device.queue.writeBuffer(uniforms, 0, u);
         const encoder = device.createCommandEncoder();
         const offscreen = readback

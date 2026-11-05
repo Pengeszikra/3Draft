@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { box, merge, makeCamera, orbit, project, bounds } from './index.js';
-import { viewProjection, buildVertices, buildInstances } from './gpu.js';
+import { viewProjection, buildVertices, buildInstances, cornerNormals } from './gpu.js';
 const apply = (m, p) => {
     const c = [0, 1, 2, 3].map((r) => m[r] * p[0] + m[4 + r] * p[1] + m[8 + r] * p[2] + m[12 + r]);
     return { x: c[0] / c[3], y: c[1] / c[3], z: c[2] / c[3], w: c[3] };
@@ -40,12 +40,12 @@ test('nearer points get a smaller GPU depth', () => {
 test('buildVertices: triangles with flat outward normals and face colors', () => {
     const m = box({ color: '#ff8000' });
     const v = buildVertices(m);
-    assert.equal(v.length, 6 * 2 * 3 * 13, '6 quads = 12 triangles = 36 vertices');
+    assert.equal(v.length, 6 * 2 * 3 * 14, '6 quads = 12 triangles = 36 vertices');
     // first face is +z: normal (0,0,1), color (1, 0.502, 0)
     assert.deepEqual([...v.slice(3, 6)], [0, 0, 1]);
     assert.ok(Math.abs(v[7] - 128 / 255) < 1e-6 && v[6] === 1 && v[8] === 0);
     // every normal points away from the box center
-    for (let i = 0; i < v.length; i += 13) {
+    for (let i = 0; i < v.length; i += 14) {
         const out = v[i] * v[i + 3] + v[i + 1] * v[i + 4] + v[i + 2] * v[i + 5];
         assert.ok(out > 0, 'normal points outwards');
     }
@@ -66,4 +66,27 @@ test('an eye distance override moves the perspective eye (first person)', () => 
     const far = makeCamera(orbit({ yaw: 0.3, pitch: 0.2 }), m, 400, { center: [0, 0, 0], radius: 1 });
     assert.ok(Math.hypot(...near.eye) - 0.05 < 1e-9);
     assert.ok(Math.hypot(...far.eye) > 1);
+});
+test('smooth shading: shallow folds share normals, sharp corners stay sharp', () => {
+    // a box: every edge is 90 degrees, nothing is smoothed at 40 degrees
+    const cube = box({ size: [1, 1, 1] });
+    const flat = cornerNormals(cube, 40);
+    cube.faces.forEach((f, i) => {
+        const n = buildVertices({ ...cube, faces: [f] }).slice(3, 6);
+        flat[i].forEach((c) => c.forEach((v, k) => assert.ok(Math.abs(v - n[k]) < 1e-6)));
+    });
+    // two quads folded by 30 degrees (a flat gable): the ridge vertices get the average, the outer ones keep their face normal
+    const a = Math.PI / 12; // each side tilts 15 degrees: 30 between them
+    const mesh = {
+        positions: [[-1, 0, -1], [0, Math.tan(a), -1], [0, Math.tan(a), 1], [-1, 0, 1], [1, 0, -1], [1, 0, 1]],
+        faces: [{ v: [0, 3, 2, 1] }, { v: [1, 2, 5, 4] }],
+    };
+    const smooth = cornerNormals(mesh, 40);
+    assert.ok(Math.abs(smooth[0][2][0]) < 1e-6 && smooth[0][2][1] > 0.99, 'the ridge point: straight up');
+    assert.ok(Math.abs(smooth[0][0][0] + Math.sin(a)) < 1e-6, 'the outer point keeps its own tilt');
+    const sharp = cornerNormals(mesh, 20);
+    assert.ok(Math.abs(sharp[0][2][0] + Math.sin(a)) < 1e-6, 'under the crease angle: flat again');
+    // and buildVertices carries it: 14 floats per vertex, the normal at 3..5
+    const v = buildVertices(mesh, undefined, { smooth: 40 });
+    assert.equal(v.length % 14, 0);
 });

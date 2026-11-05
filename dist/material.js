@@ -4,7 +4,7 @@
 const clamp = (n, fallback, max = 1) => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : fallback);
 export const EMIT_MAX = 5;
 export const FALLBACK_COLOR = '#c8c8c8';
-export const DEFAULTS = { metal: 0, rough: 0.7, alpha: 1, emit: 0 };
+export const DEFAULTS = { metal: 0, rough: 0.7, alpha: 1, emit: 0, soft: 0 };
 /** The surface of a face: its palette entry when it names one, else just its color with default properties. */
 export const surfaceOf = (face, palette) => {
     const m = face.mat !== undefined ? palette?.[face.mat] : undefined;
@@ -14,5 +14,6 @@ export const surfaceOf = (face, palette) => {
         rough: clamp(m?.rough, DEFAULTS.rough),
         alpha: clamp(m?.alpha, DEFAULTS.alpha),
         emit: clamp(m?.emit, DEFAULTS.emit, EMIT_MAX),
+        soft: clamp(m?.soft, DEFAULTS.soft),
     };
 };

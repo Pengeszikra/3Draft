@@ -56,11 +56,14 @@ The palette is data: `{ name: { color, metal, rough, alpha, emit } }`. A face po
 | `metal` 0..1 | paint ... metal | reflects sky and ground, tinted; strong highlight |
 | `rough` 0..1 | mirror ... matte | widens the highlight, blurs the reflection |
 | `alpha` 1..0 | solid ... invisible | blended in a second pass, far to near (SVG: `fill-opacity`, and a see-through face hides nothing) |
+| `soft` 0..1 | hard ... soft | skin-like light: it wraps round the form, and a warm scattered band shows where light turns to shade (WebGPU) |
 | `emit` 0..5 | lit ... glowing | up to 1 the colour fades to unshaded; above 1 (with `tonemap`) it is a light source, that many times brighter |
 
 Pass the palette to the renderers: `renderView(mesh, view, { palette })`, `gpu.render(mesh, view, { palette })` (a new object when an entry changes). SVG shows colour and alpha only.
 
 `gpu.render(mesh, view, { tonemap: true })` switches on a filmic look: lighting in linear colour, HDR light, Fresnel on the edges, ACES tone mapping, and `emit` that really glows above white (`tonemap: { exposure, emit }` to tune; off by default, so the plain look stays the same).
+
+`smooth: true` (or a crease angle in degrees, default 40) shades by corner normals: faces that meet at a shallow angle share their normals, so a faceted surface looks round, and a 90 degree box corner stays sharp (`cornerNormals(mesh, degrees)` is the pure helper). `studio: true` replaces the single sun with three lights that follow the camera: key (upper left), fill (right, softer) and a rim light from behind that edges the shape (`studio: { fill, rim }` to tune). Both are off by default.
 
 ### Surfaces, picking, editing
 

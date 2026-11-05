@@ -39,6 +39,19 @@ export interface GpuRenderOptions {
         exposure?: number;
         emit?: number;
     };
+    /**
+     * Smooth shading: faces that meet at an angle smaller than this (degrees; `true` = 40) share their normals, so a curved
+     * surface made of flat faces looks round and sharper corners stay crisp. Off by default (every face flat).
+     */
+    smooth?: boolean | number;
+    /**
+     * Studio light: three lights that follow the camera instead of one fixed sun: a key light (upper left), a fill light
+     * (right, softer) and a rim light from behind that edges the shape. Off by default.
+     */
+    studio?: boolean | {
+        fill?: number;
+        rim?: number;
+    };
 }
 /** One copy of a prototype: its position, orthonormal frame and color. */
 export interface Instance {
@@ -64,8 +77,19 @@ export interface Gpu {
  * like camera.project(): the same pixels, plus a depth between near and far.
  */
 export declare const viewProjection: (cam: Camera, near?: number, far?: number) => Float32Array;
-/** Triangle list for the GPU: flat face normals, face colors and materials. Float32Array, 13 floats per vertex. */
-export declare const buildVertices: (mesh: Mesh, palette?: Palette) => Float32Array;
+/**
+ * Smooth shading: a normal for every corner of every face. The faces that meet at a point (welded by position, so a
+ * crack in the indices does not break it) are averaged, weighted by area, but only those within `crease` degrees of
+ * this face: a 90 degree box corner stays sharp, a faceted fuselage becomes round.
+ */
+export declare const cornerNormals: (mesh: Mesh, crease: number) => Vec3[][];
+/**
+ * Triangle list for the GPU: face normals (flat, or smoothed with `smooth` degrees), face colors and materials.
+ * Float32Array, 14 floats per vertex.
+ */
+export declare const buildVertices: (mesh: Mesh, palette?: Palette, { smooth }?: {
+    smooth?: number;
+}) => Float32Array;
 /**
  * Per-instance data for drawInstances: one entry { at, axes: [ex, ey, ez], color } per copy of a
  * prototype mesh (modelled around the origin). Float32Array, 15 floats per instance.

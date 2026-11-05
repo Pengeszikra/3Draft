@@ -15,6 +15,8 @@ export interface Material {
   alpha?: number;
   /** 0..5: how much the color glows on its own, unlit. Up to 1 it fades from lit to flat colour; above 1 (WebGPU `tonemap`) it is a light source: that many times brighter. */
   emit?: number;
+  /** 0..1: soft, skin-like light. The light wraps round the form and a warm, scattered band shows where light turns to shade. */
+  soft?: number;
 }
 export type Palette = Record<string, Material>;
 
@@ -25,13 +27,14 @@ export interface Surface {
   rough: number;
   alpha: number;
   emit: number;
+  soft: number;
 }
 
 const clamp = (n: unknown, fallback: number, max = 1): number => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : fallback);
 export const EMIT_MAX = 5;
 
 export const FALLBACK_COLOR = '#c8c8c8';
-export const DEFAULTS = { metal: 0, rough: 0.7, alpha: 1, emit: 0 } as const;
+export const DEFAULTS = { metal: 0, rough: 0.7, alpha: 1, emit: 0, soft: 0 } as const;
 
 /** The surface of a face: its palette entry when it names one, else just its color with default properties. */
 export const surfaceOf = (face: Pick<Face, 'color' | 'mat'>, palette?: Palette): Surface => {
@@ -42,5 +45,6 @@ export const surfaceOf = (face: Pick<Face, 'color' | 'mat'>, palette?: Palette):
     rough: clamp(m?.rough, DEFAULTS.rough),
     alpha: clamp(m?.alpha, DEFAULTS.alpha),
     emit: clamp(m?.emit, DEFAULTS.emit, EMIT_MAX),
+    soft: clamp(m?.soft, DEFAULTS.soft),
   };
 };

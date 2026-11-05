@@ -6,8 +6,8 @@ import { box } from './index.js';
 
 test('surfaceOf: palette entry, defaults, clamping, fallback', () => {
   const palette = { steel: { color: '#8899aa', metal: 1, rough: 0.3 }, odd: { color: '#000000', alpha: 7, emit: -2 } };
-  assert.deepEqual(surfaceOf({ mat: 'steel', color: '#ff0000' }, palette), { color: '#8899aa', metal: 1, rough: 0.3, alpha: 1, emit: 0 });
-  assert.deepEqual(surfaceOf({ color: '#ff0000' }, palette), { color: '#ff0000', metal: 0, rough: 0.7, alpha: 1, emit: 0 }, 'no mat: the face color');
+  assert.deepEqual(surfaceOf({ mat: 'steel', color: '#ff0000' }, palette), { color: '#8899aa', metal: 1, rough: 0.3, alpha: 1, emit: 0, soft: 0 });
+  assert.deepEqual(surfaceOf({ color: '#ff0000' }, palette), { color: '#ff0000', metal: 0, rough: 0.7, alpha: 1, emit: 0, soft: 0 }, 'no mat: the face color');
   assert.equal(surfaceOf({ mat: 'missing', color: '#123456' }, palette).color, '#123456', 'unknown name: the face color');
   assert.equal(surfaceOf({}, palette).color, '#c8c8c8');
   const odd = surfaceOf({ mat: 'odd' }, palette);
@@ -20,7 +20,8 @@ test('surfaceOf: palette entry, defaults, clamping, fallback', () => {
 test('buildVertices carries the material of every face', () => {
   const m = box({ color: '#ff0000' });
   m.faces[0].mat = 'glass';
-  const v = buildVertices(m, { glass: { color: '#00ff00', alpha: 0.5, metal: 0.25, rough: 0.1, emit: 0.75 } });
-  assert.deepEqual([...v.slice(6, 13)], [0, 1, 0, 0.25, 0.10000000149011612, 0.5, 0.75]);
-  assert.deepEqual([...v.slice(13 * 6 + 9, 13 * 6 + 13)], [0, 0.699999988079071, 1, 0], 'the other faces: defaults');
+  const v = buildVertices(m, { glass: { color: '#00ff00', alpha: 0.5, metal: 0.25, rough: 0.1, emit: 0.75, soft: 0.5 } });
+  assert.deepEqual([...v.slice(6, 14)], [0, 1, 0, 0.25, 0.10000000149011612, 0.5, 0.75, 0.5]);
+  assert.deepEqual([...v.slice(14 * 6 + 9, 14 * 6 + 14)], [0, 0.699999988079071, 1, 0, 0], 'the other faces: defaults');
+  assert.equal(surfaceOf({ mat: 'skin' }, { skin: { color: '#e0a080', soft: 9 } }).soft, 1, 'soft stops at 1');
 });
