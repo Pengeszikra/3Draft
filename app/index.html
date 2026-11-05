@@ -256,6 +256,7 @@
       <span>live <b id="live" title="MCP link">off</b></span>
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
+    <textarea id="gpuerr" readonly hidden rows="4" aria-label="WebGPU error text (select and copy)" style="width:100%;box-sizing:border-box;font:12px/1.4 var(--font-mono);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:6px"></textarea>
     <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, 1/2/3 move points/lines/faces) · x: delete the object (the Clear button removes everything) · t: travel (on nothing: out to the nearest object) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · n: smooth shading · k: studio light · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
@@ -701,6 +702,9 @@
               gpuErrors.push(message);
               modeEl.textContent = `gpu error: ${gpuErrors[0].slice(0, 180)}`;
               modeEl.title = gpuErrors.join('\n\n');
+              const box = document.getElementById('gpuerr');
+              box.hidden = false;
+              box.value = gpuErrors.join('\n\n');
               console.error('WebGPU first error:', gpuErrors[0]);
             },
           });
@@ -1648,6 +1652,7 @@
       if (e.detail > 0 && e.target instanceof HTMLButtonElement) e.target.blur();
     });
     document.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLTextAreaElement) return; // the error text can be selected and copied
       if (e.target instanceof HTMLButtonElement) return; // Space and Enter belong to a focused button
       const fk = !e.ctrlKey && !e.metaKey && !e.altKey && FLY_KEYS[e.key.toLowerCase()];
       if (fk) {
