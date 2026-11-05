@@ -693,7 +693,13 @@
     const setMode = async (next) => {
       if (next === 'gpu' && !gpu) {
         try {
-          const g = await createGpu(canvas);
+          const g = await createGpu(canvas, {
+            // a shader or pipeline error leaves the canvas black: say so where the view is named
+            onError: (message) => {
+              modeEl.textContent = `gpu error: ${message.slice(0, 90)}`;
+              modeEl.title = message;
+            },
+          });
           gpu = g;
           // a lost device (driver reset, GPU process crash) drops back to the SVG view
           g.device.lost.then((info) => {
