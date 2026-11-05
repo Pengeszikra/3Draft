@@ -690,14 +690,18 @@
     let studio = true; // K: studio light (key, fill, rim) that follows the camera
     let filmic = true; // C: filmic look on the WebGPU view (linear light, tone mapping, glowing emission)
     let renderGpu = null;
+    const gpuErrors = [];
     const setMode = async (next) => {
       if (next === 'gpu' && !gpu) {
         try {
           const g = await createGpu(canvas, {
             // a shader or pipeline error leaves the canvas black: say so where the view is named
+            // the FIRST error is the cause; the later ones ("invalid due to a previous error") are only its echo
             onError: (message) => {
-              modeEl.textContent = `gpu error: ${message.slice(0, 90)}`;
-              modeEl.title = message;
+              gpuErrors.push(message);
+              modeEl.textContent = `gpu error: ${gpuErrors[0].slice(0, 180)}`;
+              modeEl.title = gpuErrors.join('\n\n');
+              console.error('WebGPU first error:', gpuErrors[0]);
             },
           });
           gpu = g;
