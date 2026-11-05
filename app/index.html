@@ -274,6 +274,7 @@
         <option value="cessna">Cessna</option>
         <option value="bridge">Stone bridge</option>
         <option value="table">Table</option>
+        <option value="head">Head (soft skin, N + K)</option>
       </select>
       <button id="clear" type="button" title="Remove every object (U brings them back)">Clear</button>
       <button id="undo" type="button">Undo</button>
@@ -962,7 +963,14 @@
       return { lo, hi };
     };
     const addExample = async (name) => {
-      const { objects } = await sceneOf(name);
+      const { objects, palette: extra } = await sceneOf(name);
+      // a scene may bring its own materials; the ones the palette lacks are added (and saved with a db)
+      for (const m of extra ?? []) {
+        if (materials.some((x) => x.name === m.name)) continue;
+        materials.push({ ...m });
+        saveMaterial(materials[materials.length - 1]);
+      }
+      if (extra?.length) syncPalette();
       const gap = 0.5;
       let dx = 0;
       const have = allObjects();
