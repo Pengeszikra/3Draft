@@ -361,7 +361,8 @@ export const createGpu = async (
   };
   // ONE explicit layout for every pipeline: with 'auto' each pipeline gets its own, and a bind group made for one is refused by the others
   const bindLayout = device.createBindGroupLayout({
-    entries: [{ binding: 0, visibility: 1 | 2, // GPUShaderStage.VERTEX | FRAGMENT buffer: { type: 'uniform' } }],
+    // visibility 1 | 2 = GPUShaderStage.VERTEX | FRAGMENT
+    entries: [{ binding: 0, visibility: 1 | 2, buffer: { type: 'uniform' } }],
   });
   const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindLayout] });
   const make = (entry: string, buffers: Handle[], glass = false): Handle =>

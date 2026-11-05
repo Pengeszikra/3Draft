@@ -283,8 +283,14 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
         stepMode: 'instance',
         attributes: [3, 4, 5, 6, 7].map((loc, k) => ({ shaderLocation: loc, offset: k * 12, format: 'float32x3' })),
     };
+    // ONE explicit layout for every pipeline: with 'auto' each pipeline gets its own, and a bind group made for one is refused by the others
+    const bindLayout = device.createBindGroupLayout({
+        // visibility 1 | 2 = GPUShaderStage.VERTEX | FRAGMENT
+        entries: [{ binding: 0, visibility: 1 | 2, buffer: { type: 'uniform' } }],
+    });
+    const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindLayout] });
     const make = (entry, buffers, glass = false) => device.createRenderPipeline({
-        layout: 'auto',
+        layout: pipelineLayout,
         vertex: { module, entryPoint: entry, buffers },
         fragment: {
             module,
@@ -311,8 +317,8 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
     // the instanced pipeline reads position and normal only from the prototype (locations 0, 1)
     const instPipeline = make('vsi', [{ ...meshLayout, attributes: meshLayout.attributes.slice(0, 2) }, instanceLayout]);
     const uniforms = device.createBuffer({ size: 192, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    const bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
-    const instBind = device.createBindGroup({ layout: instPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
+    const bind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
+    const instBind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
     // Geometry that did not change since the last frame is not rebuilt or uploaded again.
     let uploaded = null; // the mesh now in vertexBuffer
     let uploadedPalette; // and the palette it was built with
