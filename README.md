@@ -95,6 +95,60 @@ A single `app/index.html` plus a dependency-free static server. Person and AI wo
 
 **How to use it, all keys and the database layout: [APP.md](APP.md).**
 
+### Keys
+
+**Moving and looking**
+
+| Key | What it does |
+|---|---|
+| drag | turns the view (in target mode: moves the camera over the sphere round the target) |
+| arrow keys | turn the view in steps |
+| `W` / `S` | forward / back: speed levels, every press is one step more or less |
+| `A` / `D` | left / right (speed levels) |
+| `R` / `F` | up / down (speed levels) |
+| `Space` | speed to zero (the target stays) |
+| `/` | show only the model under the cross; again: the whole scene |
+
+**Target mode**
+
+| Key | What it does |
+|---|---|
+| `T` | target the object under the cross; with a target: another object re-targets, the target itself or empty space brings the camera back onto it; with no target over empty space: the nearest object |
+| `Tab` / `Shift+Tab` | next / previous target (the first one when there is none) |
+| `Esc` | let go; the camera stays where it is |
+| `A D R F`, `W S`, drag | swing round the target, closer or farther (`W` stops at the surface) |
+
+**Editing and objects**
+
+| Key | What it does |
+|---|---|
+| `Q` | edit mode on / off |
+| `V` | spider bar between two points; in edit mode: draw a line |
+| `Enter` | edit mode: close a loop into a face |
+| `B` | edit mode: turn the old `V` bars into lines |
+| `1` / `2` / `3` | edit mode: move points / lines / faces |
+| `M` | put a prism down; in isolated mode: shoot it (it carves) |
+| `O` | boolean: mark two objects, then pick the operation |
+| `X` | delete the object under the cross |
+| `H` | move gizmo: 1st world axes, 2nd own axes, 3rd off |
+| `U` / `Backspace` | undo |
+
+**Material and look**
+
+| Key | What it does |
+|---|---|
+| `P` | material palette (Shift+click paints a face, Shift+double click the whole object) |
+| `I` | pick the material under the cross |
+| `G` | SVG / WebGPU view |
+| `C` | filmic look |
+| `N` | smooth shading |
+| `K` | studio light |
+| `L` | turn the light |
+| `E` | edges and points on / off |
+| `?` | show / hide the key hints |
+
+In edit mode `Esc` first stops the line being drawn, then leaves a move mode, then leaves edit mode (and keeps the target).
+
 ---
 
 ## 3. Engine and LLM
