@@ -163,7 +163,7 @@ The engine is small enough to read whole (about 2000 lines) and everything it wo
 
 Y is up, the ground is y = 0, faces are counter-clockwise seen from outside.
 
-Examples: `examples/table.js`, `examples/bridge.js` (50 named objects), `examples/cessna.js` (one mesh, 9 colours), and `examples/head.js` (a stylized head: 7 objects with their own palette, soft skin; try N and K), and `examples/house.js` (a house converted from Blender with `tools/blend/`, 45 objects, approximate colours).
+Examples: `examples/table.js`, `examples/bridge.js` (50 named objects), `examples/cessna.js` (one mesh, 9 colours), and `examples/head.js` (a stylized head: 7 objects with their own palette, soft skin; try N and K), `examples/globe.js` (a globe: an ocean ball and seven continents, each one closed mesh), and `examples/house.js` (a house converted from Blender with `tools/blend/`, 45 objects, approximate colours).
 
 ---
 
