@@ -602,7 +602,7 @@
     // The eye then sits (almost) on the orbit center and the center moves.
     let fly = false;
     const level = { f: 0, r: 0, u: 0 }; // forward, right, up
-    const UNIT = 0.5; // world units per second per level
+    const UNIT = 0.25; // world units per second per level
     const FLY_DIST = 0.05;
     // The speed grows faster than the level: 1, 2.7, 5.6, 9.9, 16, ... (times UNIT), forwards or backwards.
     const pace = (l) => Math.sign(l) * (1.7 ** Math.abs(l) - 1) / 0.7;
@@ -654,8 +654,8 @@
     };
     const eyeNow = () => makeCamera(orbit({ yaw, pitch }), nothing, 100, fit).eye;
     const STOP = 1.05; // the closest the camera comes: this many radii from the centre
-    const SWING = 0.35; // rad/s per speed unit round the target
-    const ZOOM = 0.18; // relative distance change per second per speed unit
+    const SWING = 0.175; // rad/s per speed unit round the target
+    const ZOOM = 0.09; // relative distance change per second per speed unit
     const stepTarget = (dt) => {
       const o = lockedObject();
       if (!o || travel) return;
