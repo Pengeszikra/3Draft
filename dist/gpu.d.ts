@@ -25,6 +25,12 @@ export interface GpuRenderOptions {
     /** Named materials the faces point at (`face.mat`); pass a new object when an entry changes. */
     palette?: Palette;
     dpr?: number;
+    /**
+     * The separate meshes `mesh` was merged from (a scene made of objects). When given, their vertices are built once per part
+     * and kept while the part (the same Mesh object), the palette and the smoothing stay the same, so adding or changing one
+     * object does not rebuild the others. `mesh` must still be their merge (it is used for the camera).
+     */
+    parts?: Mesh[];
     /** Many copies of one prototype mesh (modelled around the origin), drawn after `mesh`. */
     instances?: {
         mesh: Mesh;

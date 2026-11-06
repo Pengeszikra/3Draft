@@ -323,6 +323,9 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
     let uploaded = null; // the mesh now in vertexBuffer
     let uploadedPalette; // and the palette it was built with
     let uploadedSmooth = 0; // and the smoothing
+    let partCache = new WeakMap(); // vertices per part mesh (see `parts`)
+    let partPalette;
+    let partSmooth = 0;
     let vertexCount = 0;
     let protoMesh = null;
     let protoBuffer = null;
@@ -353,7 +356,7 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
         depth = device.createTexture({ size: [n, n], format: 'depth24plus', sampleCount, usage: GPUTextureUsage.RENDER_ATTACHMENT });
         color = sampleCount > 1 ? device.createTexture({ size: [n, n], format, sampleCount, usage: GPUTextureUsage.RENDER_ATTACHMENT }) : null;
     };
-    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, tonemap = false, smooth = false, studio = false } = {}, readback = false) => {
+    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false } = {}, readback = false) => {
         const L = { ...defaultLight, ...light };
         const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
         const M = { ...defaultMaterial, ...material };
@@ -362,23 +365,46 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
         const crease = smooth === true ? 40 : smooth || 0;
         if (mesh !== uploaded || palette !== uploadedPalette || crease !== uploadedSmooth) {
             uploadedSmooth = crease;
-            const all = buildVertices(mesh, palette, { smooth: crease });
+            let all;
+            if (parts && parts.length) {
+                if (palette !== partPalette || crease !== partSmooth) {
+                    partCache = new WeakMap();
+                    partPalette = palette;
+                    partSmooth = crease;
+                }
+                const built = parts.map((m) => {
+                    let v = partCache.get(m);
+                    if (!v)
+                        partCache.set(m, (v = buildVertices(m, palette, { smooth: crease })));
+                    return v;
+                });
+                all = new Float32Array(built.reduce((n, v) => n + v.length, 0));
+                let at = 0;
+                for (const v of built) {
+                    all.set(v, at);
+                    at += v.length;
+                }
+            }
+            else
+                all = buildVertices(mesh, palette, { smooth: crease });
             // split: solid triangles are drawn first; triangles with alpha < 1 are kept apart and blended afterwards
             const tri = 3 * FLOATS;
-            const solid = [];
+            const solid = new Float32Array(all.length);
+            let solidLen = 0;
             glassTris = [];
             for (let o = 0; o < all.length; o += tri) {
                 if (all[o + 11] < 1) {
                     const c = [0, 1, 2].map((k) => (all[o + k] + all[o + FLOATS + k] + all[o + 2 * FLOATS + k]) / 3);
                     glassTris.push({ c, at: o });
                 }
-                else
-                    for (let k = 0; k < tri; k++)
-                        solid.push(all[o + k]);
+                else {
+                    solid.set(all.subarray(o, o + tri), solidLen);
+                    solidLen += tri;
+                }
             }
             glassSource = all;
             glassEye = '';
-            const verts = Float32Array.from(solid);
+            const verts = solid.subarray(0, solidLen);
             if (verts.byteLength > capacity) {
                 vertexBuffer?.destroy();
                 capacity = Math.max(verts.byteLength, 4096);

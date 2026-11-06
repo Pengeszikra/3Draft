@@ -487,6 +487,7 @@
     // objects are told apart by id: a db snapshot (also the echo of our own write) hands out new instances
     const live = (o) => allObjects().find((x) => x.id === o.id);
     const has = (o) => Boolean(live(o));
+    let sceneParts = []; // the meshes `scene` is the merge of, for the GPU cache
     let scene = nothing; // what is on screen and what picking sees: all objects (or the isolated one)
     let owners = []; // [{ obj, start, end }]: which object owns which faces of `scene`
     let cam = null; // camera of the last drawn frame
@@ -499,7 +500,8 @@
       if (solo) objs = objs.filter((o) => o.id === solo);
       let n = 0;
       owners = objs.map((o) => ({ obj: o, start: n, end: (n += o.mesh.faces.length) }));
-      scene = merge(nothing, ...objs.map((o) => o.mesh));
+      sceneParts = objs.map((o) => o.mesh);
+      scene = merge(nothing, ...sceneParts);
       placedVer++;
     };
     const shifted = (mesh, d) => ({ ...mesh, positions: mesh.positions.map((q) => [q[0] + d[0], q[1] + d[1], q[2] + d[2]]) });
@@ -878,6 +880,7 @@
         renderGpu = (readback = false) =>
           gpu[readback ? 'pixels' : 'render'](scene, view, {
             palette: paletteMap,
+            parts: sceneParts,
             instances: { mesh: PROTO, data: instances(now, flights.length > 0) },
             size,
             fit: shown_fit,
@@ -2234,9 +2237,32 @@
 
     // Live link: when served by the MCP server (`/events` exists), show what the AI builds.
     let framed = false;
+    // A cheap fingerprint of an object's content, to tell an echo of our own write (or an unchanged document) from a real change.
+    const sig = (o) => {
+      let h = 0;
+      for (const p of o.mesh.positions) h = (Math.imul(h, 31) + Math.round(p[0] * 1e5) * 7 + Math.round(p[1] * 1e5) * 13 + Math.round(p[2] * 1e5) * 17) | 0;
+      for (const f of o.mesh.faces) {
+        for (const i of f.v) h = (Math.imul(h, 31) + i) | 0;
+        h = (Math.imul(h, 31) + (f.mat ? f.mat.length : 0) + (f.color ? parseInt(f.color.slice(1), 16) || 0 : 0)) | 0;
+      }
+      return `${o.name}|${o.mesh.positions.length}|${o.mesh.faces.length}|${o.wire ? JSON.stringify(o.wire).length : 0}|${h}`;
+    };
     const applyScene = (data) => {
-      hostObjects = (data.objects ?? []).map((o, n) => ({ id: o.id ?? o.name ?? `o${n}`, name: o.name ?? `o${n}`, mesh: o.mesh, wire: o.wire, host: true }));
-      rebuild();
+      const next = (data.objects ?? []).map((o, n) => ({ id: o.id ?? o.name ?? `o${n}`, name: o.name ?? `o${n}`, mesh: o.mesh, wire: o.wire, host: true }));
+      // db snapshots hand out every document again (also the echo of our own write): an object whose content did not
+      // change stays the same instance, so its mesh and its GPU vertices are kept, and an unchanged scene is not rebuilt
+      let unchanged = data.rev === 'db' && next.length === hostObjects.length;
+      if (data.rev === 'db') {
+        const before = new Map(hostObjects.map((o) => [o.id, o]));
+        for (let i = 0; i < next.length; i++) {
+          const old = before.get(next[i].id);
+          if (old && sig(old) === sig(next[i])) next[i] = old;
+          else unchanged = false;
+          if (hostObjects[i]?.id !== next[i].id) unchanged = false;
+        }
+      }
+      hostObjects = next;
+      if (!unchanged) rebuild();
       // a snapshot (also the echo of our own write) makes new objects: whatever points at one follows it by id
       const same = (o) => (o ? allObjects().find((x) => x.id === o.id) ?? null : null);
       editing = same(editing);

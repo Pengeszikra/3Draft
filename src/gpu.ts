@@ -36,6 +36,12 @@ export interface GpuRenderOptions {
   /** Named materials the faces point at (`face.mat`); pass a new object when an entry changes. */
   palette?: Palette;
   dpr?: number;
+  /**
+   * The separate meshes `mesh` was merged from (a scene made of objects). When given, their vertices are built once per part
+   * and kept while the part (the same Mesh object), the palette and the smoothing stay the same, so adding or changing one
+   * object does not rebuild the others. `mesh` must still be their merge (it is used for the camera).
+   */
+  parts?: Mesh[];
   /** Many copies of one prototype mesh (modelled around the origin), drawn after `mesh`. */
   instances?: { mesh: Mesh; data: Float32Array };
   /**
@@ -401,6 +407,9 @@ export const createGpu = async (
   let uploaded: Mesh | null = null; // the mesh now in vertexBuffer
   let uploadedPalette: Palette | undefined; // and the palette it was built with
   let uploadedSmooth = 0; // and the smoothing
+  let partCache = new WeakMap<Mesh, Float32Array>(); // vertices per part mesh (see `parts`)
+  let partPalette: Palette | undefined;
+  let partSmooth = 0;
   let vertexCount = 0;
   let protoMesh: Mesh | null = null;
   let protoBuffer: Handle = null;
@@ -436,7 +445,7 @@ export const createGpu = async (
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, tonemap = false, smooth = false, studio = false }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
@@ -448,20 +457,42 @@ export const createGpu = async (
     const crease = smooth === true ? 40 : smooth || 0;
     if (mesh !== uploaded || palette !== uploadedPalette || crease !== uploadedSmooth) {
       uploadedSmooth = crease;
-      const all = buildVertices(mesh, palette, { smooth: crease });
+      let all: Float32Array;
+      if (parts && parts.length) {
+        if (palette !== partPalette || crease !== partSmooth) {
+          partCache = new WeakMap();
+          partPalette = palette;
+          partSmooth = crease;
+        }
+        const built = parts.map((m) => {
+          let v = partCache.get(m);
+          if (!v) partCache.set(m, (v = buildVertices(m, palette, { smooth: crease })));
+          return v;
+        });
+        all = new Float32Array(built.reduce((n, v) => n + v.length, 0));
+        let at = 0;
+        for (const v of built) {
+          all.set(v, at);
+          at += v.length;
+        }
+      } else all = buildVertices(mesh, palette, { smooth: crease });
       // split: solid triangles are drawn first; triangles with alpha < 1 are kept apart and blended afterwards
       const tri = 3 * FLOATS;
-      const solid: number[] = [];
+      const solid = new Float32Array(all.length);
+      let solidLen = 0;
       glassTris = [];
       for (let o = 0; o < all.length; o += tri) {
         if (all[o + 11] < 1) {
           const c: Vec3 = [0, 1, 2].map((k) => (all[o + k] + all[o + FLOATS + k] + all[o + 2 * FLOATS + k]) / 3) as Vec3;
           glassTris.push({ c, at: o });
-        } else for (let k = 0; k < tri; k++) solid.push(all[o + k]);
+        } else {
+          solid.set(all.subarray(o, o + tri), solidLen);
+          solidLen += tri;
+        }
       }
       glassSource = all;
       glassEye = '';
-      const verts = Float32Array.from(solid);
+      const verts = solid.subarray(0, solidLen);
       if (verts.byteLength > capacity) {
         vertexBuffer?.destroy();
         capacity = Math.max(verts.byteLength, 4096);
