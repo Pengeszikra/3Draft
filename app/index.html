@@ -568,7 +568,7 @@
     // T targets the object under the cross (the camera turns onto it and stays on a sphere round it; W flies there).
     // T over empty space, or on the target, while targeting just brings the camera back onto the target; on another
     // object it re-targets. Tab: the next object. Esc lets go. With no target, T over empty space targets the nearest.
-    const lookAt = (o) => {
+    const lookAt = (o, near = Infinity) => {
       // the camera stays where it is and turns to the object: from here on it moves on a sphere round it
       const { center, radius } = ballOf(o);
       const eye = eyeNow();
@@ -578,18 +578,19 @@
       goTo({
         center,
         radius: Math.max(radius * 1.15, 0.12),
-        dist: Math.max(len, radius * STOP),
+        dist: Math.max(Math.min(len, radius * near), radius * STOP), // `near`: come at least this close (in radii)
         yaw: Math.atan2(d[0], -d[2]),
         pitch: Math.max(-LIMIT, Math.min(LIMIT, -Math.asin(d[1] / len))),
       });
     };
+    const FRAME = 4; // Tab frames an object from at most this many radii away
     const nextTarget = (back) => {
       const list = allObjects().filter((o) => o.mesh.positions.length && owners.some((w) => w.obj.id === o.id));
       if (!list.length) return;
       const at = list.findIndex((o) => o.id === locked);
       const o = list[(at + (back ? -1 : 1) + list.length) % list.length];
       locked = o.id;
-      lookAt(o);
+      lookAt(o, FRAME); // Tab finds the object: it comes into view, however small or far it is
     };
     const travelTo = () => {
       const under = hit ? owner(hit.face) : null;
