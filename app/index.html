@@ -264,7 +264,7 @@
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
     <textarea id="gpuerr" readonly hidden rows="4" aria-label="WebGPU error text (select and copy)" style="width:100%;box-sizing:border-box;font:12px/1.4 var(--font-mono);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:6px"></textarea>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, 1/2/3 move points/lines/faces) · x: delete the object (the Clear button removes everything) · t: target the object under the cross (the camera turns to it, w/s fly to and from it; 2nd t: travel there, still targeted; space, or t on empty space: let go) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · n: smooth shading · k: studio light · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, 1/2/3 move points/lines/faces) · x: delete the object (the Clear button removes everything) · t: target the object under the cross (the camera keeps looking at it and moves on a sphere round it: a d r f swing, w s distance, drag too; 2nd t: travel there; space or esc: let go) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · n: smooth shading · k: studio light · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -484,13 +484,14 @@
       focused = true;
     };
     const speed = (axis, d) => {
-      enterFly();
+      if (!locked) enterFly();
       level[axis] += d;
       redraw();
     };
     const stepFly = (now) => {
       const dt = Math.min(0.05, (now - lastFrame) / 1000);
       lastFrame = now;
+      if (locked) return stepTarget(dt);
       if (!fly) return;
       const cy = Math.cos(yaw);
       const sy = Math.sin(yaw);
@@ -500,14 +501,13 @@
       const right = [cy, 0, sy];
       const v = forward.map((c, i) => c * pace(level.f) + right[i] * pace(level.r) + (i === 1 ? pace(level.u) : 0));
       fit.center = fit.center.map((c, i) => c + v[i] * UNIT * dt);
-      keepOut();
-      aimAtTarget(dt);
       if (level.f || level.r || level.u) redraw();
     };
 
-    // Target mode (T): the camera locks onto one object. It turns to face it and keeps facing it, like a steering wheel
-    // that rolls back by itself, while W / S fly towards and away from it. The 2nd T travels to the object (still locked),
-    // Space, or T on empty space, lets go.
+    // Target mode (T): the camera locks onto one object and moves on an imaginary sphere around it, always looking at
+    // the centre. A / D swing it sideways, R / F up and down (they are speed levels like everywhere else), W / S change
+    // the distance, and a mouse drag turns it over the same sphere. Only Space or Esc let go, and then the camera stays
+    // exactly where it is.
     let locked = null; // the id of the targeted object
     const lockedObject = () => (locked ? allObjects().find((o) => o.id === locked) ?? null : null);
     const ballCache = new WeakMap();
@@ -517,45 +517,22 @@
       return b;
     };
     const eyeNow = () => makeCamera(orbit({ yaw, pitch }), nothing, 100, fit).eye;
-    const AIM_RATE = 5; // 1/s: how fast the view rolls back onto the target
-    const aimAtTarget = (dt) => {
+    const STOP = 1.05; // the closest the camera comes: this many radii from the centre
+    const SWING = 0.35; // rad/s per speed unit round the target
+    const ZOOM = 0.18; // relative distance change per second per speed unit
+    const stepTarget = (dt) => {
       const o = lockedObject();
-      if (!o || !fly || travel || stage.classList.contains('drag')) return;
-      const { center } = ballOf(o);
-      const cy = Math.cos(yaw);
-      const sy = Math.sin(yaw);
-      const cp = Math.cos(pitch);
-      const sp = Math.sin(pitch);
-      const eye = fit.center.map((c, i) => c - [sy * cp, -sp, -cy * cp][i] * FLY_DIST); // the eye stays where it is
-      const d = center.map((c, i) => c - eye[i]);
-      const len = Math.hypot(...d);
-      if (len < 1e-6) return;
-      const wantYaw = Math.atan2(d[0], -d[2]);
-      const wantPitch = Math.max(-LIMIT, Math.min(LIMIT, -Math.asin(d[1] / len)));
-      const k = 1 - Math.exp(-AIM_RATE * dt);
-      const dy = turnBy(yaw, wantYaw) - yaw;
-      const dp = wantPitch - pitch;
-      yaw += dy * k;
-      pitch += dp * k;
-      const c2 = Math.cos(yaw);
-      const s2 = Math.sin(yaw);
-      const cp2 = Math.cos(pitch);
-      const sp2 = Math.sin(pitch);
-      fit.center = eye.map((e, i) => e + [s2 * cp2, -sp2, -c2 * cp2][i] * FLY_DIST);
-      if (Math.abs(dy) + Math.abs(dp) > 1e-3) redraw();
-    };
-    // flying towards the object stops at its surface (its bounding sphere), flying away is free
-    const keepOut = () => {
-      const o = lockedObject();
-      if (!o || !fly) return;
+      if (!o || travel) return;
       const { center, radius } = ballOf(o);
-      const away = fit.center.map((c, i) => c - center[i]);
-      const len = Math.hypot(...away);
-      const stopAt = radius * 1.05;
-      if (len < stopAt && len > 1e-9) {
-        fit.center = center.map((c, i) => c + (away[i] / len) * stopAt);
-        if (level.f > 0) level.f = 0;
-      }
+      fit.center = [...center]; // the sphere follows the object when it moves
+      if (!level.f && !level.r && !level.u) return;
+      const near = radius * STOP;
+      fit.dist = Math.max(near, fit.dist ?? orbitDist(fit.radius));
+      fit.dist = Math.max(near, fit.dist * Math.exp(-pace(level.f) * ZOOM * dt));
+      if (fit.dist <= near && level.f > 0) level.f = 0; // reached the surface
+      yaw -= pace(level.r) * SWING * dt; // D: the camera goes to the right
+      pitch = Math.max(-LIMIT, Math.min(LIMIT, pitch + pace(level.u) * SWING * dt));
+      redraw();
     };
     const letGo = () => {
       if (!locked) return false;
@@ -587,22 +564,39 @@
       return { center: b.center, radius: Math.max(b.radius * 1.05, 0.25) };
     };
 
-    // T: 1st press targets the object under the cross (the camera turns to it), 2nd press travels to it and stays targeted,
-    // T over empty space, or Space, lets go of the target. With no target, T on empty space targets the nearest object.
+    // T: 1st press targets the object under the cross (the camera swings round onto it and stays on a sphere round it),
+    // 2nd press travels to it, still targeted. T over empty space while targeting just brings the camera back onto the
+    // target. Space or Esc let go. With no target, T over empty space targets the nearest object.
     const travelToObject = (o) => {
       const b = ballOf(o);
       focused = true;
       goTo({ center: b.center, radius: Math.max(b.radius * 1.15, 0.12) }); // the view keeps its direction: the eye flies in a straight line
     };
+    const lookAt = (o) => {
+      // the camera stays where it is and turns to the object: from here on it moves on a sphere round it
+      const { center, radius } = ballOf(o);
+      const eye = eyeNow();
+      const d = center.map((c, i) => c - eye[i]);
+      const len = Math.hypot(...d) || 1;
+      focused = true;
+      goTo({
+        center,
+        radius: Math.max(radius * 1.15, 0.12),
+        dist: Math.max(len, radius * STOP),
+        yaw: Math.atan2(d[0], -d[2]),
+        pitch: Math.max(-LIMIT, Math.min(LIMIT, -Math.asin(d[1] / len))),
+      });
+    };
     const travelTo = () => {
       const under = hit ? owner(hit.face) : null;
       const current = lockedObject();
       if (current) {
-        if (under && under.id !== current.id) locked = under.id; // another object: aim at that one instead
-        else if (under) return travelToObject(current);
-        else return void letGo(); // empty space: let go
-      } else if (under) locked = under.id;
-      else {
+        if (under && under.id === current.id) return travelToObject(current);
+        if (under) locked = under.id; // another object: target that one instead
+        return lookAt(lockedObject() ?? current); // empty space: back onto the target
+      }
+      let o = under;
+      if (!o) {
         // nothing under the cross (too close to a model, or inside one): target the nearest object
         const eye = eyeNow();
         let best = null;
@@ -612,13 +606,11 @@
           const gap = Math.hypot(...b.center.map((c, i) => c - eye[i])) - b.radius;
           if (!best || gap < best.gap) best = { gap, obj };
         }
-        if (!best) return;
-        locked = best.obj.id;
+        o = best?.obj;
       }
-      focused = true;
-      enterFly(); // from here the camera turns on the spot and W / S move along its line of sight
-      stop();
-      redraw();
+      if (!o) return;
+      locked = o.id;
+      lookAt(o);
     };
 
     // The HEXAW kernel (WebAssembly written in HEXAW) does the picking once it has started;
@@ -786,7 +778,7 @@
         if (lockedObj) {
           const b = ballOf(lockedObj);
           const gap = Math.max(0, Math.hypot(...b.center.map((c, i) => c - eye[i])) - b.radius);
-          rows.push(`<div class="row lock"><span>◎ ${hudText(lockedObj.name ?? lockedObj.id)}</span><span>${gap.toFixed(2)}</span></div><div class="row"><span>T travel · W/S · Space free</span></div>`);
+          rows.push(`<div class="row lock"><span>◎ ${hudText(lockedObj.name ?? lockedObj.id)}</span><span>${gap.toFixed(2)}</span></div><div class="row"><span>T travel · wasdrf orbit · Esc free</span></div>`);
         } else rows.push('<div class="row"><span>T target</span></div>');
         hudEl.innerHTML = rows.join('');
       }
@@ -1765,6 +1757,11 @@
     document.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLTextAreaElement) return; // the error text can be selected and copied
       if (e.target instanceof HTMLButtonElement) return; // Space and Enter belong to a focused button
+      if (e.key === 'Escape' && locked) {
+        e.preventDefault();
+        stop();
+        return void letGo();
+      }
       const fk = !e.ctrlKey && !e.metaKey && !e.altKey && FLY_KEYS[e.key.toLowerCase()];
       if (fk) {
         e.preventDefault();
@@ -1772,7 +1769,7 @@
       } else if (e.key === ' ') {
         e.preventDefault();
         if (!e.repeat) {
-          stop(); // Space: stop moving, and let go of the target
+          stop(); // Space: stop moving, and let go of the target (the camera stays where it is)
           letGo();
           redraw();
         }
