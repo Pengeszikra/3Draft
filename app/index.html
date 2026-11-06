@@ -813,7 +813,15 @@
       const handles = gizmoHandles();
       const lockedObj = lockedObject();
       if (locked && !lockedObj) locked = null; // the object is gone
-      const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, fit.radius * 0.07) }] : [];
+      // The cross is sized for the scene, but never bigger than a few percent of the way to the point it sits on, and never much
+      // bigger than the object under it: a thin bar close to the eye gets a tiny cross, not one the size of the screen.
+      const crossRadius = () => {
+        const away = Math.hypot(...hit.point.map((c, i) => c - eye0[i]));
+        const under = owner(hit.face);
+        const own = under ? ballOf(under).radius : Infinity;
+        return Math.min(fit.radius * 0.07, away * 0.03, Math.max(own * 0.5, away * 0.004));
+      };
+      const marks = hit ? [{ name: 'cursor', lines: crosshair(scene, hit, crossRadius()) }] : [];
       for (const [o, color] of [[boolFrom, '#e8590c'], [boolPair?.b, '#2f9e44']]) {
         if (!o || !has(o)) continue;
         const lo = [Infinity, Infinity, Infinity];
