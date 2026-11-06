@@ -22,7 +22,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | --- | --- |
 | `w a s d r f` | fly: forward, left, back, right, up, down. Every press is a speed step; the opposite key slows down |
 | `Space` | stop moving (all speeds to zero) |
-| `T` | target the object under the cross (see Target mode). 2nd `T`: travel to it. `Space` / `Esc` let go; with no target, `T` over empty space targets the nearest object |
+| `T` | target the object under the cross (see Target mode); with no target, `T` over empty space targets the nearest object. `Tab` next target, `Esc` let go |
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
 | `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that starts at the camera point and flies along the ray through the cursor, so its long axis is always the view direction and you always see its back; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on to 4 times the camera-to-model distance and vanishes. Only the closed parts of the model are carved; open parts are ignored (see the health check below). A carve never leaves a crack: if the result would not be a closed solid it is retried with a hair's shift, and if that fails too the model stays as it was (the note "left as it was" shows). |
 | `Tab` | edit mode on the object under the cross / off (see below) |
@@ -111,8 +111,8 @@ For the selected material there are five sliders (`metal`, `rough`, `alpha`, `so
 The HUD in the top left corner shows the object under the cross (name, distance, face count) and the target.
 
 - `T` on an object **targets** it: the camera turns to face it and from then on moves on an imaginary sphere round it, always looking at its centre. `A`/`D` swing it sideways, `R`/`F` up and down (speed levels, like everywhere), `W`/`S` change the distance (`W` stops at the object's surface), and dragging the mouse turns it over the same sphere.
-- A 2nd `T` on the same object **travels** there (the standard framing) and the target stays. `T` on another object re-targets; `T` over empty space just brings the camera back onto the target.
-- Only `Space` or `Esc` let go. The camera then stays exactly where it is.
+- `T` on another object re-targets; `T` on the target or over empty space brings the camera back onto the target. There is no travel: `W` flies there.
+- `Tab` switches to the next object (`Shift+Tab`: previous). `Space` only sets the speed to zero. `Esc` lets go, and the camera then stays exactly where it is.
 
 ## Phone
 

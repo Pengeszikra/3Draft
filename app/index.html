@@ -264,7 +264,7 @@
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
     <textarea id="gpuerr" readonly hidden rows="4" aria-label="WebGPU error text (select and copy)" style="width:100%;box-sizing:border-box;font:12px/1.4 var(--font-mono);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:6px"></textarea>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, 1/2/3 move points/lines/faces) · x: delete the object (the Clear button removes everything) · t: target the object under the cross (the camera keeps looking at it and moves on a sphere round it: a d r f swing, w s distance, drag too; 2nd t: travel there; space or esc: let go) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · n: smooth shading · k: studio light · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, 1/2/3 move points/lines/faces) · x: delete the object (the Clear button removes everything) · t: target the object under the cross (the camera keeps looking at it and moves on a sphere round it: a d r f swing, w s distance, drag too; tab: next target; space: speed zero; esc: let go) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · n: smooth shading · k: studio light · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -564,14 +564,9 @@
       return { center: b.center, radius: Math.max(b.radius * 1.05, 0.25) };
     };
 
-    // T: 1st press targets the object under the cross (the camera swings round onto it and stays on a sphere round it),
-    // 2nd press travels to it, still targeted. T over empty space while targeting just brings the camera back onto the
-    // target. Space or Esc let go. With no target, T over empty space targets the nearest object.
-    const travelToObject = (o) => {
-      const b = ballOf(o);
-      focused = true;
-      goTo({ center: b.center, radius: Math.max(b.radius * 1.15, 0.12) }); // the view keeps its direction: the eye flies in a straight line
-    };
+    // T targets the object under the cross (the camera turns onto it and stays on a sphere round it; W flies there).
+    // T over empty space, or on the target, while targeting just brings the camera back onto the target; on another
+    // object it re-targets. Tab: the next object. Esc lets go. With no target, T over empty space targets the nearest.
     const lookAt = (o) => {
       // the camera stays where it is and turns to the object: from here on it moves on a sphere round it
       const { center, radius } = ballOf(o);
@@ -587,13 +582,20 @@
         pitch: Math.max(-LIMIT, Math.min(LIMIT, -Math.asin(d[1] / len))),
       });
     };
+    const nextTarget = (back) => {
+      const list = allObjects().filter((o) => o.mesh.positions.length && owners.some((w) => w.obj.id === o.id));
+      if (!list.length) return;
+      const at = list.findIndex((o) => o.id === locked);
+      const o = list[(at + (back ? -1 : 1) + list.length) % list.length];
+      locked = o.id;
+      lookAt(o);
+    };
     const travelTo = () => {
       const under = hit ? owner(hit.face) : null;
       const current = lockedObject();
       if (current) {
-        if (under && under.id === current.id) return travelToObject(current);
         if (under) locked = under.id; // another object: target that one instead
-        return lookAt(lockedObject() ?? current); // empty space: back onto the target
+        return lookAt(lockedObject() ?? current); // the same object or empty space: back onto the target
       }
       let o = under;
       if (!o) {
@@ -778,7 +780,7 @@
         if (lockedObj) {
           const b = ballOf(lockedObj);
           const gap = Math.max(0, Math.hypot(...b.center.map((c, i) => c - eye[i])) - b.radius);
-          rows.push(`<div class="row lock"><span>◎ ${hudText(lockedObj.name ?? lockedObj.id)}</span><span>${gap.toFixed(2)}</span></div><div class="row"><span>T travel · wasdrf orbit · Esc free</span></div>`);
+          rows.push(`<div class="row lock"><span>◎ ${hudText(lockedObj.name ?? lockedObj.id)}</span><span>${gap.toFixed(2)}</span></div><div class="row"><span>wasdrf orbit · Tab next · Esc free</span></div>`);
         } else rows.push('<div class="row"><span>T target</span></div>');
         hudEl.innerHTML = rows.join('');
       }
@@ -1757,6 +1759,11 @@
     document.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLTextAreaElement) return; // the error text can be selected and copied
       if (e.target instanceof HTMLButtonElement) return; // Space and Enter belong to a focused button
+      if (e.key === 'Tab' && locked) {
+        e.preventDefault();
+        if (!e.repeat) nextTarget(e.shiftKey);
+        return;
+      }
       if (e.key === 'Escape' && locked) {
         e.preventDefault();
         stop();
@@ -1769,8 +1776,7 @@
       } else if (e.key === ' ') {
         e.preventDefault();
         if (!e.repeat) {
-          stop(); // Space: stop moving, and let go of the target (the camera stays where it is)
-          letGo();
+          stop(); // Space: speed zero (the target stays)
           redraw();
         }
       } else if (e.key === 'm' || e.key === 'M') {
