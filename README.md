@@ -179,3 +179,8 @@ npm run app          # the viewer
 Edit `src/*.ts`, never `dist/`. Versions are date based, `YY.MM.DD.NNN`, published as semver `YY.M.DNNN` (`26.11.01.002` is `26.11.1002`); `npm run bump` sets the next one.
 
 MIT
+
+
+## UI
+
+The viewer has a control-panel look (black ground, cream/teal/red keycaps). **?** (or the Keys button) opens an interactive key explainer: hover or tap a key to read what it does (always / target / isolated / edit mode), press a real key to see it light up, **run this key** performs it. **Z** (or Zen) hides everything but the model; Z or Esc brings the UI back. The layout is responsive and never leaves the screen.
