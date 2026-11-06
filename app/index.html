@@ -2101,9 +2101,7 @@
         row('', 'Target mode', k.target, Boolean(locked)) +
         row('', 'Isolated', k.solo, false) +
         row('', 'Edit mode', k.edit, editing) +
-        (k.run === false || id === '?' ? '' : '<button type="button" class="run teal" id="keyrun">▶ run this key</button>');
-      const run = document.getElementById('keyrun');
-      if (run) run.addEventListener('click', () => pressKey(id));
+        '';
     };
     const EVENT_KEY = { escape: 'Escape', backspace: 'Backspace', tab: 'Tab', enter: 'Enter', arrowleft: 'ArrowLeft', arrowdown: 'ArrowDown', arrowup: 'ArrowUp', arrowright: 'ArrowRight' };
     const pressKey = (id) => {
@@ -2141,7 +2139,7 @@
           b.setAttribute('aria-label', `${k.title ?? k.cap}: ${k.text || k.edit || ''}`);
           b.addEventListener('mouseenter', () => showKey(id));
           b.addEventListener('focus', () => showKey(id));
-          b.addEventListener('click', () => showKey(id));
+          b.addEventListener('click', () => { showKey(id); if (k.run !== false && id !== '?') pressKey(id); });
           keyRef[id] = b;
           rowEl.append(b);
         }
