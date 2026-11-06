@@ -246,7 +246,10 @@
     input[type=range] { accent-color: var(--teal); }
     #hud, #palette, #boolq, #editbar { border: 1.5px solid var(--outline); border-radius: 14px; background: color-mix(in srgb, var(--panel) 92%, transparent); }
     #editbar { border-color: var(--red); }
-    #hud { max-width: min(46%, 280px); }
+    #hud { width: min(46%, 240px); max-width: none; box-sizing: border-box; }
+    #hud .row > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    #hud .row > :last-child { flex: none; font-variant-numeric: tabular-nums; }
+    #hud .row + .row + .row { margin-top: 4px; }
     #palette { max-height: calc(100dvh - 90px); overflow-y: auto; }
     #palette .sw { box-shadow: none; padding: 0; border-radius: 6px; }
 
@@ -906,17 +909,18 @@
         // the HUD: what is under the cross (name, distance, size) and the target state
         const under = hit ? owner(hit.face) : null;
         const eye = eye0;
+        // the steady part (the target) is on top; what is under the cross changes all the time and sits at the bottom
         const rows = [];
-        if (under) {
-          const d = Math.hypot(...hit.point.map((c, i) => c - eye[i]));
-          const faces = under.mesh.faces.length;
-          rows.push(`<div class="row"><b>${hudText(under.name ?? under.id)}</b><b>${d.toFixed(2)}</b></div><div class="row"><span>${faces} faces</span><span>${under.id === locked ? 'target' : ''}</span></div>`);
-        } else rows.push('<div class="row"><span>–</span></div>');
         if (lockedObj) {
           const b = ballOf(lockedObj);
           const gap = Math.max(0, Math.hypot(...b.center.map((c, i) => c - eye[i])) - b.radius);
           rows.push(`<div class="row lock"><span>◎ ${hudText(lockedObj.name ?? lockedObj.id)}</span><span>${gap.toFixed(2)}</span></div><div class="row"><span>wasdrf orbit · Tab next · Esc free</span></div>`);
-        } else rows.push('<div class="row"><span>T target</span></div>');
+        } else rows.push('<div class="row"><span>T target</span></div><div class="row"><span>&nbsp;</span></div>');
+        if (under) {
+          const d = Math.hypot(...hit.point.map((c, i) => c - eye[i]));
+          const faces = under.mesh.faces.length;
+          rows.push(`<div class="row"><b>${hudText(under.name ?? under.id)}</b><b>${d.toFixed(2)}</b></div><div class="row"><span>${faces} faces</span><span>${under.id === locked ? 'target' : ''}</span></div>`);
+        } else rows.push('<div class="row"><span>–</span></div><div class="row"><span>&nbsp;</span></div>');
         hudEl.innerHTML = rows.join('');
       }
       surfaceEl.innerHTML = hit
