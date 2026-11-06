@@ -22,10 +22,10 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | --- | --- |
 | `w a s d r f` | fly: forward, left, back, right, up, down. Every press is a speed step; the opposite key slows down |
 | `Space` | stop moving (all speeds to zero) |
-| `T` | target the object under the cross (see Target mode); with no target, `T` over empty space targets the nearest object. `Tab` next target, `Esc` let go |
+| `T` | target the object under the cross (see Target mode); with no target, `T` over empty space targets the nearest object. `Tab` next target (the first one when none), `Esc` let go |
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
 | `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that starts at the camera point and flies along the ray through the cursor, so its long axis is always the view direction and you always see its back; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on to 4 times the camera-to-model distance and vanishes. Only the closed parts of the model are carved; open parts are ignored (see the health check below). A carve never leaves a crack: if the result would not be a closed solid it is retried with a hair's shift, and if that fails too the model stays as it was (the note "left as it was" shows). |
-| `Tab` | edit mode on the object under the cross / off (see below) |
+| `Q` | edit mode on the object under the cross / off (see below) |
 | `V` | Spider bar (in edit mode: draw a line): the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
 | `X`, `Delete` | delete the object under the cross |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
@@ -57,9 +57,9 @@ There is one gizmo at a time, and `H` cycles through three states:
 
 Drag one of the arrows to slide the object along that axis; the arrow thickens under the pointer. While dragging only the picture changes; one write goes to the database when you let go, and one `U` takes the whole drag back.
 
-## Edit mode: drawing on a model (`Tab`)
+## Edit mode: drawing on a model (`Q`)
 
-The idea: there is a base model, and you refine or extend it by drawing lines on it. Put the cross on an object and press `Tab`. A red bar at the top says which object is being edited. Its vertices show as small grey crosses.
+The idea: there is a base model, and you refine or extend it by drawing lines on it. Put the cross on an object and press `Q`. A red bar at the top says which object is being edited. Its vertices show as small grey crosses.
 
 - **`V` draws a line.** The first `V` takes a point, the next `V` joins it to the new one, and the chain goes on from there. A point is either an existing vertex (the pointer **snaps** to vertices; a white cross shows which) or a new vertex put on the surface under the cross. On a face it splits the face into triangles, on an edge it goes into both faces, so the surface never cracks.
 - **Two points on one face cut it.** The line becomes a real edge of the mesh: the surface gets detail exactly where you drew.
@@ -73,7 +73,7 @@ The idea: there is a base model, and you refine or extend it by drawing lines on
   - `V` goes back to drawing (and drops the selection); `Esc` does the same.
 - **`B` turns the spider bars into lines.** The prisms made with `V` in object mode (they are objects named `bar`) become lines on the edited object: each end snaps to a vertex that is close, or is put on the surface if it is near it, or stays a free point. The bars are removed (one `U` brings them back). So a plan sketched as bars can be worked on as a wire.
 - **`X`** removes the lines at the selected point or line (or the last line); the points stay. `U` undoes every step, one key press at a time.
-- **`Esc`** stops the line you are drawing; then it leaves a move mode back to drawing; then it leaves edit mode (so does `Tab`). The lines are only shown in edit mode.
+- **`Esc`** stops the line you are drawing; then it leaves a move mode back to drawing; then it leaves edit mode (so does `Q`). The lines are only shown in edit mode.
 
 The lines live next to the mesh as `wire: [[a, b], ...]` (vertex pairs) in the object's document, so the AI sees them too. The geometry is in the engine (README part 1): `insertVertex`, `cutFace`, `moveVertex`, `moveVertexSet`, `fillLoop`, `addLine`, `findLoop`.
 

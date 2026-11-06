@@ -264,7 +264,7 @@
       <span class="surface" id="surface">surface <b>–</b></span>
     </p>
     <textarea id="gpuerr" readonly hidden rows="4" aria-label="WebGPU error text (select and copy)" style="width:100%;box-sizing:border-box;font:12px/1.4 var(--font-mono);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:6px"></textarea>
-    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · tab: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, 1/2/3 move points/lines/faces) · x: delete the object (the Clear button removes everything) · t: target the object under the cross (the camera keeps looking at it and moves on a sphere round it: a d r f swing, w s distance, drag too; tab: next target; space: speed zero; esc: let go) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · n: smooth shading · k: studio light · l: light · u / backspace: undo</p>
+    <p class="hint" id="hint" hidden>drag: rotate · w a s d r f: fly (every press is a speed step) · /: isolate the model, again: whole scene · p: materials (i: pick the material under the cross, shift+click paints a face, shift+double click the whole object) · m: place · space: stop · o: boolean (mark two objects, then pick the operation) · v: spider bar (two points) · q: edit mode (v draws lines on the model, enter closes a loop into a face, b turns the old v bars into lines, 1/2/3 move points/lines/faces) · x: delete the object (the Clear button removes everything) · t: target the object under the cross (the camera keeps looking at it and moves on a sphere round it: a d r f swing, w s distance, drag too; tab: next target; space: speed zero; esc: let go) · h: move gizmo (drag an arrow; 1st h world axes, 2nd h own axes, 3rd h off) · e: edges · g: svg/gpu · c: filmic look · n: smooth shading · k: studio light · l: light · u / backspace: undo</p>
     <span class="actions">
       <button id="place" type="button">Place</button>
       <button id="delete" type="button">Delete</button>
@@ -1477,7 +1477,7 @@
       history.push(() => has(obj) && change(obj, mesh0));
     };
 
-    // Edit mode (Tab): draw on the object under the cross. V puts points on its surface (or on a vertex that is already
+    // Edit mode (Q): draw on the object under the cross. V puts points on its surface (or on a vertex that is already
     // there: they snap) and joins them with lines; two points on one face cut it along the line, so the surface gets
     // detail where you draw. Points in the air extend the model: Enter closes a loop of lines into a face.
     // A vertex can be dragged (or moved with the gizmo arrows) and everything that uses it follows.
@@ -1759,12 +1759,12 @@
     document.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLTextAreaElement) return; // the error text can be selected and copied
       if (e.target instanceof HTMLButtonElement) return; // Space and Enter belong to a focused button
-      if (e.key === 'Tab' && locked) {
-        e.preventDefault();
-        if (!e.repeat) nextTarget(e.shiftKey);
+      if (e.key === 'Tab') {
+        e.preventDefault(); // Tab is the target key: the next object (with no target yet: the one under the cross, like T)
+        if (!e.repeat) locked ? nextTarget(e.shiftKey) : travelTo();
         return;
       }
-      if (e.key === 'Escape' && locked) {
+      if (e.key === 'Escape' && locked && !editing && !picking) {
         e.preventDefault();
         stop();
         return void letGo();
@@ -1792,7 +1792,7 @@
       } else if (e.key === 'o' || e.key === 'O') {
         e.preventDefault();
         if (!e.repeat) pickBool();
-      } else if (e.key === 'Tab') {
+      } else if (e.key === 'q' || e.key === 'Q') {
         e.preventDefault();
         if (!e.repeat) editing ? leaveEdit() : enterEdit();
       } else if (editing && e.key === 'Enter') {
