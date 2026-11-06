@@ -2078,6 +2078,7 @@
     const isApp = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || /[?&]pwa\b/.test(location.search);
     if (isApp) {
       document.body.classList.add('pwa');
+      stage.classList.add('clean'); // no E button on the pad: start without the edge and point clutter
       const padEl = document.getElementById('pad');
       const press = (key, extra = {}) => {
         document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...extra }));
