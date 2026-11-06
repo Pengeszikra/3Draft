@@ -1006,15 +1006,31 @@
     // Every change goes the same way: the document (if a db is connected) and the local object.
     let col = null; // the db collection "objects", once connected
     const history = []; // one undo step per action made here, for Backspace
-    const writes = new Map(); // one write at a time per document
-    const save = (obj, op) => {
-      if (!col) return;
-      const next = (writes.get(obj.id) ?? Promise.resolve()).then(op).catch((err) => {
-        liveEl.textContent = 'db write failed';
-        liveEl.title = String(err?.message ?? err);
+    // Writes go one after the other through ONE queue, and a refused write is tried again a few times: a big scene (a globe is
+    // eight objects of hundreds of kilobytes) written in parallel gets rate limited, and the objects whose write was refused
+    // would vanish at the next snapshot.
+    const unsaved = new Set(); // objects that are not in the db yet: a snapshot must not drop them
+    let writeTail = Promise.resolve();
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const enqueue = (op, done) => {
+      writeTail = writeTail.then(async () => {
+        for (let k = 0; ; k++) {
+          try {
+            await op();
+            done?.();
+            return;
+          } catch (err) {
+            if (k >= 5) {
+              liveEl.textContent = 'db write failed';
+              liveEl.title = String(err?.message ?? err);
+              return;
+            }
+            await sleep(400 * 2 ** k);
+          }
+        }
       });
-      writes.set(obj.id, next);
     };
+    const save = (obj, op) => col && enqueue(op, () => unsaved.delete(obj.id));
     // the stored document of an object; the lines drawn on it ride along
     const docOf = (o) => ({ name: o.name, mesh: o.mesh, ...(o.wire?.length ? { wire: o.wire } : {}) });
     const uid = (name) => `${name}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -1023,6 +1039,7 @@
       history.push(() => erase(obj));
       if (col) {
         hostObjects.push({ ...obj, host: true });
+        unsaved.add(obj.id);
         save(obj, () => col.doc(obj.id).set(docOf(obj)));
       } else mine.push(obj);
       rebuild();
@@ -1215,7 +1232,7 @@
     const swatchesEl = document.getElementById('swatches');
     const currentEl = document.getElementById('current');
     const PROPS = ['metal', 'rough', 'alpha', 'emit', 'soft'];
-    const saveMaterial = (m) => paletteCol && paletteCol.doc(m.name).set({ ...m, order: materials.indexOf(m) }).catch((err) => (liveEl.title = String(err?.message ?? err)));
+    const saveMaterial = (m) => paletteCol && enqueue(() => paletteCol.doc(m.name).set({ ...m, order: materials.indexOf(m) }));
     const showPalette = () => {
       swatchesEl.innerHTML = '';
       materials.forEach((m, i) => {
@@ -1977,6 +1994,8 @@
         col.onSnapshot(
           (snap) => {
             const objects = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((o) => o?.mesh?.positions);
+            // objects still waiting for their write stay on screen
+            for (const o of hostObjects) if (unsaved.has(o.id) && !objects.some((x) => x.id === o.id)) objects.push({ id: o.id, name: o.name, mesh: o.mesh, ...(o.wire ? { wire: o.wire } : {}) });
             applyScene({ objects, rev: 'db' });
           },
           (err) => {
@@ -1999,6 +2018,7 @@
         // what was made here before the db answered goes into it now
         for (const o of mine.splice(0)) {
           hostObjects.push({ ...o, host: true });
+          unsaved.add(o.id);
           save(o, () => col.doc(o.id).set(docOf(o)));
         }
       });
