@@ -477,7 +477,7 @@
         <option value="table">Table</option>
         <option value="globe">Globe (7 continents)</option>
         <option value="stars">Stars (500 nearest, 38 ly)</option>
-        <option value="stars-plain">Stars, plain (no glow)</option>
+        <option value="stars-plain">Stars, plain (5000 nearest, no glow)</option>
         <option value="ex27">EX-27 expedition module</option>
         <option value="head">Head (soft skin, N + K)</option>
       </select>
@@ -565,7 +565,10 @@
     let gcam = null; // the camera of every frame (cam only exists while the pointer is over the view)
     let drawing = { left: 0, top: 0 }; // where the square drawing starts, in client pixels
     let solo = null; // `/` isolates one object: its id, null shows everything
+    let holdRebuild = 0; // inside asOneStep the scene is merged once at the end, not after every object
+    let rebuildWanted = false;
     const rebuild = () => {
+      if (holdRebuild) return void (rebuildWanted = true);
       let objs = allObjects();
       if (solo && !objs.some((o) => o.id === solo)) solo = null;
       if (solo) objs = objs.filter((o) => o.id === solo);
@@ -1480,7 +1483,17 @@
     // One undo step for a whole batch (a clear, an added example): the steps recorded while `run` works are folded into one.
     const asOneStep = (run) => {
       const from = history.length;
-      const result = run();
+      holdRebuild++;
+      let result;
+      try {
+        result = run();
+      } finally {
+        holdRebuild--;
+      }
+      if (!holdRebuild && rebuildWanted) {
+        rebuildWanted = false;
+        rebuild();
+      }
       const steps = history.splice(from);
       if (steps.length) history.push(() => steps.reverse().forEach((step) => step()));
       return result;

@@ -3,11 +3,12 @@
 // Every star is ONE object: a solid core sphere sized by its real radius and a faint emissive halo that grows with the
 // luminosity, so even a far star stays visible as a glow. Real radii are ~1e-8 ly, so they are scaled by one constant
 // (SUN = displayed Sun radius) and clamped to a visible floor; the ratios between stars stay true above the floor.
-// `node examples/stars.js` writes examples/stars.scene.json.
+// `node examples/stars.js` writes examples/stars.scene.json (500 stars, with glow) and stars-plain.scene.json (the nearest 5000, no glow).
 
 import { writeFileSync } from 'node:fs';
 import { validate } from '../dist/index.js';
 import { STARS } from './data/stars500.js';
+import { STARS as STARS5000 } from './data/stars5000.js';
 
 const LY_PER_PC = 3.26156;
 const SUN = 0.05; // displayed radius of a 1 R_sun star, in ly
@@ -84,7 +85,7 @@ const round = (v) => Math.round(v * 1e4) / 1e4;
 
 export const stars = ({ plain = false } = {}) => {
   const objects = [];
-  for (const [name, x, y, z, absmag, spect, ci, lumField] of STARS) {
+  for (const [name, x, y, z, absmag, spect, ci, lumField] of plain ? STARS5000 : STARS) {
     const k = klass(spect, ci);
     const lum = lumField > 0 ? lumField : Math.pow(10, (4.85 - absmag) / 2.5);
     const T = ci != null && k !== 'D' ? temp(ci) : TYPICAL[k];
