@@ -79,7 +79,8 @@ export const PROTOTYPES = { star: { lods: [lod(64, 32, 48, 24), lod(32, 16, 32, 
 // the plain star: the core sphere only, no glow object (`halo: false` tells the viewer the last level is no halo-only one)
 const coreOnly = (seg, rings) => sphere(0, 0, 0, 1, seg, rings, 'core');
 const r4m = (m) => ({ ...m, positions: m.positions.map((p) => p.map((v) => Math.round(v * 1e4) / 1e4)) });
-export const PLAIN = { star: { halo: false, lods: [coreOnly(64, 32), coreOnly(32, 16), coreOnly(16, 8), coreOnly(8, 4), coreOnly(4, 2)].map(r4m) } };
+export const PLAIN = { star: { halo: false, // no halo mesh: the viewer draws a soft sprite instead (instance field `glow`)
+    lods: [coreOnly(64, 32), coreOnly(32, 16), coreOnly(16, 8), coreOnly(8, 4), coreOnly(4, 2)].map(r4m) } };
 
 const round = (v) => Math.round(v * 1e4) / 1e4;
 
@@ -96,12 +97,16 @@ export const stars = ({ plain = false } = {}) => {
       name: name === 'Sol' ? 'Sun' : name,
       proto: 'star',
       at: [round(x * LY_PER_PC), round(z * LY_PER_PC), round(-y * LY_PER_PC)], // equatorial z is up; flip y so it is not mirrored
+      ...(plain ? { glow: round(halo) } : {}),
       scale: plain ? round(r) : { core: round(r), halo: round(halo) },
       mats: plain ? { core: `star-${k}` } : { core: `star-${k}`, halo: `halo-${k}` },
       color: tint(ci, k),
     });
   }
-  return plain ? { palette: palette.filter((p) => p.name.startsWith('star-')), prototypes: PLAIN, objects } : { palette, prototypes: PROTOTYPES, objects };
+  // the eye starts next to the Sun, looking at it, so you are among the stars and not outside the cloud
+  const eye = [0.25, 0.06, 0.6];
+  const start = { eye, yaw: Math.round((Math.atan2(-eye[0], eye[2]) * 180) / Math.PI * 10) / 10, pitch: Math.round((Math.asin(eye[1] / Math.hypot(...eye)) * 180) / Math.PI * 10) / 10 };
+  return plain ? { palette: palette.filter((p) => p.name.startsWith('star-')), prototypes: PLAIN, start, objects } : { palette, prototypes: PROTOTYPES, start, objects };
 };
 
 if (import.meta.url === new URL(process.argv[1], 'file:').href) {
