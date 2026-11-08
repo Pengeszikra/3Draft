@@ -477,6 +477,7 @@
         <option value="table">Table</option>
         <option value="globe">Globe (7 continents)</option>
         <option value="stars">Stars (500 nearest, 38 ly)</option>
+        <option value="stars-plain">Stars, plain (no glow)</option>
         <option value="ex27">EX-27 expedition module</option>
         <option value="head">Head (soft skin, N + K)</option>
       </select>
@@ -1524,8 +1525,13 @@
         // the level follows the radius of the solid part in pixels; far away it may fall below a pixel and vanish, that is fine
         // the last level is the halo alone as an octahedron, for a halo of only a few pixels
         const n = i.proto.lods.length;
-        let level = lodLevel((instSize(i, 'core') * gcam.k) / dist, n - 1, [60, 22, 8, 3, 1].slice(0, n - 2));
-        if (level === n - 2 && (instSize(i, 'halo') * gcam.k) / dist < 3) level = n - 1;
+        const corePx = (instSize(i, 'core') * gcam.k) / dist;
+        let level;
+        if (i.proto.halo === false) level = lodLevel(corePx, n, [60, 22, 8, 3]); // a plain sphere: only the core has levels
+        else {
+          level = lodLevel(corePx, n - 1, [60, 22, 8, 3, 1].slice(0, n - 2));
+          if (level === n - 2 && (instSize(i, 'halo') * gcam.k) / dist < 3) level = n - 1;
+        }
         if (level === i.level) continue;
         i.level = level;
         o.mesh = instantiate(i.proto.lods[level], placement(i));
@@ -2405,7 +2411,7 @@
       const box = document.createElement('div');
       box.className = 'box';
       box.innerHTML = '<b>Scene</b>';
-      for (const name of ['empty', 'globe', 'stars', 'ex27']) {
+      for (const name of ['empty', 'globe', 'stars', 'stars-plain', 'ex27']) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'cream';

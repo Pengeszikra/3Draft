@@ -75,9 +75,14 @@ const lod = (coreSeg, coreRings, haloSeg, haloRings) => {
 // the core is smooth enough at every size (the edge of a ball of r pixels stays within ~half a pixel of a true circle); the halo is faint but up to ~8x wider than the core, so it keeps more segments than a core of the same level
 export const PROTOTYPES = { star: { lods: [lod(64, 32, 48, 24), lod(32, 16, 32, 16), lod(16, 8, 24, 12), lod(8, 4, 16, 8), lod(4, 2, 12, 6), lod(0, 0, 8, 4), lod(0, 0, 4, 2)] } };
 
+// the plain star: the core sphere only, no glow object (`halo: false` tells the viewer the last level is no halo-only one)
+const coreOnly = (seg, rings) => sphere(0, 0, 0, 1, seg, rings, 'core');
+const r4m = (m) => ({ ...m, positions: m.positions.map((p) => p.map((v) => Math.round(v * 1e4) / 1e4)) });
+export const PLAIN = { star: { halo: false, lods: [coreOnly(64, 32), coreOnly(32, 16), coreOnly(16, 8), coreOnly(8, 4), coreOnly(4, 2)].map(r4m) } };
+
 const round = (v) => Math.round(v * 1e4) / 1e4;
 
-export const stars = () => {
+export const stars = ({ plain = false } = {}) => {
   const objects = [];
   for (const [name, x, y, z, absmag, spect, ci, lumField] of STARS) {
     const k = klass(spect, ci);
@@ -90,12 +95,12 @@ export const stars = () => {
       name: name === 'Sol' ? 'Sun' : name,
       proto: 'star',
       at: [round(x * LY_PER_PC), round(z * LY_PER_PC), round(-y * LY_PER_PC)], // equatorial z is up; flip y so it is not mirrored
-      scale: { core: round(r), halo: round(halo) },
-      mats: { core: `star-${k}`, halo: `halo-${k}` },
+      scale: plain ? round(r) : { core: round(r), halo: round(halo) },
+      mats: plain ? { core: `star-${k}` } : { core: `star-${k}`, halo: `halo-${k}` },
       color: tint(ci, k),
     });
   }
-  return { palette, prototypes: PROTOTYPES, objects };
+  return plain ? { palette: palette.filter((p) => p.name.startsWith('star-')), prototypes: PLAIN, objects } : { palette, prototypes: PROTOTYPES, objects };
 };
 
 if (import.meta.url === new URL(process.argv[1], 'file:').href) {
@@ -103,4 +108,5 @@ if (import.meta.url === new URL(process.argv[1], 'file:').href) {
   const bad = PROTOTYPES.star.lods.filter((m) => !validate(m).ok).length;
   console.log(scene.objects.length, 'stars,', PROTOTYPES.star.lods.map((m) => m.faces.length).join('/'), 'faces per level,', bad, 'invalid levels');
   writeFileSync(new URL('./stars.scene.json', import.meta.url), JSON.stringify({ format: '3draft-scene', version: 2, ...scene }));
+  writeFileSync(new URL('./stars-plain.scene.json', import.meta.url), JSON.stringify({ format: '3draft-scene', version: 2, ...stars({ plain: true }) }));
 }
