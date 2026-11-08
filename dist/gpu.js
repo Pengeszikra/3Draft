@@ -11,7 +11,7 @@ const FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, a
  * Column-major 4x4 matrix (for WebGPU, z in 0..1) that maps world points exactly
  * like camera.project(): the same pixels, plus a depth between near and far.
  */
-export const viewProjection = (cam, near = 0.03, far = 1000) => {
+export const viewProjection = (cam, near = 0.03, far = 1e9) => {
     const kk = cam.k / (cam.size / 2);
     const row = (v, s) => [v[0] * s, v[1] * s, v[2] * s, -dot(v, cam.eye) * s];
     const a = cam.ortho ? 1 / (far - near) : far / (far - near);
@@ -21,6 +21,21 @@ export const viewProjection = (cam, near = 0.03, far = 1000) => {
     const m = new Float32Array(16);
     rows.forEach((r, i) => r.forEach((v, j) => (m[j * 4 + i] = v)));
     return m;
+};
+/**
+ * Near plane for a scene seen from `cam`: the usual 0.03, unless everything is very far (a galaxy seen from outside, the
+ * nearest point thousands of units away), where a near plane that close would leave no depth precision at all.
+ */
+export const nearPlane = (cam, mesh) => {
+    const [ex, ey, ez] = cam.eye;
+    const [fx, fy, fz] = cam.f;
+    let nearest = Infinity;
+    for (const p of mesh.positions) {
+        const d = (p[0] - ex) * fx + (p[1] - ey) * fy + (p[2] - ez) * fz;
+        if (d > 1e-6 && d < nearest)
+            nearest = d;
+    }
+    return nearest > 1000 ? nearest * 0.25 : 0.03;
 };
 const rgb = (color) => {
     const h = String(color ?? '').replace('#', '');
@@ -460,7 +475,7 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
         const rig = (f, r, up) => norm([0, 1, 2].map((k) => -cam.f[k] * f + cam.r[k] * r + cam.u[k] * up));
         const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
         const u = new Float32Array(48);
-        u.set(viewProjection(cam), 0);
+        u.set(viewProjection(cam, nearPlane(cam, mesh)), 0);
         u.set([...(S ? rig(0.7, -0.5, 0.6) : norm(L.direction)), 0], 16);
         u.set([...L.sky, 0], 20);
         u.set([...L.ground, 0], 24);

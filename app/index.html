@@ -477,7 +477,7 @@
         <option value="table">Table</option>
         <option value="globe">Globe (7 continents)</option>
         <option value="stars">Stars (500 nearest, 38 ly)</option>
-        <option value="stars-plain">Stars, 5000 nearest (point glow)</option>
+        <option value="stars-plain">Stars (300) + 100 galaxies (point glow)</option>
         <option value="ex27">EX-27 expedition module</option>
         <option value="head">Head (soft skin, N + K)</option>
       </select>
@@ -1327,7 +1327,7 @@
         const dx = i.at[0] - eye[0], dy = i.at[1] - eye[1], dz = i.at[2] - eye[2];
         const depth = dx * f[0] + dy * f[1] + dz * f[2];
         if (depth < 1e-3) continue;
-        if (dx * dx + dy * dy + dz * dz > GLOW_RANGE * GLOW_RANGE) continue; // too far: no glow
+        if (!i.far && dx * dx + dy * dy + dz * dz > GLOW_RANGE * GLOW_RANGE) continue; // too far: no glow (galaxies have `far`)
         const x = half + ((dx * r[0] + dy * r[1] + dz * r[2]) / depth) * k;
         const y = half - ((dx * u[0] + dy * u[1] + dz * u[2]) / depth) * k;
         if (x < -64 || y < -64 || x > size + 64 || y > size + 64) continue;
@@ -1339,7 +1339,7 @@
         const alpha = fade * (natural > 20 ? 0.55 : 0.9);
         ctx.globalAlpha = alpha;
         const R = rad * dpr;
-        ctx.drawImage(glowSprite(i.color), x * dpr - R, y * dpr - R, 2 * R, 2 * R);
+        ctx.drawImage(glowSprite(i.glowColor ?? i.color), x * dpr - R, y * dpr - R, 2 * R, 2 * R);
       }
       ctx.globalAlpha = 1;
     };
@@ -1608,7 +1608,7 @@
     };
     // instanced objects (a scene with `prototypes` + objects `{ name, proto, at, scale, mats, color }`): the object starts as the
     // coarsest level of detail and `applyLod` swaps in the finer ones as the eye comes closer
-    const placement = (i) => ({ at: i.at, scale: i.scale, mats: i.mats, color: i.color });
+    const placement = (i) => ({ at: i.at, scale: i.scale, mats: i.mats, color: i.color, rot: i.rot });
     const instSize = (i, slot) => (typeof i.scale === 'number' ? i.scale : (i.scale[slot] ?? i.scale['*'] ?? 1));
     const applyLod = () => {
       if (!gcam || gcam.ortho) return;

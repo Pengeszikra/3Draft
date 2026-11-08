@@ -84,6 +84,13 @@ export interface Gpu {
  */
 export declare const viewProjection: (cam: Camera, near?: number, far?: number) => Float32Array;
 /**
+ * Near plane for a scene seen from `cam`: the usual 0.03, unless everything is very far (a galaxy seen from outside, the
+ * nearest point thousands of units away), where a near plane that close would leave no depth precision at all.
+ */
+export declare const nearPlane: (cam: Camera, mesh: {
+    positions: Vec3[];
+}) => number;
+/**
  * Smooth shading: a normal for every corner of every face. The faces that meet at a point (welded by position, so a
  * crack in the indices does not break it) are averaged, weighted by area, but only those within `crease` degrees of
  * this face: a 90 degree box corner stays sharp, a faceted fuselage becomes round.

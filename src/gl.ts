@@ -4,7 +4,7 @@
 
 import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
-import { buildVertices, viewProjection, defaultLight, defaultMaterial } from './gpu.js';
+import { buildVertices, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
 import type { Gpu, GpuRenderOptions, Pixels } from './gpu.js';
 import type { Palette } from './material.js';
 import type { Mesh, Vec3, ViewName, ViewSpec } from './types.js';
@@ -307,7 +307,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     // studio rig, relative to the camera: key upper left in front, fill from the right, rim from behind and above
     const rig = (f: number, r: number, up: number): Vec3 => norm([0, 1, 2].map((k) => -cam.f[k] * f + cam.r[k] * r + cam.u[k] * up) as Vec3);
     const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
-    const vp = viewProjection(cam);
+    const vp = viewProjection(cam, nearPlane(cam, mesh));
     const key = S ? rig(0.7, -0.5, 0.6) : norm(L.direction);
     const fill = rig(0.6, 0.8, 0.1);
     const rim = rig(-0.8, 0.3, 0.5);

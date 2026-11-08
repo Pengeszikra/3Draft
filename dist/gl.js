@@ -3,7 +3,7 @@
 // It also runs on a software GL (SwiftShader), so a frame can be checked on a machine without a GPU.
 import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
-import { buildVertices, viewProjection, defaultLight, defaultMaterial } from './gpu.js';
+import { buildVertices, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
 const GL_FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit) soft(1)
 const GL_INSTANCE_FLOATS = 15; // at(3) ex(3) ey(3) ez(3) color(3)
 const GL_COMMON = /* glsl */ `#version 300 es
@@ -290,7 +290,7 @@ export const createGl = async (canvas, { onError } = {}) => {
         // studio rig, relative to the camera: key upper left in front, fill from the right, rim from behind and above
         const rig = (f, r, up) => norm([0, 1, 2].map((k) => -cam.f[k] * f + cam.r[k] * r + cam.u[k] * up));
         const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
-        const vp = viewProjection(cam);
+        const vp = viewProjection(cam, nearPlane(cam, mesh));
         const key = S ? rig(0.7, -0.5, 0.6) : norm(L.direction);
         const fill = rig(0.6, 0.8, 0.1);
         const rim = rig(-0.8, 0.3, 0.5);

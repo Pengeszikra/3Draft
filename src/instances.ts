@@ -16,6 +16,8 @@ export interface Placement {
   scale: number | Record<string, number>;
   /** Slot -> palette name. */
   mats?: Record<string, string>;
+  /** Turn of the instance about its own centre: [tilt about x, turn about y] in radians (a galaxy disc seen from any side). */
+  rot?: [number, number];
   /** Colour of every face (a tint on top of the material). */
   color?: string;
 }
@@ -27,7 +29,13 @@ export const instantiate = (proto: Mesh, p: Placement): Mesh => {
   const size = (slot: string): number => (typeof p.scale === 'number' ? p.scale : (p.scale[slot] ?? p.scale['*'] ?? 1));
   const positions = proto.positions.map((q, i): Vec3 => {
     const k = size(slotOf[i] ?? '');
-    return [q[0] * k + p.at[0], q[1] * k + p.at[1], q[2] * k + p.at[2]];
+    let [x, y, z] = [q[0] * k, q[1] * k, q[2] * k];
+    if (p.rot) {
+      const [a, b] = p.rot;
+      [y, z] = [y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+      [x, z] = [x * Math.cos(b) + z * Math.sin(b), -x * Math.sin(b) + z * Math.cos(b)];
+    }
+    return [x + p.at[0], y + p.at[1], z + p.at[2]];
   });
   const faces = proto.faces.map((f): Face => {
     const out: Face = { v: f.v };

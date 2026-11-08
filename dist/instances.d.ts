@@ -8,6 +8,8 @@ export interface Placement {
     scale: number | Record<string, number>;
     /** Slot -> palette name. */
     mats?: Record<string, string>;
+    /** Turn of the instance about its own centre: [tilt about x, turn about y] in radians (a galaxy disc seen from any side). */
+    rot?: [number, number];
     /** Colour of every face (a tint on top of the material). */
     color?: string;
 }
