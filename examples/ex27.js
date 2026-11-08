@@ -58,19 +58,10 @@ const LEG = (() => {
   return m;
 })();
 
-const WINDOW = (() => {
-  const m = box(0.14, 1.15, 2.1, 'dark');
-  merge(m, place(box(0.2, 0.95, 1.9, 'pane'), { at: [0.03, 0, 0] }));
-  merge(m, place(box(0.2, 0.95, 0.07, 'dark'), { at: [0.04, 0, 0] }));
-  return m;
-})();
-
 // an engine pod along z: nose cone, body, bell and glowing nozzle
 const POD = (() => {
   const m = cylinder(0.8, 1.7, -4, -2.7, 18, 'skin');
   merge(m, cylinder(1.7, 1.7, -2.7, 3.2, 18, 'dark'));
-  merge(m, cylinder(1.74, 1.74, -1.9, -1.4, 18, 'accent'));
-  merge(m, cylinder(1.74, 1.74, 1.4, 1.9, 18, 'accent'));
   merge(m, cylinder(1.7, 1.2, 3.2, 4.2, 18, 'deep'));
   merge(m, cylinder(1.05, 1.05, 4.2, 4.27, 18, 'glow'));
   return m;
@@ -79,14 +70,12 @@ const POD = (() => {
 // a front thruster pod: a short cylinder with a dark intake
 const THRUSTER = (() => {
   const m = cylinder(1.0, 1.0, -2.2, 2.2, 14, 'dark');
-  merge(m, cylinder(1.06, 1.06, -2.2, -1.9, 14, 'accent'));
   merge(m, cylinder(0.7, 0.7, -2.28, -2.2, 14, 'black'));
   return m;
 })();
 
 const TANK = (() => {
   const m = capsule(1.25, -4.2, 4.2, 14, 3, 'tank');
-  for (const z of [-2.2, 2.2]) merge(m, cylinder(1.3, 1.3, z - 0.18, z + 0.18, 14, 'accent'));
   return m;
 })();
 
@@ -202,14 +191,6 @@ export const ex27 = () => {
   both('engines', box(1.6, 1.0, 3.0, 'dark'), { at: [4.7, 6.0, 15.5] });
   both('engines', TANK, { at: [5.3, 3.5, 12.6] });
   both('engines', box(0.9, 0.5, 2.4, 'metal'), { at: [4.7, 4.1, 12.6] });
-
-  // windows on the sides: the same one, mirrored
-  const win = (zs, y, x = 4.5) => zs.forEach((zz) => both('glass', WINDOW, { at: [x, y, zz] }));
-  win([-11, -6.6], 6.9);
-  win([-2.2, 1.4], 6.9);
-  win([11.8], 6.9);
-  win([-10, -2], 4.2, 4.3 + 0.05);
-  win([0.6, 3.4, 6.2, 9.0], 10.2, 3.2);
 
   // top: vents, pipes, the mast and the dish
   for (const [x, zz] of [[-2, -11.5], [-2, -10], [2, -11.5], [2, -10], [-2.5, -2.5], [2.5, -2.5], [-2.5, 13], [2.5, 13], [0, 17]]) put('details', VENT, { at: [x, 8.8, zz] });
