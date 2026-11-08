@@ -477,6 +477,7 @@
         <option value="table">Table</option>
         <option value="globe">Globe (7 continents)</option>
         <option value="stars">Stars (500 nearest, 38 ly)</option>
+        <option value="ship">Ship RW-7 (redneck-wreck)</option>
         <option value="head">Head (soft skin, N + K)</option>
       </select>
       <button id="zen" type="button" class="slate" title="Zen: only the model (Z)">Zen</button>
@@ -2374,7 +2375,7 @@
       const box = document.createElement('div');
       box.className = 'box';
       box.innerHTML = '<b>Scene</b>';
-      for (const name of ['empty', 'globe', 'stars']) {
+      for (const name of ['empty', 'globe', 'stars', 'ship']) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'cream';
