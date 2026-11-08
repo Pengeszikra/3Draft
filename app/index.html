@@ -489,6 +489,8 @@
     const nothing = { positions: [], faces: [] };
     const START = { yaw: -0.6, pitch: 0.45 };
     const LIMIT = Math.PI / 2;
+    // the pitch has no end stop: the view can roll over the poles and keep turning (the orbit maths has no singularity there)
+    const wrapPitch = (a) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
     const STEP = 0.12;
 
     let yaw = START.yaw;
@@ -707,7 +709,7 @@
       fit.dist = Math.max(near, fit.dist * Math.exp(-pace(level.f) * ZOOM * dt));
       if (fit.dist <= near && level.f > 0) level.f = 0; // reached the surface
       yaw -= pace(level.r) * SWING * dt; // D: the camera goes to the right
-      pitch = Math.max(-LIMIT, Math.min(LIMIT, pitch + pace(level.u) * SWING * dt));
+      pitch = wrapPitch(pitch + pace(level.u) * SWING * dt);
       redraw();
     };
     const letGo = () => {
@@ -1074,7 +1076,7 @@
     const turn = (dYaw, dPitch) => {
       travel = null; // the hand takes over from the glide
       yaw += dYaw;
-      pitch = Math.max(-LIMIT, Math.min(LIMIT, pitch + dPitch));
+      pitch = wrapPitch(pitch + dPitch);
       redraw();
     };
     const reset = () => {
