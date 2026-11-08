@@ -65,4 +65,6 @@ export interface Mark {
   lines: Vec3[][];
   color?: string;
   width?: number;
+  /** 0..1, default 1. */
+  opacity?: number;
 }

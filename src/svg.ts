@@ -246,7 +246,7 @@ const panel = (mesh: Mesh, view: ViewName | ViewSpec, o: Settings, x = 0, y = 0)
       return [
         `<polyline data-mark="${esc(m.name ?? 'mark')}" points="${pts.map((p) => `${num(p.x)},${num(p.y)}`).join(' ')}" ` +
           `fill="none" stroke="${m.color ?? '#0b7285'}" stroke-width="${m.width ?? 2}" ` +
-          `stroke-linecap="round" stroke-linejoin="round"/>`,
+          `stroke-linecap="round" stroke-linejoin="round"${m.opacity !== undefined && m.opacity < 1 ? ` stroke-opacity="${m.opacity}"` : ''}/>`,
       ];
     }),
   );
