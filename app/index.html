@@ -814,6 +814,7 @@
       return b;
     };
     const eyeNow = () => makeCamera(orbit({ yaw, pitch }), nothing, 100, fit).eye;
+    const INSIDE_FOV = (80 * Math.PI) / 180;
     const STOP = 1.05; // the closest the camera comes: this many radii from the centre
     const SWING = 0.175; // rad/s per speed unit round the target
     const ZOOM = 0.09; // relative distance change per second per speed unit
@@ -943,7 +944,8 @@
       const base = Math.max(160, Math.min(900, Math.floor(Math.min(r.width, r.height) * (touchy && !inApp ? 1.12 : 1))));
       const eye0 = makeCamera(view, nothing, 100, fit).eye;
       const dist = Math.hypot(...eye0.map((e, i) => e - fit.center[i]));
-      const shown_fit = size > base ? { ...fit, dist: dist * (size / base) } : fit;
+      const inside = fly ? { fov: INSIDE_FOV } : {}; // flying = an eye in the scene: a wider lens, like standing in a room
+      const shown_fit = size > base ? { ...fit, ...inside, dist: dist * (size / base) } : { ...fit, ...inside };
 
       const now = performance.now();
       land(now);

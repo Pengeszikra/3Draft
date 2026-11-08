@@ -29,12 +29,13 @@ export const makeCamera = (view: ViewName | ViewSpec, mesh: Mesh, size: number, 
   const ortho = Boolean(spec.ortho);
   const { center, radius } = fit ?? bounds(mesh);
   const r0 = radius || 1;
-  const dist = ortho ? r0 * 4 : (fit?.dist ?? (r0 * 1.25) / Math.sin(FOV / 2)); // fit.dist: eye distance override (a first-person eye sits almost on the center)
+  const dist = ortho ? r0 * 4 : (fit?.dist ?? (r0 * 1.25) / Math.sin(FOV / 2));
+  const fov = fit?.fov ?? FOV; // fit.dist: eye distance override (a first-person eye sits almost on the center)
   const eye = spec.dir |> norm |> times(dist) |> plus(center);
   const f = center |> minus(eye) |> norm; // forward
   const r = cross(f, spec.up) |> norm; // right
   const u = cross(r, f); // up
-  const k = ortho ? ((size / 2) * 0.8) / r0 : size / 2 / Math.tan(FOV / 2);
+  const k = ortho ? ((size / 2) * 0.8) / r0 : size / 2 / Math.tan(fov / 2);
   return { name, eye, f, r, u, ortho, k, size };
 };
 

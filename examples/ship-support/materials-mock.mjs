@@ -6,15 +6,15 @@ const glow = (name, emissive, emissiveIntensity = 2) => mat(name, { color: 0x111
 const dull = (name, color, roughness, metalness = 0, extra = {}) => mat(name, { color, roughness, metalness, ...extra });
 
 export const makeMaterials = () => ({
-  hullYellow: dull('hullYellow', 0xe09a1c, 0.55, 0.25),
-  hullDark: dull('hullDark', 0x2d3034, 0.6, 0.55),
-  hullRed: dull('hullRed', 0xb8303a, 0.6, 0.3),
+  hullYellow: dull('hullYellow', 0xc98a2c, 0.62, 0.45),
+  hullDark: dull('hullDark', 0x34383d, 0.55, 0.65),
+  hullRed: dull('hullRed', 0x8e3036, 0.65, 0.4),
   metal: dull('metal', 0x7d838a, 0.35, 0.85),
   darkMetal: dull('darkMetal', 0x26292d, 0.5, 0.7),
   chrome: dull('chrome', 0xd8dde2, 0.15, 1),
   rubber: dull('rubber', 0x151515, 0.9),
-  yellowPaint: dull('yellowPaint', 0xe3a21b, 0.5, 0.2),
-  hazard: dull('hazard', 0xd9a514, 0.6, 0.2),
+  yellowPaint: dull('yellowPaint', 0xd49a22, 0.55, 0.35),
+  hazard: dull('hazard', 0xc99a18, 0.65, 0.3),
   floor: dull('floor', 0x4a4e54, 0.55, 0.7),
   interior: dull('interior', 0x8a9096, 0.7, 0.2),
   ceiling: dull('ceiling', 0x6a7078, 0.8, 0.3),

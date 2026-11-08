@@ -25,6 +25,8 @@ export interface Fit {
     radius: number;
     /** Perspective only: distance from the eye to the center. A first-person eye sits almost on the center. */
     dist?: number;
+    /** Perspective only: the field of view in radians (default 35°). A first-person eye inside a room wants a wider one. */
+    fov?: number;
 }
 export interface Camera {
     name: string;
