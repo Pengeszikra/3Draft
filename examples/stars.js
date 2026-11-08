@@ -107,7 +107,7 @@ const disc = (inner, n, mat, t = 0.03) => {
   return { positions, faces };
 };
 const join = (...ms) => { const positions = [], faces = []; for (const m of ms) { const o = positions.length; positions.push(...m.positions); faces.push(...m.faces.map((f) => ({ ...f, v: f.v.map((i) => i + o) }))); } return r4m({ positions, faces }); };
-const GALAXY_PROTOS = {
+export const GALAXY_PROTOS = {
   // spiral: a disc with a bulge (slots 'disc' and 'core'), radius 1
   spiral: { halo: false, lods: [[32, 16, 8], [16, 8, 4], [10, 6, 3], [6, 4, 2]].map(([n, sg, rg]) => join(disc(0, n, 'disc'), ellipsoid(0.22, 0.7, sg, rg, 'core'))) },
   // ellipticals, irregulars and dwarfs: one smooth ellipsoid
@@ -115,7 +115,7 @@ const GALAXY_PROTOS = {
   // the black hole: a black ball inside a thin hot ring (accretion disc), radius of the ball 1
   hole: { halo: false, lods: [[32, 16, 48], [16, 8, 24], [8, 4, 16], [6, 3, 8]].map(([sg, rg, n]) => join(sphere(0, 0, 0, 1, sg, rg, 'core'), (() => { const d = disc(0.35, n, 'disc'); return { ...d, positions: d.positions.map((p) => p.map((v) => v * 4.5)) }; })())) },
 };
-const GALAXY_PALETTE = [
+export const GALAXY_PALETTE = [
   { name: 'gal-disc', color: '#9db4ff', metal: 0, rough: 1, alpha: 1, emit: 0.55, soft: 0 },
   { name: 'gal-bulge', color: '#ffdca8', metal: 0, rough: 1, alpha: 1, emit: 0.9, soft: 0 },
   { name: 'gal-blob', color: '#ffd9a0', metal: 0, rough: 1, alpha: 1, emit: 0.7, soft: 0 },
@@ -123,8 +123,10 @@ const GALAXY_PALETTE = [
   { name: 'bh-disc', color: '#ff9a40', metal: 0, rough: 1, alpha: 1, emit: 1, soft: 0 },
 ];
 const KIND = { S: ['#bcd0ff'], E: ['#ffd9a0'], I: ['#a9c4ff'], D: ['#ffe2b8'] };
-const LY = (ra, dec, d) => { const a = (ra * Math.PI) / 12, b = (dec * Math.PI) / 180; const x = d * Math.cos(b) * Math.cos(a), y = d * Math.cos(b) * Math.sin(a), z = d * Math.sin(b); return [round(x), round(z), round(-y)]; };
-const galaxies = () => {
+export const LY = (ra, dec, d) => { const a = (ra * Math.PI) / 12, b = (dec * Math.PI) / 180; const x = d * Math.cos(b) * Math.cos(a), y = d * Math.cos(b) * Math.sin(a), z = d * Math.sin(b); return [round(x), round(z), round(-y)]; };
+// Sagittarius A*, the supermassive black hole at the centre of the Milky Way. The ball is drawn far larger than its true size (a few light-minutes) so it can be found.
+export const blackHole = (at) => ({ name: 'Sagittarius A* (Milky Way black hole)', proto: 'hole', at, scale: 40, mats: { core: 'bh-core', disc: 'bh-disc' }, glow: 700, glowColor: '#ff9a40', far: true, rot: [0.6, 0.4] });
+export const galaxies = () => {
   let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647); // fixed orientations
   const out = GALAXIES.slice(0, 100).map(([name, ra, dec, mly, kly, t]) => {
     const radius = kly * 500; // ly
@@ -133,12 +135,11 @@ const galaxies = () => {
     if (t !== 'S') o.color = KIND[t][0];
     return o;
   });
-  // Sagittarius A*, the supermassive black hole at the centre of the Milky Way: 26 670 ly away. The ball is drawn far larger than its true size (a few light-minutes) so it can be found.
-  out.push({ name: 'Sagittarius A* (Milky Way black hole)', proto: 'hole', at: LY(17.7611, -29.0078, 26670), scale: 40, mats: { core: 'bh-core', disc: 'bh-disc' }, glow: 700, glowColor: '#ff9a40', far: true, rot: [0.6, 0.4] });
+  out.push(blackHole(LY(17.7611, -29.0078, 26670)));
   return out;
 };
 
-export const stars = ({ plain = false } = {}) => {
+export const stars = ({ plain = false, extras = true } = {}) => {
   const objects = [];
   for (const [name, x, y, z, absmag, spect, ci, lumField] of plain ? STARS5000.slice(0, 300) : STARS) {
     const k = klass(spect, ci);
@@ -160,7 +161,7 @@ export const stars = ({ plain = false } = {}) => {
   // the eye starts next to the Sun, looking at it, so you are among the stars and not outside the cloud
   const eye = [0.25, 0.06, 0.6];
   const start = { eye, yaw: Math.round((Math.atan2(-eye[0], eye[2]) * 180) / Math.PI * 10) / 10, pitch: Math.round((Math.asin(eye[1] / Math.hypot(...eye)) * 180) / Math.PI * 10) / 10 };
-  if (plain) objects.push(...galaxies());
+  if (plain && extras) objects.push(...galaxies());
   return plain ? { palette: [...palette.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, start, objects } : { palette, prototypes: PROTOTYPES, start, objects };
 };
 
