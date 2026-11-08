@@ -41,7 +41,7 @@ export const instantiate = (proto: Mesh, p: Placement): Mesh => {
 };
 
 /** Which level of detail to draw for something that is `px` pixels across (its radius); `limits` are the pixel sizes where the next finer level starts. */
-export const lodLevel = (px: number, levels: number, limits: readonly number[] = [36, 12, 4]): number => {
+export const lodLevel = (px: number, levels: number, limits: readonly number[] = [60, 22, 8, 3, 1]): number => {
   let level = 0;
   while (level < levels - 1 && level < limits.length && px < limits[level]!) level++;
   return level;

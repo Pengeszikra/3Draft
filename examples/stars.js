@@ -64,14 +64,16 @@ const sphere = (cx, cy, cz, r, seg, rings, mat, color) => {
   return { positions, faces };
 };
 
-// One prototype for every star: a core sphere and a halo sphere (slots 'core' and 'halo', radius 1), four levels of detail.
-// Far away the shape does not matter, so the last two are an octahedron pair and a lone small halo.
+// One prototype for every star: a core sphere and a halo sphere (slots 'core' and 'halo', radius 1), seven levels of detail.
+// Seven levels of detail; far away the shape does not matter: the last ones are a lone halo, and an octahedron when it is only a few pixels.
 const lod = (coreSeg, coreRings, haloSeg, haloRings) => {
   const core = coreSeg ? sphere(0, 0, 0, 1, coreSeg, coreRings, 'core') : { positions: [], faces: [] };
   const halo = sphere(0, 0, 0, 1, haloSeg, haloRings, 'halo');
-  return { positions: [...core.positions, ...halo.positions], faces: [...core.faces, ...halo.faces.map((f) => ({ ...f, v: f.v.map((i) => i + core.positions.length) }))] };
+  const r4 = (p) => p.map((v) => Math.round(v * 1e4) / 1e4);
+  return { positions: [...core.positions, ...halo.positions].map(r4), faces: [...core.faces, ...halo.faces.map((f) => ({ ...f, v: f.v.map((i) => i + core.positions.length) }))] };
 };
-export const PROTOTYPES = { star: { lods: [lod(12, 6, 10, 5), lod(8, 4, 6, 3), lod(4, 2, 4, 2), lod(0, 0, 3, 2)] } };
+// the core is smooth enough at every size (the edge of a ball of r pixels stays within ~half a pixel of a true circle); the halo is faint but up to ~8x wider than the core, so it keeps more segments than a core of the same level
+export const PROTOTYPES = { star: { lods: [lod(64, 32, 48, 24), lod(32, 16, 32, 16), lod(16, 8, 24, 12), lod(8, 4, 16, 8), lod(4, 2, 12, 6), lod(0, 0, 8, 4), lod(0, 0, 4, 2)] } };
 
 const round = (v) => Math.round(v * 1e4) / 1e4;
 

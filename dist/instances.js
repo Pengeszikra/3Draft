@@ -27,7 +27,7 @@ export const instantiate = (proto, p) => {
     return { positions, faces };
 };
 /** Which level of detail to draw for something that is `px` pixels across (its radius); `limits` are the pixel sizes where the next finer level starts. */
-export const lodLevel = (px, levels, limits = [36, 12, 4]) => {
+export const lodLevel = (px, levels, limits = [60, 22, 8, 3, 1]) => {
     let level = 0;
     while (level < levels - 1 && level < limits.length && px < limits[level])
         level++;
