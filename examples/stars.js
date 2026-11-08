@@ -64,6 +64,17 @@ const sphere = (cx, cy, cz, r, seg, rings, mat, color) => {
   return { positions, faces };
 };
 
+// One prototype for every star: a core sphere and a halo sphere (slots 'core' and 'halo', radius 1), four levels of detail.
+// Far away the shape does not matter, so the last two are an octahedron pair and a lone small halo.
+const lod = (coreSeg, coreRings, haloSeg, haloRings) => {
+  const core = coreSeg ? sphere(0, 0, 0, 1, coreSeg, coreRings, 'core') : { positions: [], faces: [] };
+  const halo = sphere(0, 0, 0, 1, haloSeg, haloRings, 'halo');
+  return { positions: [...core.positions, ...halo.positions], faces: [...core.faces, ...halo.faces.map((f) => ({ ...f, v: f.v.map((i) => i + core.positions.length) }))] };
+};
+export const PROTOTYPES = { star: { lods: [lod(12, 6, 10, 5), lod(8, 4, 6, 3), lod(4, 2, 4, 2), lod(0, 0, 3, 2)] } };
+
+const round = (v) => Math.round(v * 1e4) / 1e4;
+
 export const stars = () => {
   const objects = [];
   for (const [name, x, y, z, absmag, spect, ci, lumField] of STARS) {
@@ -73,20 +84,21 @@ export const stars = () => {
     const rSun = k === 'D' ? 0.012 : Math.sqrt(lum) / Math.pow(Math.max(T, 1500) / 5772, 2); // R/R_sun from L and T
     const r = Math.max(FLOOR, SUN * rSun);
     const halo = r + 0.04 + 0.16 * Math.log10(1 + lum * 100) / 2; // grows slowly with luminosity
-    const px = x * LY_PER_PC, py = z * LY_PER_PC, pz = -y * LY_PER_PC; // equatorial z is up; flip y so it is not mirrored
-    const col = tint(ci, k);
-    const core = sphere(px, py, pz, r, 10, 5, `star-${k}`, col);
-    const glow = sphere(px, py, pz, halo, 8, 4, `halo-${k}`, col);
-    const mesh = { positions: [...core.positions, ...glow.positions], faces: [...core.faces, ...glow.faces.map((f) => ({ ...f, v: f.v.map((i) => i + core.positions.length) }))] };
-    objects.push({ name: name === 'Sol' ? 'Sun' : name, mesh });
+    objects.push({
+      name: name === 'Sol' ? 'Sun' : name,
+      proto: 'star',
+      at: [round(x * LY_PER_PC), round(z * LY_PER_PC), round(-y * LY_PER_PC)], // equatorial z is up; flip y so it is not mirrored
+      scale: { core: round(r), halo: round(halo) },
+      mats: { core: `star-${k}`, halo: `halo-${k}` },
+      color: tint(ci, k),
+    });
   }
-  return { palette, objects };
+  return { palette, prototypes: PROTOTYPES, objects };
 };
 
 if (import.meta.url === new URL(process.argv[1], 'file:').href) {
-  const { palette, objects } = stars();
-  const faces = objects.reduce((n, o) => n + o.mesh.faces.length, 0);
-  const bad = objects.filter((o) => !validate(o.mesh).ok).length;
-  console.log(objects.length, 'stars', faces, 'faces', bad, 'invalid');
-  writeFileSync(new URL('./stars.scene.json', import.meta.url), JSON.stringify({ format: '3draft-scene', version: 1, palette, objects }));
+  const scene = stars();
+  const bad = PROTOTYPES.star.lods.filter((m) => !validate(m).ok).length;
+  console.log(scene.objects.length, 'stars,', PROTOTYPES.star.lods.map((m) => m.faces.length).join('/'), 'faces per level,', bad, 'invalid levels');
+  writeFileSync(new URL('./stars.scene.json', import.meta.url), JSON.stringify({ format: '3draft-scene', version: 2, ...scene }));
 }

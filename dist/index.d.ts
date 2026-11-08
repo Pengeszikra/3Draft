@@ -10,6 +10,8 @@ export type { Validation } from './check.js';
 export { extrudeFace, moveVertices } from './edit.js';
 export { VIEW_ORDER, makeCamera, orbit, project, ray } from './camera.js';
 export { pick, crosshair } from './pick.js';
+export { instantiate, lodLevel } from './instances.js';
+export type { Prototype, Placement } from './instances.js';
 export { standOn } from './place.js';
 export type { StandOptions, Frame } from './place.js';
 export { paintOrder } from './order.js';

@@ -11,6 +11,7 @@ export { boolean, union, subtract, intersect, health } from './csg.js';
 export { extrudeFace, moveVertices } from './edit.js';
 export { VIEW_ORDER, makeCamera, orbit, project, ray } from './camera.js';
 export { pick, crosshair } from './pick.js';
+export { instantiate, lodLevel } from './instances.js';
 export { standOn } from './place.js';
 export { paintOrder } from './order.js';
 export { createGpu, viewProjection, buildVertices, cornerNormals, buildInstances, defaultLight, defaultMaterial } from './gpu.js';
