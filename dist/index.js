@@ -14,6 +14,7 @@ export { pick, crosshair } from './pick.js';
 export { standOn } from './place.js';
 export { paintOrder } from './order.js';
 export { createGpu, viewProjection, buildVertices, cornerNormals, buildInstances, defaultLight, defaultMaterial } from './gpu.js';
+export { createGl } from './gl.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
 export { surfaceOf, DEFAULTS as MATERIAL_DEFAULTS } from './material.js';
 export { displayVersion } from './version.js';

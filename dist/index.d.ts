@@ -15,6 +15,7 @@ export type { StandOptions, Frame } from './place.js';
 export { paintOrder } from './order.js';
 export type { PaintItem } from './order.js';
 export { createGpu, viewProjection, buildVertices, cornerNormals, buildInstances, defaultLight, defaultMaterial } from './gpu.js';
+export { createGl } from './gl.js';
 export type { Gpu, GpuLight, GpuMaterial, GpuRenderOptions, Instance, Pixels } from './gpu.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
 export type { RenderOptions } from './svg.js';
