@@ -141,9 +141,9 @@ Undo is a per-session stack in the page; it does not reach back past a reload.
 - The store starts with loose timber stock lying on the floor: `lath`, `board`, `plank`, `beam`, `plywood` (the `wood` material, 2 m long). It lives in this visit only (no db) and has no buttons of its own: you can edit, saw or add to it like any scene.
 - In the store: target an object (`T`) and press `M`: a copy goes into the build scene, its base middle where the build camera was looking (the button flashes `name → build`). One `U` in the build takes it back.
 
-## Pop-ups are modals
+## Side panels, modals and the help page
 
-The material palette (`P`) and the key explainer (`?`) open in the middle over a scrim, one at a time; a tap on the scrim or `Esc` closes them. The palette has its own colour picker (a saturation / brightness square, a hue slider and a hex field) instead of the browser's, which is unusable on a phone.
+The material palette (`P`) and the help page (`?` or the console's ? button) are **vertical side panels** on the right, one at a time (the desktop console lies over their foot); `Esc` or ✕ closes them, and they do not block the view. The keyboard map is the only modal (a link inside the help; a tap on the scrim or `Esc` closes it). The palette has its own colour picker (a saturation / brightness square, a hue slider and a hex field) instead of the browser's, which is unusable on a phone.
 
 ## The desktop console
 
