@@ -154,3 +154,7 @@ On a desktop window the 3D view fills the whole window. A dark **console** lies 
 - **Keys are data:** `ACTIONS` (what the program can do) and `KEYMAP` (which key does it) are plain objects, also on `window`; `bindKey('q', 'scene')` rebinds a key, `bindKey('q')` frees it. The console buttons call the actions directly, so they work whatever the keys are. A mode or a user setting can swap `KEYMAP` as a whole.
 
 On the phone layout the console is hidden; the **Exa** menu has a `store` / `build` button at its top (the same switch as `B`). If the page script never runs (the engine did not load), a red note appears after 8 seconds instead of a blank view.
+
+## The help page is Markdown
+
+`app/help.md` is the help: edit that file and the side panel follows (no source change; a tiny renderer in the page turns headings, lists, tables, code, bold, italic and links into HTML). Spider-Paint gets a copy of it from `scripts/sync.mjs`.
