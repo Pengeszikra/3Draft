@@ -19,6 +19,8 @@ export interface Health {
     /** true when every part is a closed solid. */
     allSolid: boolean;
 }
+/** The connected parts of a mesh as separate meshes (each with its own vertex list), in face order of their first face. */
+export declare const splitParts: (mesh: Mesh) => Mesh[];
 /** Splits a mesh into connected parts and says which of them are closed solids (the health check). */
 export declare const health: (mesh: Mesh) => Health;
 /**

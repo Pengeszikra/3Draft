@@ -4,7 +4,9 @@ export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export type { BoxOptions } from './mesh.js';
 export { validate } from './check.js';
-export { boolean, union, subtract, intersect, health } from './csg.js';
+export { boolean, union, subtract, intersect, health, splitParts } from './csg.js';
+export { saw, planeThroughLine, planeThroughTriangle, sectionSegments } from './saw.js';
+export type { CutPlane, Sawn } from './saw.js';
 export type { BooleanOp, Health, Part } from './csg.js';
 export type { Validation } from './check.js';
 export { extrudeFace, moveVertices } from './edit.js';

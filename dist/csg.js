@@ -205,6 +205,11 @@ const subMesh = (mesh, idx) => {
     });
     return { ...mesh, positions, faces };
 };
+/** The connected parts of a mesh as separate meshes (each with its own vertex list), in face order of their first face. */
+export const splitParts = (mesh) => health(mesh)
+    .parts.map((p) => p.faces)
+    .sort((a, b) => a[0] - b[0])
+    .map((faces) => subMesh(mesh, faces));
 /** Splits a mesh into connected parts and says which of them are closed solids (the health check). */
 export const health = (mesh) => {
     const n = mesh.faces.length;

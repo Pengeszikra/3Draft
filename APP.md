@@ -59,7 +59,7 @@ Drag one of the arrows to slide the object along that axis; the arrow thickens u
 
 ## Edit mode: drawing on a model (`Q`)
 
-The idea: there is a base model, and you refine or extend it by drawing lines on it. Put the cross on an object and press `Q`. A red bar at the top says which object is being edited. Its vertices show as small grey crosses.
+The idea: there is a base model, and you refine or extend it by drawing lines on it. Put the cross on an object and press `Q`. A red bar at the top says which object is being edited and in which mode; its `?` button shows or hides the edit help (hidden at the start). Its vertices show as small grey crosses.
 
 - **`V` draws a line.** The first `V` takes a point, the next `V` joins it to the new one, and the chain goes on from there. A point is either an existing vertex (the pointer **snaps** to vertices; a white cross shows which) or a new vertex put on the surface under the cross. On a face it splits the face into triangles, on an edge it goes into both faces, so the surface never cracks.
 - **Two points on one face cut it.** The line becomes a real edge of the mesh: the surface gets detail exactly where you drew.
@@ -71,6 +71,10 @@ The idea: there is a base model, and you refine or extend it by drawing lines on
   - `3` **move faces:** hover a face (white outline), drag it; all its vertices move together and the face stays flat.
   - The drag slides in the plane that faces the camera. A selected point, line or face (orange) also gets a gizmo: drag an arrow to move along one axis. Everything that uses the moved vertices follows: lines, faces and the base surface, so this is how you reshape the original model. A polygon that gets only some of its vertices moved turns into triangles.
   - `V` goes back to drawing (and drops the selection); `Esc` does the same.
+- **`4` is the saw.** One cut at a time. `V` puts a point (on a vertex, or on the surface), up to three:
+  - **two points** are a line drawn on a face: the saw plane contains the line and stands **square on that face**, so it runs straight into the material and out beyond the ends of the line. Both points must lie on one face.
+  - **three points** are a triangle: the saw plane is the plane of the three points (a slanted cut, a mitre).
+  - The plane is previewed as an orange outline where it meets the object. `Enter` cuts, `Esc` forgets the points. The cut object is replaced by closed solids (two, or more when the plane splits an odd shape into several pieces), named `name-1`, `name-2`, ...; the two new faces take the selected material and lie exactly in the plane (no kerf, no triangle sprinkles). The pieces stay where they were: move them apart with `H`. One `U` puts the original back. Only closed solids can be sawn. The engine part is `saw`, `planeThroughLine`, `planeThroughTriangle`, `sectionSegments`.
 - **`B` turns the spider bars into lines.** The prisms made with `V` in object mode (they are objects named `bar`) become lines on the edited object: each end snaps to a vertex that is close, or is put on the surface if it is near it, or stays a free point. The bars are removed (one `U` brings them back). So a plan sketched as bars can be worked on as a wire.
 - **`X`** removes the lines at the selected point or line (or the last line); the points stay. `U` undoes every step, one key press at a time.
 - **`Esc`** stops the line you are drawing; then it leaves a move mode back to drawing; then it leaves edit mode (so does `Q`). The lines are only shown in edit mode.
