@@ -134,12 +134,11 @@ Collections:
 
 Undo is a per-session stack in the page; it does not reach back past a reload.
 
-## Two scenes: build and store (`B`)
+## Two views, two engines: build and store (`B`)
 
-`B` (or the **Store** / **Build** button, which names the scene you will go to) switches between the **build** scene (the one you work in) and the **store** scene. Each keeps its own objects, undo steps and camera; the store has a teal frame.
-
-- The store starts with loose timber stock lying on the floor: `lath`, `board`, `plank`, `beam`, `plywood` (the `wood` material, 2 m long). It lives in this visit only (no db) and has no buttons of its own: you can edit, saw or add to it like any scene.
-- In the store: target an object (`T`): it becomes the **model of `M`**, either when you press `M` there or when you switch to the build. In the build, `M` puts a copy of that model down (base middle at the cross, or on the cursor ray over empty space), each press one `U` step. A chip next to the place button names the model; click it to go back to the plain prism. Switching scenes is a cut, the camera does not glide.
+`B` (or the **Store** button) opens the store as a second 3D view on the left, a third of the width; the build keeps the rest. The store is this same page loaded in an iframe with `?store` (`EMBED` in the code): a separate engine with its own objects, undo steps and camera, so no data is copied between the two. The keyboard focus follows the pointer (and a click): over the store the keys go there, over the build they come back; a teal frame marks the focused view. The two talk by `postMessage` (same origin only): `focus`, `store-toggle` (B in the store closes it) and `brush` (the targeted model, base middle at the origin). On the phone layout the store takes the top 38% of the screen.
+- The store starts with loose timber stock lying on the floor: `lath`, `board`, `plank`, `beam`, `plywood` (the `wood` material, 2 m long). It lives in this visit only (no db, a fresh stock each time it opens) and has no buttons of its own: you can edit, saw or add to it like any scene.
+- In the store: target an object (`T`): it becomes the **model of `M`**, when you press `M` there. In the build, `M` puts a copy of that model down (base middle at the cross, or on the cursor ray over empty space), each press one `U` step. A chip next to the place button names the model; click it to go back to the plain prism.
 
 ## Side panels, modals and the help page
 
@@ -150,10 +149,10 @@ The material palette (`P`) and the help page (`?` or the console's ? button) are
 On a desktop window the 3D view fills the whole window. A dark **console** lies over its bottom edge (about two or three lines high, chamfered, with engraved group labels and a few LEDs); the readouts (yaw, pitch, speed, pick, objects, view, live) are one quiet line at the top, the title and version in the corners. The phone / installed-app layout is unchanged.
 
 - **Switches** (edges, view, filmic, smooth, studio, freeze) are real toggles; the action buttons are icons (hover for the tooltip); **?** opens the help, the key explainer with every mode and key.
-- **Two panels:** the standard console shows `make` (place, delete, target, store/build), `scene` (examples, clear); in edit mode these are replaced by an `edit` panel: points / lines / faces / saw (1–4), move / scale / extrude (G S E), delete (⇧X), done (Q). Each button presses its key.
+- **Two panels:** the standard console shows `make` (place, delete, target, store), `scene` (examples, clear); in edit mode these are replaced by an `edit` panel: points / lines / faces / saw (1–4), move / scale / extrude (G S E), delete (⇧X), done (Q). Each button presses its key.
 - **Keys are data:** `ACTIONS` (what the program can do) and `KEYMAP` (which key does it) are plain objects, also on `window`; `bindKey('q', 'scene')` rebinds a key, `bindKey('q')` frees it. The console buttons call the actions directly, so they work whatever the keys are. A mode or a user setting can swap `KEYMAP` as a whole.
 
-On the phone layout the console is hidden; the **Exa** menu has a `store` / `build` button at its top (the same switch as `B`). If the page script never runs (the engine did not load), a red note appears after 8 seconds instead of a blank view.
+On the phone layout the console is hidden; the **Exa** menu has a `store` button at its top (the same switch as `B`). If the page script never runs (the engine did not load), a red note appears after 8 seconds instead of a blank view.
 
 ## The help page is Markdown
 
