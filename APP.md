@@ -139,7 +139,7 @@ Undo is a per-session stack in the page; it does not reach back past a reload.
 `B` (or the **Store** / **Build** button, which names the scene you will go to) switches between the **build** scene (the one you work in) and the **store** scene. Each keeps its own objects, undo steps and camera; the store has a teal frame.
 
 - The store starts with loose timber stock lying on the floor: `lath`, `board`, `plank`, `beam`, `plywood` (the `wood` material, 2 m long). It lives in this visit only (no db) and has no buttons of its own: you can edit, saw or add to it like any scene.
-- In the store: target an object (`T`) and press `M`: a copy goes into the build scene, its base middle where the build camera was looking (the button flashes `name → build`). One `U` in the build takes it back.
+- In the store: target an object (`T`): it becomes the **model of `M`**, either when you press `M` there or when you switch to the build. In the build, `M` puts a copy of that model down (base middle at the cross, or on the cursor ray over empty space), each press one `U` step. A chip next to the place button names the model; click it to go back to the plain prism. Switching scenes is a cut, the camera does not glide.
 
 ## Side panels, modals and the help page
 
