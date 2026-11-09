@@ -10,7 +10,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 
 ## The view
 
-- **Starting view: WebGPU.** If WebGPU is unavailable, or the GPU device is lost, the app falls back to SVG by itself and says so in the footer (`G` or the `WebGPU` button switches by hand). SVG shows colour and transparency only; WebGPU also shows metal, roughness and emission. The **filmic look** (`C`) adds linear light, Fresnel and tone mapping, so highlights roll off softly and `lamp`-like materials glow; switch it off for the plain flat look. **Smooth** (`N`) shades faces that meet at less than 40 degrees as one round surface (box corners stay sharp), and **Studio** (`K`) lights the model with a key, a fill and a rim light that follow the camera; both are on at the start (WebGPU view only). The palette's `soft` slider gives a material skin-like light: it wraps round the form, with a warm band where light turns to shade.
+- **Starting view: WebGPU.** If WebGPU is unavailable, or the GPU device is lost, the app falls back to SVG by itself and says so in the footer (`9` or the `WebGPU` button switches by hand). SVG shows colour and transparency only; WebGPU also shows metal, roughness and emission. The **filmic look** (`C`) adds linear light, Fresnel and tone mapping, so highlights roll off softly and `lamp`-like materials glow; switch it off for the plain flat look. **Smooth** (`N`) shades faces that meet at less than 40 degrees as one round surface (box corners stay sharp), and **Studio** (`K`) lights the model with a key, a fill and a rim light that follow the camera; both are on at the start (WebGPU view only). The palette's `soft` slider gives a material skin-like light: it wraps round the form, with a warm band where light turns to shade.
 - **The drawing fills the stage.** On a desktop it covers the whole area; on a phone it is a little larger than the short side.
 - **Drag** rotates, **double click** resets the view, the arrow keys rotate too.
 - **The cross** follows the pointer and lies on the surface under it. The cursor is always a cross. On a phone, with no mouse, it aims at the middle.
@@ -20,7 +20,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 
 | key | does |
 | --- | --- |
-| `w a s d r f` | fly: forward, left, back, right, up, down. Every press is a speed step; the opposite key slows down |
+| `w a s d r f` | fly: forward, left, back, right, up, down. Every press is a speed step; the opposite key slows down. In edit mode these need `Shift` (the plain keys are edit keys) |
 | `Space` | stop moving (all speeds to zero) |
 | `T` | target the object under the cross (see Target mode); with no target, `T` over empty space targets the nearest object. `Tab` next target (the first one when none), `Esc` let go |
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
@@ -31,15 +31,15 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
 | `P` | show / hide the material palette |
 | `I` | pick material: the material of the face under the cross becomes the selected one |
-| `Shift` + press | paint the face under the cross with the selected material (palette must be on) |
-| `Shift` + double click | paint the whole object |
+| `Ctrl` + press (`Cmd` on a Mac) | paint the face under the cross with the selected material (palette must be on) |
+| `Ctrl` / `Cmd` + double click | paint the whole object |
 | `O` | boolean (see below) |
 | `H` | move gizmo (see below) |
 | `E` | edges and points on / off (also the `Edges` button) |
 | `C` | filmic look on / off (also the `Filmic` button; on at the start, WebGPU view only) |
 | `N` | smooth shading on / off (the `Smooth` button; on at the start, WebGPU view only) |
 | `K` | studio light (key, fill, rim; follows the camera) on / off (the `Studio` button; on at the start, WebGPU view only) |
-| `G`, `L` | SVG / WebGPU, turn the light |
+| `9`, `L` | SVG / WebGPU, turn the light |
 | `?` | show / hide these shortcuts under the view (hidden at the start; also the `Keys` button) |
 
 ## Clear and example models
@@ -57,22 +57,32 @@ There is one gizmo at a time, and `H` cycles through three states:
 
 Drag one of the arrows to slide the object along that axis; the arrow thickens under the pointer. While dragging only the picture changes; one write goes to the database when you let go, and one `U` takes the whole drag back.
 
-## Edit mode: sawing and shaping a model (`Q`)
+## Edit mode: the workbench (`Q`)
 
-The idea: there is a base model, and you work on it like a piece of stock on the bench. Put the cross on an object and press `Q`. A red bar at the top says which object is being edited and in which mode; its `?` button shows or hides the edit help (hidden at the start). Its vertices show as small grey crosses.
+Edit mode is a separate place from the fly-through. Put the cross on an object and press `Q`: the object is **picked up and put on the workbench**, a plane (`y = 0`, a grid with the x axis red and the z axis blue) where it stands with its lowest point on the plane and its middle over the origin. The camera looks at `(0, 0, 0)`, only what is on the bench is shown, and distances are in **metres** (no light years). `Q` again puts everything back where it was (and the camera too). Entering and leaving are undo steps (`U` inside edit mode stops at the start of the session). `Reset view` / double click frame the bench. A plain white label at the top names the object and shows the mode as chips (`sketch (V)`, `points (1)`, `lines (2)`, `faces (3)`, `saw (4)`); its `?` button shows or hides the help (hidden at the start).
 
-- **Sketch lines (the mode you start in).** `V` puts a point (a vertex the pointer snaps to, or a spot on the surface); the next `V` draws a line from the last point to the new one, and the chain goes on. Any number of lines. They are only marks for now: the mesh does not change, they are not saved, and one `U` takes the last one back. `Esc` ends the chain.
+Keys in edit mode:
+
+| key | does |
+| --- | --- |
+| `V` | sketch lines on the surface (any number; marks only, nothing happens yet; `U` takes the last one back). In the saw mode: a saw point |
+| `1` `2` `3` | select **points / lines / faces**: click one, `Shift`+click adds one or takes it away, a click on nothing clears. There is no gizmo |
+| `A`, `A A` | select everything (in the point, line or face mode); a quick second `A` clears the selection |
+| `G` | **grab** the selection: it follows the pointer on the plane that faces the camera. `X`, `Y` or `Z` locks it to that world axis (the same key again lets go); a typed number is exact (`G X 0.25 Enter` = a quarter of a metre along x; `-` flips the sign) |
+| `S` | **scale** the selection about its centre. `X`, `Y`, `Z` scales along that world axis only; a typed number is the factor |
+| `E` | **extrude** the selected faces (face mode): they are pushed out and then grabbed along their normal (type metres, or move the pointer). Faces that touch each other are extruded one by one for now |
+| `4` | the saw (below) |
+| `X`, `Delete` | delete the object under the cross (edit mode carries on with another object on the bench, or ends) |
+| `Shift` + `W A S D R F` | fly (the plain keys are edit keys here) |
+| `Ctrl` / `Cmd` + click | paint a face |
+| `Esc` | forget the saw points or the sketch chain; then back to sketching; then leave edit mode. During a grab / scale / extrude: cancel |
+
+During `G`, `S` and `E` the move is live: **a click or `Enter` confirms, `Esc` or a right click cancels**, and it is one `U` step. Faces stay flat: a polygon stays one polygon whenever the move leaves it flat (a whole face moved, scaled or stretched, the sides of an extrusion); only a face that would be bent becomes triangles.
+
 - **The saw (`4`).** Only in this mode does `V` saw. One cut at a time. `V` puts a point (on a vertex, or on the surface), up to three:
   - **two points** are a line drawn on a face: the saw plane contains the line and stands **square on that face**, so it runs straight into the material and out beyond the ends of the line. Both points must lie on one face.
   - **three points** are a triangle: the saw plane is the plane of the three points (a slanted cut, a mitre).
-  - The plane is previewed as an orange outline where it meets the object. `Enter` cuts, `Esc` forgets the points. The cut object is replaced by closed solids (two, or more when the plane splits an odd shape into several pieces), named `prism-xxxx` with a fresh short id each (an object that is not a prism keeps its name plus a short id); the two new faces take the material of the face that was sawn (the one the points were put on) and lie exactly in the plane (no kerf, no triangle sprinkles). The pieces stay where they were: move them apart with `H`. One `U` puts the original back. You stay in edit mode, on the first piece, so the next cut can follow at once (`Q` leaves; the cross over another piece and `Q` edits that one). Only closed solids can be sawn. The engine part is `saw`, `planeThroughLine`, `planeThroughTriangle`, `sectionSegments`.
-- **Nothing moves by default** (and never while you sketch or saw). Moving is Blender-style, with a key per mode, and every drag is one `U` step:
-  - `1` **move points:** hover a vertex (white cross), drag it.
-  - `2` **move lines:** hover an edge (white), drag it; both ends move.
-  - `3` **move faces:** hover a face (white outline), drag it; all its vertices move together and the face stays flat.
-  - The drag slides in the plane that faces the camera. A selected point, line or face (orange) also gets a gizmo: drag an arrow to move along one axis. Everything that uses the moved vertices follows. A polygon that gets only some of its vertices moved turns into triangles.
-  - `V` goes back to sketching (and drops the selection); `Esc` does the same.
-- **`Esc`** forgets the saw points or ends the sketch chain; then leaves the saw or a move mode back to sketching; then leaves edit mode (so does `Q`). `X` deletes the object under the cross, as outside edit mode.
+  - The plane is previewed as an orange outline where it meets the object. `Enter` cuts, `Esc` forgets the points. The cut object is replaced by closed solids (two, or more when the plane splits an odd shape into several pieces), named `prism-xxxx` with a fresh short id each (an object that is not a prism keeps its name plus a short id); the new faces take the material of the face that was sawn (the one the points were put on) and lie exactly in the plane (no kerf, no triangle sprinkles). The pieces stay where they were, on the bench: move them apart with `G`. One `U` puts the original back. You stay in edit mode, on the first piece, so the next cut can follow at once. Only closed solids can be sawn. The engine part is `saw`, `planeThroughLine`, `planeThroughTriangle`, `sectionSegments`.
 
 ## Boolean operations (`O`)
 
@@ -92,7 +102,7 @@ The math is the engine's `boolean(a, b, op)` (README, part 1). Only closed parts
 
 ## Materials (`P`)
 
-Twelve starting materials: plaster, sand, wood, dark wood, concrete, slate, grass, brick, steel, gold, glass, lamp. Pick one, then `Shift`+press to paint a face or `Shift`+double click for the whole object.
+Twelve starting materials: plaster, sand, wood, dark wood, concrete, slate, grass, brick, steel, gold, glass, lamp. Pick one, then `Ctrl`+press (`Cmd` on a Mac) to paint a face or `Ctrl`+double click for the whole object.
 
 **Pick material (`I`, or the `pick` button):** the eyedropper. `I` takes the material of the face under the cross. The `pick` button arms it, and the next click on a surface takes it (`Esc` cancels). The palette opens and that material is selected, so you can read its sliders or paint with it right away. A face that has only a colour selects the material with that colour, or starts a new material from it.
 

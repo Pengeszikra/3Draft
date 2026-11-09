@@ -1,5 +1,5 @@
 export declare const name: "3draft";
-export declare const version = "26.11.9002";
+export declare const version = "26.11.9003";
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export type { BoxOptions } from './mesh.js';
@@ -36,5 +36,5 @@ export interface Info {
 export declare const info: () => Info;
 export { initKernel } from './kernel.js';
 export type { Kernel } from './kernel.js';
-export { insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, nearestSurface, wireFromSegments, moveVertexSet } from './wire.js';
+export { insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, nearestSurface, wireFromSegments, moveVertexSet, reshape } from './wire.js';
 export type { Wire } from './wire.js';

@@ -55,3 +55,9 @@ export declare const wireFromSegments: (mesh: Mesh, wire: Wire, segments: [Vec3,
  * so every face stays planar.
  */
 export declare const moveVertexSet: (mesh: Mesh, moves: [number, Vec3][]) => Mesh;
+/**
+ * Moves vertices like `moveVertexSet`, but a polygon stays one polygon whenever the move leaves it flat (and facing the
+ * same way): a whole face dragged, scaled or stretched, the side of an extrusion. Only a polygon that the move would bend
+ * (or flip, or collapse) becomes triangles. This is what the grab / scale / extrude of the editor use.
+ */
+export declare const reshape: (mesh: Mesh, moves: [number, Vec3][]) => Mesh;

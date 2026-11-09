@@ -232,3 +232,30 @@ export const moveVertexSet = (mesh: Mesh, moves: [number, Vec3][]): Mesh => {
   }
   return withFaces(mesh, faces, positions);
 };
+
+/**
+ * Moves vertices like `moveVertexSet`, but a polygon stays one polygon whenever the move leaves it flat (and facing the
+ * same way): a whole face dragged, scaled or stretched, the side of an extrusion. Only a polygon that the move would bend
+ * (or flip, or collapse) becomes triangles. This is what the grab / scale / extrude of the editor use.
+ */
+export const reshape = (mesh: Mesh, moves: [number, Vec3][]): Mesh => {
+  const to = new Map(moves);
+  const positions = mesh.positions.map((p, k) => to.get(k) ?? p);
+  const tol = 1e-6 * sizeOf(mesh);
+  const faces: Face[] = [];
+  for (const f of mesh.faces) {
+    if (f.v.length <= 3 || !f.v.some((v) => to.has(v))) {
+      faces.push(f);
+      continue;
+    }
+    const before = faceNormal(f.v.map((v) => mesh.positions[v]));
+    const pts = f.v.map((v) => positions[v]);
+    const after = faceNormal(pts);
+    const l = len(after);
+    const c = pts.reduce((t, p) => add(t, scale(p, 1 / pts.length)), [0, 0, 0] as Vec3);
+    const flat = l > 1e-12 && dot(after, before) > 0 && pts.every((p) => Math.abs(dot(sub(p, c), after)) / l <= tol);
+    if (flat) faces.push(f);
+    else for (let j = 1; j < f.v.length - 1; j++) faces.push({ ...f, v: [f.v[0], f.v[j], f.v[j + 1]] });
+  }
+  return withFaces(mesh, faces, positions);
+};
