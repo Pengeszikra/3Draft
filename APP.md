@@ -25,7 +25,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `T` | target the object under the cross (see Target mode); with no target, `T` over empty space targets the nearest object. `Tab` next target (the first one when none), `Esc` let go |
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
 | `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that starts at the camera point and flies along the ray through the cursor, so its long axis is always the view direction and you always see its back; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on to 4 times the camera-to-model distance and vanishes. Only the closed parts of the model are carved; open parts are ignored (see the health check below). A carve never leaves a crack: if the result would not be a closed solid it is retried with a hair's shift, and if that fails too the model stays as it was (the note "left as it was" shows). |
-| `Q` | edit mode on the object under the cross / off (see below) |
+| `Q` | edit mode on the object under the cross (or the target); with neither, a new 1×1×1 m cube of the selected material; again: off (see below) |
 | `V` | Spider bar (in edit mode: a sketch line, or a saw point in the saw mode): the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
 | `X`, `Delete` | delete the object under the cross |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
@@ -72,7 +72,7 @@ Keys in edit mode:
 | `S` | **scale** the selection about its centre. `X`, `Y`, `Z` scales along that world axis only; a typed number is the factor |
 | `E` | **extrude** the selected faces (face mode): they are pushed out and then grabbed along their normal (type metres, or move the pointer). Faces that touch each other are extruded one by one for now |
 | `4` | the saw (below) |
-| `X`, `Delete` | delete the object under the cross (edit mode carries on with another object on the bench, or ends) |
+| `Shift+X`, `Delete` | delete the object under the cross (edit mode carries on with another object on the bench, or ends); plain `X` only locks the axis during G / S |
 | `Shift` + `W A S D R F` | fly (the plain keys are edit keys here) |
 | `Ctrl` / `Cmd` + click | paint a face |
 | `Esc` | forget the saw points or the sketch chain; then back to sketching; then leave edit mode. During a grab / scale / extrude: cancel |
