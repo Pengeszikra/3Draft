@@ -158,3 +158,7 @@ On the phone layout the console is hidden; the **Exa** menu has a `store` / `bui
 ## The help page is Markdown
 
 `app/help.md` is the help: edit that file and the side panel follows (no source change; a tiny renderer in the page turns headings, lists, tables, code, bold, italic and links into HTML). Spider-Paint gets a copy of it from `scripts/sync.mjs`.
+
+## Rotate in edit mode (`R`)
+
+`R` turns the selection like `G` and `S` move and scale it: about the middle of the selected **points** or **faces** (a face selection turns about its normal, points about the viewing direction); with a selected **line** that line is the axis, and the other selected parts turn about it (the whole object when the line is all that is selected). `X`, `Y`, `Z` turn it about that world axis through the pivot, a typed number is degrees, the pointer going round the pivot on the screen turns it, click or Enter confirms, Esc cancels. Flying with R needs Shift.
