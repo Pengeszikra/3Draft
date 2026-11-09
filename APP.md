@@ -26,7 +26,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
 | `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that starts at the camera point and flies along the ray through the cursor, so its long axis is always the view direction and you always see its back; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on to 4 times the camera-to-model distance and vanishes. Only the closed parts of the model are carved; open parts are ignored (see the health check below). A carve never leaves a crack: if the result would not be a closed solid it is retried with a hair's shift, and if that fails too the model stays as it was (the note "left as it was" shows). |
 | `Q` | edit mode on the object under the cross / off (see below) |
-| `V` | Spider bar (in edit mode: a saw point): the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
+| `V` | Spider bar (in edit mode: a sketch line, or a saw point in the saw mode): the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
 | `X`, `Delete` | delete the object under the cross |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
 | `P` | show / hide the material palette |
@@ -61,17 +61,18 @@ Drag one of the arrows to slide the object along that axis; the arrow thickens u
 
 The idea: there is a base model, and you work on it like a piece of stock on the bench. Put the cross on an object and press `Q`. A red bar at the top says which object is being edited and in which mode; its `?` button shows or hides the edit help (hidden at the start). Its vertices show as small grey crosses.
 
-- **The saw** (the mode you start in; `4` or `V` brings you back to it). One cut at a time. `V` puts a point (on a vertex, or on the surface), up to three:
+- **Sketch lines (the mode you start in).** `V` puts a point (a vertex the pointer snaps to, or a spot on the surface); the next `V` draws a line from the last point to the new one, and the chain goes on. Any number of lines. They are only marks for now: the mesh does not change, they are not saved, and one `U` takes the last one back. `Esc` ends the chain.
+- **The saw (`4`).** Only in this mode does `V` saw. One cut at a time. `V` puts a point (on a vertex, or on the surface), up to three:
   - **two points** are a line drawn on a face: the saw plane contains the line and stands **square on that face**, so it runs straight into the material and out beyond the ends of the line. Both points must lie on one face.
   - **three points** are a triangle: the saw plane is the plane of the three points (a slanted cut, a mitre).
-  - The plane is previewed as an orange outline where it meets the object. `Enter` cuts, `Esc` forgets the points. The cut object is replaced by closed solids (two, or more when the plane splits an odd shape into several pieces), named `name-1`, `name-2`, ...; the two new faces take the material of the face that was sawn (the one the points were put on) and lie exactly in the plane (no kerf, no triangle sprinkles). The pieces stay where they were: move them apart with `H`. One `U` puts the original back. You stay in edit mode, on the first piece, so the next cut can follow at once (`Q` leaves; the cross over another piece and `Q` edits that one). Only closed solids can be sawn. The engine part is `saw`, `planeThroughLine`, `planeThroughTriangle`, `sectionSegments`.
-- **Nothing moves by default** (and never while you saw). Moving is Blender-style, with a key per mode, and every drag is one `U` step:
+  - The plane is previewed as an orange outline where it meets the object. `Enter` cuts, `Esc` forgets the points. The cut object is replaced by closed solids (two, or more when the plane splits an odd shape into several pieces), named `prism-xxxx` with a fresh short id each (an object that is not a prism keeps its name plus a short id); the two new faces take the material of the face that was sawn (the one the points were put on) and lie exactly in the plane (no kerf, no triangle sprinkles). The pieces stay where they were: move them apart with `H`. One `U` puts the original back. You stay in edit mode, on the first piece, so the next cut can follow at once (`Q` leaves; the cross over another piece and `Q` edits that one). Only closed solids can be sawn. The engine part is `saw`, `planeThroughLine`, `planeThroughTriangle`, `sectionSegments`.
+- **Nothing moves by default** (and never while you sketch or saw). Moving is Blender-style, with a key per mode, and every drag is one `U` step:
   - `1` **move points:** hover a vertex (white cross), drag it.
   - `2` **move lines:** hover an edge (white), drag it; both ends move.
   - `3` **move faces:** hover a face (white outline), drag it; all its vertices move together and the face stays flat.
   - The drag slides in the plane that faces the camera. A selected point, line or face (orange) also gets a gizmo: drag an arrow to move along one axis. Everything that uses the moved vertices follows. A polygon that gets only some of its vertices moved turns into triangles.
-  - `V` or `4` goes back to the saw (and drops the selection); `Esc` does the same.
-- **`Esc`** forgets the saw points; then leaves a move mode back to the saw; then leaves edit mode (so does `Q`).
+  - `V` goes back to sketching (and drops the selection); `Esc` does the same.
+- **`Esc`** forgets the saw points or ends the sketch chain; then leaves the saw or a move mode back to sketching; then leaves edit mode (so does `Q`). `X` deletes the object under the cross, as outside edit mode.
 
 ## Boolean operations (`O`)
 
