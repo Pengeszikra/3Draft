@@ -26,7 +26,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `/` | show only the object under the cross; again: the whole scene, and the camera flies back to where it was |
 | `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that starts at the camera point and flies along the ray through the cursor, so its long axis is always the view direction and you always see its back; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on to 4 times the camera-to-model distance and vanishes. Only the closed parts of the model are carved; open parts are ignored (see the health check below). A carve never leaves a crack: if the result would not be a closed solid it is retried with a hair's shift, and if that fails too the model stays as it was (the note "left as it was" shows). |
 | `Q` | edit mode on the object under the cross / off (see below) |
-| `V` | Spider bar (in edit mode: draw a line): the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
+| `V` | Spider bar (in edit mode: a saw point): the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
 | `X`, `Delete` | delete the object under the cross |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
 | `P` | show / hide the material palette |
@@ -57,31 +57,21 @@ There is one gizmo at a time, and `H` cycles through three states:
 
 Drag one of the arrows to slide the object along that axis; the arrow thickens under the pointer. While dragging only the picture changes; one write goes to the database when you let go, and one `U` takes the whole drag back.
 
-## Edit mode: drawing on a model (`Q`)
+## Edit mode: sawing and shaping a model (`Q`)
 
-The idea: there is a base model, and you refine or extend it by drawing lines on it. Put the cross on an object and press `Q`. A red bar at the top says which object is being edited and in which mode; its `?` button shows or hides the edit help (hidden at the start). Its vertices show as small grey crosses.
+The idea: there is a base model, and you work on it like a piece of stock on the bench. Put the cross on an object and press `Q`. A red bar at the top says which object is being edited and in which mode; its `?` button shows or hides the edit help (hidden at the start). Its vertices show as small grey crosses.
 
-- **`V` draws a line.** The first `V` takes a point, the next `V` joins it to the new one, and the chain goes on from there. A point is either an existing vertex (the pointer **snaps** to vertices; a white cross shows which) or a new vertex put on the surface under the cross. On a face it splits the face into triangles, on an edge it goes into both faces, so the surface never cracks.
-- **Two points on one face cut it.** The line becomes a real edge of the mesh: the surface gets detail exactly where you drew.
-- **Points in the air extend the model.** With a line in progress, `V` over empty space puts the next point on the plane that faces the camera through the last point. So you can draw a new part out from the model, and lines that end on existing vertices are attached to it.
-- **`Enter` closes a loop into a face.** The shortest closed loop (up to 8 lines) through the last line becomes a face with the selected material, wound away from the middle of the object. A loop of 4 or more becomes triangles, so faces stay flat.
-- **Nothing moves by default** (and never while you draw with `V`). Moving is Blender-style, with a key per mode, and every drag is one `U` step:
-  - `1` **move points:** hover a vertex (white cross), drag it.
-  - `2` **move lines:** hover an edge or a line (white), drag it; both ends move.
-  - `3` **move faces:** hover a face (white outline), drag it; all its vertices move together and the face stays flat.
-  - The drag slides in the plane that faces the camera. A selected point, line or face (orange) also gets a gizmo: drag an arrow to move along one axis. Everything that uses the moved vertices follows: lines, faces and the base surface, so this is how you reshape the original model. A polygon that gets only some of its vertices moved turns into triangles.
-  - `V` goes back to drawing (and drops the selection); `Esc` does the same.
-- **`4` is the saw.** One cut at a time. `V` puts a point (on a vertex, or on the surface), up to three:
+- **The saw** (the mode you start in; `4` or `V` brings you back to it). One cut at a time. `V` puts a point (on a vertex, or on the surface), up to three:
   - **two points** are a line drawn on a face: the saw plane contains the line and stands **square on that face**, so it runs straight into the material and out beyond the ends of the line. Both points must lie on one face.
   - **three points** are a triangle: the saw plane is the plane of the three points (a slanted cut, a mitre).
   - The plane is previewed as an orange outline where it meets the object. `Enter` cuts, `Esc` forgets the points. The cut object is replaced by closed solids (two, or more when the plane splits an odd shape into several pieces), named `name-1`, `name-2`, ...; the two new faces take the selected material and lie exactly in the plane (no kerf, no triangle sprinkles). The pieces stay where they were: move them apart with `H`. One `U` puts the original back. Only closed solids can be sawn. The engine part is `saw`, `planeThroughLine`, `planeThroughTriangle`, `sectionSegments`.
-- **`B` turns the spider bars into lines.** The prisms made with `V` in object mode (they are objects named `bar`) become lines on the edited object: each end snaps to a vertex that is close, or is put on the surface if it is near it, or stays a free point. The bars are removed (one `U` brings them back). So a plan sketched as bars can be worked on as a wire.
-- **`X`** removes the lines at the selected point or line (or the last line); the points stay. `U` undoes every step, one key press at a time.
-- **`Esc`** stops the line you are drawing; then it leaves a move mode back to drawing; then it leaves edit mode (so does `Q`). The lines are only shown in edit mode.
-
-The lines live next to the mesh as `wire: [[a, b], ...]` (vertex pairs) in the object's document, so the AI sees them too. The geometry is in the engine (README part 1): `insertVertex`, `cutFace`, `moveVertex`, `moveVertexSet`, `fillLoop`, `addLine`, `findLoop`.
-
-Limits for now: a face made from a non-flat or non-convex loop is only as good as its triangle fan, there is no mirror yet, and the lines are not deformation weights (a surface does not bend around a moved vertex, it just follows the vertices that are in the mesh).
+- **Nothing moves by default** (and never while you saw). Moving is Blender-style, with a key per mode, and every drag is one `U` step:
+  - `1` **move points:** hover a vertex (white cross), drag it.
+  - `2` **move lines:** hover an edge (white), drag it; both ends move.
+  - `3` **move faces:** hover a face (white outline), drag it; all its vertices move together and the face stays flat.
+  - The drag slides in the plane that faces the camera. A selected point, line or face (orange) also gets a gizmo: drag an arrow to move along one axis. Everything that uses the moved vertices follows. A polygon that gets only some of its vertices moved turns into triangles.
+  - `V` or `4` goes back to the saw (and drops the selection); `Esc` does the same.
+- **`Esc`** forgets the saw points; then leaves a move mode back to the saw; then leaves edit mode (so does `Q`).
 
 ## Boolean operations (`O`)
 
