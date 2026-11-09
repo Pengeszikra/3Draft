@@ -1471,6 +1471,7 @@
       const f = makeCamera(orbit({ yaw, pitch }), nothing, 100, { center: [0, 0, 0], radius: 1, dist: FLY_DIST }).f;
       fit.center = eye.map((c, i) => c + f[i] * FLY_DIST);
       fit.dist = FLY_DIST;
+      travel = null; // a turn still under way (the reset of a Clear) must not pull the eye away again
       fly = true;
       focused = true;
       redraw();
