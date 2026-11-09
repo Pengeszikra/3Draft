@@ -165,7 +165,7 @@ On the phone layout the console is hidden; the **Exa** menu has a `store` / `bui
 
 ## Loop cut (edit mode, `Ctrl+R`)
 
-Select a line (`2`), press Ctrl+R: every four-sided face on the ring through that line splits in two, with new points at the middle of the ring's lines. The new loop stays selected, so `G`/`S` act on it at once. Undo restores the mesh.
+Select a line (`2`), press Ctrl+R: every four-sided face on the ring through that line splits in two, with new points on the ring's lines. It is modal like `G`: type a number for the count of cuts (default 1), move the pointer along the line to slide the cuts (clamped inside the faces), `Enter` confirms, `Esc` cancels. The new loop stays selected, so `G`/`S` act on it at once. Undo restores the mesh.
 
 ## Fill (edit mode, `F`)
 
