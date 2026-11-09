@@ -163,6 +163,6 @@ On the phone layout the console is hidden; the **Exa** menu has a `store` / `bui
 
 `R` turns the selection like `G` and `S` move and scale it: about the middle of the selected **points** or **faces** (a face selection turns about its normal, points about the viewing direction); with a selected **line** that line is the axis, and the other selected parts turn about it (the whole object when the line is all that is selected). `X`, `Y`, `Z` turn it about that world axis through the pivot, a typed number is degrees, the pointer going round the pivot on the screen turns it, click or Enter confirms, Esc cancels. Flying with R needs Shift.
 
-## Mirror editing (edit mode)
+## Fill (edit mode, `F`)
 
-Three switches in the console's edit panel, `mir x`, `mir y`, `mir z`, turn on mirror editing: a point moved by G, S, R or E drags its mirror twin (the point at the mirrored position across the plane through the middle of the object's box) with it, mirrored. A point on a plane stays on it; a point without a twin moves alone. Several switches at once also give the combined twins (X and Z: four-fold). The edit bar shows `mirror X` etc.
+`F` makes one new face of the selected **points** (or the points of the selected **lines**): they are ordered round their middle in their own plane, the face is wound so that it faces away from the middle of the object, and it takes the material of a neighbouring face (else the palette's). It closes a hole in a solid. It needs three or more points that do not lie on a line. One `U` step. Flying down with F needs Shift.
