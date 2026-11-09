@@ -5,7 +5,7 @@
 // shading yet.
 
 export const name = '3draft' as const;
-export const version = '26.11.9006';
+export const version = '26.11.9007';
 
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
