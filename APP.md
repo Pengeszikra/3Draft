@@ -133,3 +133,13 @@ Collections:
 - `palette`: one document per material, `{ color, metal, rough, alpha, emit, order }`.
 
 Undo is a per-session stack in the page; it does not reach back past a reload.
+
+## The asset library (`B`)
+
+A pack of reusable objects, like a Unity asset pack. `B` (or the **Assets** button) shows or hides the panel on the left: a card per asset with a picture, a name (editable), its size in metres, and **place** / **delete**.
+
+- An asset's **origin is the middle of its base**. Placing puts that point on the surface under the cross, or (a click on the panel takes the pointer off the view) in front of the eye. Click the picture or *place*; the new object is named `{asset}-{uid}` and is one `U` step.
+- **+ object** saves the object being edited, else the target, else the one the cross was last on.
+- The first run starts with timber stock: `lath`, `board`, `plank`, `beam`, `plywood` (all of the `wood` material, 2 m long, lying along x).
+- The library is kept in this browser (localStorage). **export** downloads a pack file `assets.3dpack.json`; **import** adds the assets of a pack file (assets already present by id are skipped).
+- Pack format: `{ "format": "3draft-assets", "version": 1, "materials": [{ name, color, metal, rough, alpha, emit, soft }], "assets": [{ "id", "name", "mesh": { "positions", "faces": [{ "v", "color", "mat" }] } }] }`. Faces keep their polygons (nothing is triangulated); the materials the assets use travel with the pack and are added to the palette when missing.
