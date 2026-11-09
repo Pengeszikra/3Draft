@@ -3157,6 +3157,16 @@
       const box = document.createElement('div');
       box.className = 'box';
       box.innerHTML = '<b>Scene</b>';
+      const swap = document.createElement('button');
+      swap.type = 'button';
+      swap.className = 'teal';
+      swap.textContent = sceneName === 'build' ? 'store' : 'build';
+      swap.addEventListener('click', () => {
+        exaMenu.classList.remove('open');
+        switchScene(); // on the phone the console is hidden: the build / store switch lives here
+        swap.textContent = sceneName === 'build' ? 'store' : 'build';
+      });
+      box.append(swap);
       for (const name of ['empty', 'globe', 'stars', 'stars-plain', 'milkyway', 'ex27']) {
         const b = document.createElement('button');
         b.type = 'button';
@@ -3187,6 +3197,7 @@
       exaBtn.style.setProperty('--k', getComputedStyle(padEl).getPropertyValue('--k'));
       exaBtn.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+        swap.textContent = sceneName === 'build' ? 'store' : 'build';
         exaMenu.classList.toggle('open');
       });
       document.body.append(exaBtn);
@@ -3551,6 +3562,17 @@
     }
 
     draw();
+    window.__ready = true; // the engine and the page script both ran (the watchdog below looks at this)
+  </script>
+  <script>
+    // If the module script above never ran (the engine did not load: no network, or an outdated cache), say so instead of staying blank.
+    setTimeout(() => {
+      if (window.__ready) return;
+      const note = document.createElement('div');
+      note.style.cssText = 'position:fixed;left:12px;right:12px;top:45%;z-index:99;text-align:center;font:13px/1.5 monospace;color:#f1481c;background:#000c;padding:12px;border-radius:10px';
+      note.textContent = 'The engine did not load (network, or an outdated cache). Reload; if it stays, clear the site data of this page.';
+      document.body.append(note);
+    }, 8000);
   </script>
 </body>
 </html>

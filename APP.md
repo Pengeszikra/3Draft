@@ -152,3 +152,5 @@ On a desktop window the 3D view fills the whole window. A dark **console** lies 
 - **Switches** (edges, view, filmic, smooth, studio, freeze) are real toggles; the action buttons are icons (hover for the tooltip); **?** opens the help, the key explainer with every mode and key.
 - **Two panels:** the standard console shows `make` (place, delete, target, store/build), `scene` (examples, clear); in edit mode these are replaced by an `edit` panel: points / lines / faces / saw (1–4), move / scale / extrude (G S E), delete (⇧X), done (Q). Each button presses its key.
 - **Keys are data:** `ACTIONS` (what the program can do) and `KEYMAP` (which key does it) are plain objects, also on `window`; `bindKey('q', 'scene')` rebinds a key, `bindKey('q')` frees it. The console buttons call the actions directly, so they work whatever the keys are. A mode or a user setting can swap `KEYMAP` as a whole.
+
+On the phone layout the console is hidden; the **Exa** menu has a `store` / `build` button at its top (the same switch as `B`). If the page script never runs (the engine did not load), a red note appears after 8 seconds instead of a blank view.
