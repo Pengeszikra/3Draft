@@ -4,6 +4,7 @@
 // Lengths are light years, the frame is the one of the other star scenes (Sun at the origin, equatorial x y z -> [x, z, -y]).
 import { writeFileSync } from 'node:fs';
 import { stars, PLAIN, GALAXY_PROTOS, GALAXY_PALETTE, galaxies, blackHole } from './stars.js';
+import { CLOUD_PROTOS } from './galaxy-clouds.js';
 
 const R0 = 26670; // Sun - galactic centre, ly
 const rad = (d) => (d * Math.PI) / 180;
@@ -106,7 +107,7 @@ const start = { eye: eye.map(Math.round), yaw: Math.round((Math.atan2(d[0], -d[2
 
 const scene = {
   format: '3draft-scene', version: 2,
-  palette: [...near.palette, ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, start, cloud, objects,
+  palette: [...near.palette, ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, start, cloud, cloudProtos: CLOUD_PROTOS, objects,
 };
 writeFileSync(new URL('./milkyway.scene.json', import.meta.url), JSON.stringify(scene));
 console.log(cloud.n, 'super-stars,', objects.length, 'objects, start', JSON.stringify(start));

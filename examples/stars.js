@@ -10,6 +10,7 @@ import { validate } from '../dist/index.js';
 import { STARS } from './data/stars500.js';
 import { STARS as STARS5000 } from './data/stars5000.js';
 import { GALAXIES } from './data/galaxies.js';
+import { cloudFor, CLOUD_PROTOS } from './galaxy-clouds.js';
 
 const LY_PER_PC = 3.26156;
 const SUN = 0.05; // displayed radius of a 1 R_sun star, in ly
@@ -108,10 +109,8 @@ const disc = (inner, n, mat, t = 0.03) => {
 };
 const join = (...ms) => { const positions = [], faces = []; for (const m of ms) { const o = positions.length; positions.push(...m.positions); faces.push(...m.faces.map((f) => ({ ...f, v: f.v.map((i) => i + o) }))); } return r4m({ positions, faces }); };
 export const GALAXY_PROTOS = {
-  // spiral: a disc with a bulge (slots 'disc' and 'core'), radius 1
-  spiral: { halo: false, lods: [[32, 16, 8], [16, 8, 4], [10, 6, 3], [6, 4, 2]].map(([n, sg, rg]) => join(disc(0, n, 'disc'), ellipsoid(0.22, 0.7, sg, rg, 'core'))) },
-  // ellipticals, irregulars and dwarfs: one smooth ellipsoid
-  blob: { halo: false, lods: [[32, 16], [16, 8], [10, 5], [6, 3]].map(([sg, rg]) => r4m(ellipsoid(1, 0.75, sg, rg, 'core'))) },
+  // a faint stand-in for a galaxy that is drawn as a point cloud: something to point at and to target (one level, 24 faces)
+  ghost: { halo: false, lods: [r4m(ellipsoid(1, 0.75, 8, 4, 'core'))] },
   // the black hole: a black ball inside a thin hot ring (accretion disc), radius of the ball 1
   hole: { halo: false, lods: [[32, 16, 48], [16, 8, 24], [8, 4, 16], [6, 3, 8]].map(([sg, rg, n]) => join(sphere(0, 0, 0, 1, sg, rg, 'core'), (() => { const d = disc(0.35, n, 'disc'); return { ...d, positions: d.positions.map((p) => p.map((v) => v * 4.5)) }; })())) },
 };
@@ -119,6 +118,7 @@ export const GALAXY_PALETTE = [
   { name: 'gal-disc', color: '#9db4ff', metal: 0, rough: 1, alpha: 1, emit: 0.55, soft: 0 },
   { name: 'gal-bulge', color: '#ffdca8', metal: 0, rough: 1, alpha: 1, emit: 0.9, soft: 0 },
   { name: 'gal-blob', color: '#ffd9a0', metal: 0, rough: 1, alpha: 1, emit: 0.7, soft: 0 },
+  { name: 'gal-ghost', color: '#9db4ff', metal: 0, rough: 1, alpha: 0, emit: 0, soft: 0 },
   { name: 'bh-core', color: '#000000', metal: 0, rough: 1, alpha: 1, emit: 0, soft: 0 },
   { name: 'bh-disc', color: '#ff9a40', metal: 0, rough: 1, alpha: 1, emit: 1, soft: 0 },
 ];
@@ -128,12 +128,10 @@ export const LY = (ra, dec, d) => { const a = (ra * Math.PI) / 12, b = (dec * Ma
 export const blackHole = (at) => ({ name: 'Sagittarius A* (Milky Way black hole)', proto: 'hole', at, scale: 40, mats: { core: 'bh-core', disc: 'bh-disc' }, glow: 700, glowColor: '#ff9a40', far: true, rot: [0.6, 0.4] });
 export const galaxies = () => {
   let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647); // fixed orientations
-  const out = GALAXIES.slice(0, 100).map(([name, ra, dec, mly, kly, t]) => {
+  const out = GALAXIES.slice(0, 100).map(([name, ra, dec, mly, kly, t], idx) => {
     const radius = kly * 500; // ly
-    const o = { name, proto: t === 'S' ? 'spiral' : 'blob', at: LY(ra, dec, mly * 1e6), scale: radius, mats: t === 'S' ? { disc: 'gal-disc', core: 'gal-bulge' } : { core: 'gal-blob' }, glow: round(radius * 4), glowColor: KIND[t][0], far: true,
-      rot: [round(Math.acos(1 - 2 * rnd())), round(2 * Math.PI * rnd())] };
-    if (t !== 'S') o.color = KIND[t][0];
-    return o;
+    return { name, proto: 'ghost', at: LY(ra, dec, mly * 1e6), scale: radius, mats: { core: 'gal-ghost' }, glow: round(radius * 4), glowColor: KIND[t][0], far: true,
+      cloud: cloudFor(t, idx), rot: [round(Math.acos(1 - 2 * rnd())), round(2 * Math.PI * rnd())] };
   });
   out.push(blackHole(LY(17.7611, -29.0078, 26670)));
   return out;
@@ -162,7 +160,7 @@ export const stars = ({ plain = false, extras = true } = {}) => {
   const eye = [0.25, 0.06, 0.6];
   const start = { eye, yaw: Math.round((Math.atan2(-eye[0], eye[2]) * 180) / Math.PI * 10) / 10, pitch: Math.round((Math.asin(eye[1] / Math.hypot(...eye)) * 180) / Math.PI * 10) / 10 };
   if (plain && extras) objects.push(...galaxies());
-  return plain ? { palette: [...palette.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, start, objects } : { palette, prototypes: PROTOTYPES, start, objects };
+  return plain ? { palette: [...palette.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, cloudProtos: CLOUD_PROTOS, start, objects } : { palette, prototypes: PROTOTYPES, start, objects };
 };
 
 if (import.meta.url === new URL(process.argv[1], 'file:').href) {
