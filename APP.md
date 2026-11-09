@@ -162,3 +162,7 @@ On the phone layout the console is hidden; the **Exa** menu has a `store` / `bui
 ## Rotate in edit mode (`R`)
 
 `R` turns the selection like `G` and `S` move and scale it: about the middle of the selected **points** or **faces** (a face selection turns about its normal, points about the viewing direction); with a selected **line** that line is the axis, and the other selected parts turn about it (the whole object when the line is all that is selected). `X`, `Y`, `Z` turn it about that world axis through the pivot, a typed number is degrees, the pointer going round the pivot on the screen turns it, click or Enter confirms, Esc cancels. Flying with R needs Shift.
+
+## Mirror editing (edit mode)
+
+Three switches in the console's edit panel, `mir x`, `mir y`, `mir z`, turn on mirror editing: a point moved by G, S, R or E drags its mirror twin (the point at the mirrored position across the plane through the middle of the object's box) with it, mirrored. A point on a plane stays on it; a point without a twin moves alone. Several switches at once also give the combined twins (X and Z: four-fold). The edit bar shows `mirror X` etc.
