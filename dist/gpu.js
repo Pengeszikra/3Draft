@@ -49,8 +49,13 @@ const rgb = (color) => {
  * crack in the indices does not break it) are averaged, weighted by area, but only those within `crease` degrees of
  * this face: a 90 degree box corner stays sharp, a faceted fuselage becomes round.
  */
-export const cornerNormals = (mesh, crease) => {
-    const cosC = Math.cos((crease * Math.PI) / 180);
+export const cornerNormals = (mesh, crease, soft) => {
+    // the material's soft decides how far its edges may be smoothed: 0 keeps every edge hard, from 0.5 up the whole crease angle is allowed;
+    // between two faces the harder one rules
+    const cosAt = (i, j) => {
+        const k = soft ? Math.min(1, 2 * Math.min(soft[i], soft[j])) : 1;
+        return Math.cos((crease * k * Math.PI) / 180);
+    };
     const area = mesh.faces.map((f) => faceNormal(f.v.map((k) => mesh.positions[k]))); // length = area
     const unit = area.map((n) => (Math.hypot(...n) > 0 ? norm(n) : [0, 1, 0]));
     const q = (bounds(mesh).radius || 1) * 1e-6;
@@ -66,7 +71,9 @@ export const cornerNormals = (mesh, crease) => {
     return mesh.faces.map((f, i) => f.v.map((k) => {
         const sum = [0, 0, 0];
         for (const j of at.get(key(mesh.positions[k])) ?? []) {
-            if (dot(unit[i], unit[j]) < cosC)
+            if (i !== j && (soft ? Math.min(soft[i], soft[j]) <= 0 : false))
+                continue;
+            if (dot(unit[i], unit[j]) < cosAt(i, j) - 1e-12)
                 continue;
             for (let c = 0; c < 3; c++)
                 sum[c] += area[j][c];
@@ -83,7 +90,7 @@ export const buildVertices = (mesh, palette, { smooth = 0 } = {}) => {
     for (const f of mesh.faces)
         tris += Math.max(0, f.v.length - 2);
     const out = new Float32Array(tris * 3 * FLOATS);
-    const corners = smooth > 0 ? cornerNormals(mesh, smooth) : null;
+    const corners = smooth > 0 ? cornerNormals(mesh, smooth, mesh.faces.map((f) => surfaceOf(f, palette).soft)) : null;
     let o = 0;
     mesh.faces.forEach((face, fi) => {
         const pts = face.v.map((k) => mesh.positions[k]);

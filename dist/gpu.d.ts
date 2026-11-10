@@ -95,7 +95,7 @@ export declare const nearPlane: (cam: Camera, mesh: {
  * crack in the indices does not break it) are averaged, weighted by area, but only those within `crease` degrees of
  * this face: a 90 degree box corner stays sharp, a faceted fuselage becomes round.
  */
-export declare const cornerNormals: (mesh: Mesh, crease: number) => Vec3[][];
+export declare const cornerNormals: (mesh: Mesh, crease: number, soft?: number[]) => Vec3[][];
 /**
  * Triangle list for the GPU: face normals (flat, or smoothed with `smooth` degrees), face colors and materials.
  * Float32Array, 14 floats per vertex.

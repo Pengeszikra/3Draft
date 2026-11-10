@@ -179,3 +179,7 @@ Select a line (`2`), press Ctrl+R: every four-sided face on the ring through tha
 `E` extrudes whatever is selected and grabs it at once (`startXf` with `wire0` / `fixFaces`): a point (`1`) becomes a line (a new point joined to it by a sketch line, `wire`), a line (`2`) becomes a four-sided face whose new line is selected, so `E` again goes on; neighbours in the selection share their new points. The face turns to show its front to the camera while you pull. Undo restores mesh and lines in one step.
 
 Key `5` is the sketch mode (`emode` `draw`). `V` draws lines on the surface (`obj.lines`); `Enter` (or `5` again) turns them into the mesh. Lines that follow on from each other form a chain. A chain of four or more points whose last point is within a third of the mean stroke of its first (or exactly on it) is closed: it becomes a face, wound away from the middle of the object, in the current material, reusing the vertices that already exist at its points. Any other chain becomes `wire` lines. The faces are selected afterwards.
+
+## Smooth shading follows the material's soft
+
+The Smooth switch (`N`) rounds the shading of shallow folds (up to 40°), but only where the materials allow it: a face's `soft` of 0 keeps all its edges hard, `soft` 0.5 and above allows the whole 40°, between them the angle grows in step (`cornerNormals(mesh, crease, soft)`); between two faces the harder one rules.

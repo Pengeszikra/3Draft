@@ -86,6 +86,12 @@ test('smooth shading: shallow folds share normals, sharp corners stay sharp', ()
     assert.ok(Math.abs(smooth[0][0][0] + Math.sin(a)) < 1e-6, 'the outer point keeps its own tilt');
     const sharp = cornerNormals(mesh, 20);
     assert.ok(Math.abs(sharp[0][2][0] + Math.sin(a)) < 1e-6, 'under the crease angle: flat again');
+    // a material with soft 0 keeps its edges hard even when smoothing is on; soft 0.5 smooths them
+    const hard = buildVertices({ ...mesh, faces: mesh.faces.map((f) => ({ ...f, mat: 'wood' })) }, { wood: { color: '#aa7744' } }, { smooth: 40 });
+    const softer = buildVertices({ ...mesh, faces: mesh.faces.map((f) => ({ ...f, mat: 'skin' })) }, { skin: { color: '#e0a080', soft: 0.5 } }, { smooth: 40 });
+    const ridgeY = (v) => v[2 * 14 + 4]; // the ridge point of the first triangle: its normal's y
+    assert.ok(Math.abs(ridgeY(hard) - Math.cos(a)) < 1e-5, 'soft 0: the ridge stays a hard edge');
+    assert.ok(ridgeY(softer) > 0.999, 'soft 0.5: the ridge is smoothed');
     // and buildVertices carries it: 14 floats per vertex, the normal at 3..5
     const v = buildVertices(mesh, undefined, { smooth: 40 });
     assert.equal(v.length % 14, 0);
