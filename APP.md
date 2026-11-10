@@ -183,3 +183,7 @@ Key `5` is the sketch mode (`emode` `draw`). `V` draws lines on the surface (`ob
 ## Smooth shading follows the material's soft
 
 The Smooth switch (`N`) rounds the shading of shallow folds (up to 40°), but only where the materials allow it: a face's `soft` of 0 keeps all its edges hard, `soft` 0.5 and above allows the whole 40°, between them the angle grows in step (`cornerNormals(mesh, crease, soft)`); between two faces the harder one rules.
+
+## Delete in edit mode
+
+`Shift+X` with a selection deletes only that (`deleteSelection`): points go with the faces and lines that use them (and are removed from the vertex list), a line goes with the faces on it, a face goes alone. One undo step. With nothing selected it deletes the object under the cross, as everywhere.
