@@ -173,3 +173,9 @@ Select a line (`2`), press Ctrl+R: every four-sided face on the ring through tha
 ## Object grab, duplicate, delete (every mode)
 
 `G` outside edit mode grabs the whole target (`T`) or the object under the cross, with the same `X`/`Y`/`Z` axis locks and typed metres as in edit mode (the same modal code, `startXf` with an `obj`). `Ctrl+D` makes a copy as a new model (not an instance; also from edit mode, which it leaves) and grabs it at once; Esc leaves the copy where the original is. Delete is `Shift+X` (or `Delete`) in every mode; plain `X` only locks the axis during a grab, scale or rotate.
+
+## Extrude points and lines, build the sketch (edit mode)
+
+`E` extrudes whatever is selected and grabs it at once (`startXf` with `wire0` / `fixFaces`): a point (`1`) becomes a line (a new point joined to it by a sketch line, `wire`), a line (`2`) becomes a four-sided face whose new line is selected, so `E` again goes on; neighbours in the selection share their new points. The face turns to show its front to the camera while you pull. Undo restores mesh and lines in one step.
+
+Key `5` is the sketch mode (`emode` `draw`). `V` draws lines on the surface (`obj.lines`); `Enter` (or `5` again) turns them into the mesh. Lines that follow on from each other form a chain. A chain of four or more points whose last point is within a third of the mean stroke of its first (or exactly on it) is closed: it becomes a face, wound away from the middle of the object, in the current material, reusing the vertices that already exist at its points. Any other chain becomes `wire` lines. The faces are selected afterwards.
