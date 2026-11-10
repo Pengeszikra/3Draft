@@ -205,3 +205,7 @@ With the palette open, holding `Alt`+`Ctrl` (`Cmd` on a Mac) paints every face t
 Play clears the scene (and the undo history), restores the palette and switches, seeds `Math.random`, then dispatches synthetic events at their times (gaps over 3 s cut, a frame is let to draw between a move and the next key so the cross is known). Pointer capture is faked while playing and real input is blocked. Prisms still flying in are waited for. The saved palette is not written during a play.
 
 API: `rec.start()`, `rec.stop()` → recording, `rec.play(data, { speed, cap })` → `{ done, total, stopped }`, `rec.stopPlay()`, `rec.scene()` (fingerprint), `rec.last`, `?play=<url>`.
+
+## Saw and boolean with concave and loose shells
+
+`saw` cuts a model of several shells shell by shell: every closed shell is sawn on its own, a shell the plane misses (or one that is not closed) goes whole to the side its middle is on; it still throws when there is no closed shell at all. The BSP of `boolean` / `saw` takes a concave face as the triangles of its ear clipping (`polysOf` in `src/csg.ts`). `E` on a free face (a sketch outline: none of its lines is shared with another face) keeps the old face as a reversed back, so what is pulled out is a closed shell that can be sawn.

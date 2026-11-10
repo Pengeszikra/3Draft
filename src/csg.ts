@@ -5,6 +5,7 @@
 // solid again and can go into the next boolean. Faces keep the color and material of the face they came from;
 // a face cut into a solid by the other one takes the color of the cutting face.
 
+import { triangulate } from './triangulate.js';
 import { sub, dot, cross, len } from './vec.js';
 import { faceNormal, bounds } from './mesh.js';
 import { validate } from './check.js';
@@ -31,11 +32,15 @@ const unit = (v: Vec3): Vec3 => {
   return [v[0] / l, v[1] / l, v[2] / l];
 };
 
+// The BSP needs convex polygons: a concave face (an L, a V, a sketch outline) goes in as the triangles of its ear clipping.
 const polysOf = (mesh: Mesh): Poly[] =>
   mesh.faces.flatMap((f) => {
     const pts = f.v.map((k) => mesh.positions[k]);
     const n = unit(faceNormal(pts));
-    return len(faceNormal(pts)) < 1e-12 ? [] : [{ pts, n, w: dot(n, pts[0]), color: f.color, mat: f.mat }];
+    if (len(faceNormal(pts)) < 1e-12) return [];
+    const tris = triangulate(pts);
+    if (tris.every(([a, b, c], j) => a === 0 && b === j + 1 && c === j + 2)) return [{ pts, n, w: dot(n, pts[0]), color: f.color, mat: f.mat }];
+    return tris.map((t) => ({ pts: t.map((i) => pts[i]), n, w: dot(n, pts[0]), color: f.color, mat: f.mat }));
   });
 
 const flip = (p: Poly): Poly => ({ ...p, pts: [...p.pts].reverse(), n: [-p.n[0], -p.n[1], -p.n[2]], w: -p.w });

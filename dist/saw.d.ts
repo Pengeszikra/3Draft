@@ -21,7 +21,7 @@ export declare const planeThroughTriangle: (a: Vec3, b: Vec3, c: Vec3) => CutPla
  * Saw `mesh` along `plane`. `mat` / `color` is the material of the two new faces (the cut surface).
  * Throws when the mesh is not a closed solid, or when the plane does not go through it.
  */
-export declare const saw: (mesh: Mesh, plane: CutPlane, { color, mat }?: {
+export declare const saw: (mesh: Mesh, plane: CutPlane, opts?: {
     color?: string;
     mat?: string;
 }) => Sawn;

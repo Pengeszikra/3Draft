@@ -53,7 +53,40 @@ const frame = (n: Vec3): [Vec3, Vec3, Vec3] => {
  * Saw `mesh` along `plane`. `mat` / `color` is the material of the two new faces (the cut surface).
  * Throws when the mesh is not a closed solid, or when the plane does not go through it.
  */
-export const saw = (mesh: Mesh, plane: CutPlane, { color = '#c8c8c8', mat }: { color?: string; mat?: string } = {}): Sawn => {
+export const saw = (mesh: Mesh, plane: CutPlane, opts: { color?: string; mat?: string } = {}): Sawn => {
+  // A model of several shells (a cube with a drawn-and-pulled-out V standing on it, a loose open surface): every closed shell is cut by
+  // itself, a shell the plane misses, or one that is not closed, goes whole to the side its middle is on.
+  const parts = splitParts(mesh);
+  if (parts.length > 1) {
+    const n = norm(plane.n);
+    const front: Mesh[] = [];
+    const back: Mesh[] = [];
+    let solids = 0;
+    let cut = 0;
+    for (const part of parts) {
+      const pv = validate(part);
+      if (pv.closed && !pv.inside_out) {
+        solids++;
+        try {
+          const s = sawSolid(part, plane, opts);
+          front.push(...s.front);
+          back.push(...s.back);
+          cut++;
+          continue;
+        } catch (err) {
+          if (!/does not go through/.test(String((err as Error).message))) throw err;
+        }
+      }
+      (dot(sub(bounds(part).center, plane.point), n) >= 0 ? front : back).push(part);
+    }
+    if (!solids) throw new Error('saw: only a closed solid can be cut');
+    if (!cut) throw new Error('the plane does not go through the object');
+    return { front, back };
+  }
+  return sawSolid(mesh, plane, opts);
+};
+
+const sawSolid = (mesh: Mesh, plane: CutPlane, { color = '#c8c8c8', mat }: { color?: string; mat?: string } = {}): Sawn => {
   const v = validate(mesh);
   if (!v.closed || v.inside_out) throw new Error('saw: only a closed solid can be cut');
   const n = norm(plane.n);
