@@ -27,7 +27,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `M` | place a prism on the surface under the cross, or shoot one into empty space. **In isolated mode (`/`) it fires a bullet** instead: a prism that starts at the camera point and flies along the ray through the cursor, so its long axis is always the view direction and you always see its back; if it hits the isolated object it sinks half its length and carves that part out (A − B, the cut is made of the selected material, `U` undoes it); if it misses it flies on to 4 times the camera-to-model distance and vanishes. Only the closed parts of the model are carved; open parts are ignored (see the health check below). A carve never leaves a crack: if the result would not be a closed solid it is retried with a hair's shift, and if that fails too the model stays as it was (the note "left as it was" shows). |
 | `Q` | edit mode on the object under the cross (or the target); with neither, a new 1×1×1 m cube of the selected material standing in front of the eye with its base middle as the origin; again: off (see below) |
 | `V` | Spider bar (in edit mode: a sketch line, or a saw point in the saw mode): the first `V` remembers a surface point, the second joins the two with a thin prism (a quarter of the base of a placed one) made of the selected material. `V` over empty space forgets the first point |
-| `X`, `Delete` | delete the object under the cross |
+| `Shift+X`, `Delete` | delete the object under the cross (every mode) |
 | `U`, `Backspace` | undo: placing, deleting, painting, booleans and moves, one step at a time |
 | `P` | show / hide the material palette |
 | `I` | pick material: the material of the face under the cross becomes the selected one |
@@ -169,3 +169,7 @@ Select a line (`2`), press Ctrl+R: every four-sided face on the ring through tha
 ## Fill (edit mode, `F`)
 
 `F` makes one new face of the selected **points** (or the points of the selected **lines**): they are ordered round their middle in their own plane, the face is wound so that it faces away from the middle of the object, and it takes the material of a neighbouring face (else the palette's). It closes a hole in a solid. It needs three or more points that do not lie on a line. One `U` step. Flying down with F needs Shift.
+
+## Object grab, duplicate, delete (every mode)
+
+`G` outside edit mode grabs the whole target (`T`) or the object under the cross, with the same `X`/`Y`/`Z` axis locks and typed metres as in edit mode (the same modal code, `startXf` with an `obj`). `Ctrl+D` makes a copy as a new model (not an instance; also from edit mode, which it leaves) and grabs it at once; Esc leaves the copy where the original is. Delete is `Shift+X` (or `Delete`) in every mode; plain `X` only locks the axis during a grab, scale or rotate.
