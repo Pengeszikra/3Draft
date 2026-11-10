@@ -4,6 +4,7 @@
 // buildVertices) need no GPU and are unit tested; createGpu() needs a browser.
 import { dot, norm } from './vec.js';
 import { bounds, faceNormal } from './mesh.js';
+import { triangulate } from './triangulate.js';
 import { makeCamera } from './camera.js';
 import { surfaceOf } from './material.js';
 const FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit) soft(1)
@@ -98,8 +99,8 @@ export const buildVertices = (mesh, palette, { smooth = 0 } = {}) => {
         const s = surfaceOf(face, palette);
         const c = rgb(s.color);
         const mat = [s.metal, s.rough, s.alpha, s.emit];
-        for (let j = 1; j < pts.length - 1; j++) {
-            for (const k of [0, j, j + 1]) {
+        for (const tri of triangulate(pts)) {
+            for (const k of tri) {
                 out.set([...pts[k], ...(corners ? corners[fi][k] : flat), ...c, ...mat, s.soft], o);
                 o += FLOATS;
             }

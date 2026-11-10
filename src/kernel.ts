@@ -4,6 +4,7 @@
 
 import { dot, norm, plus, times } from './vec.js';
 import { faceNormal } from './mesh.js';
+import { triangulate } from './triangulate.js';
 import { ray } from './camera.js';
 import type { Camera, Hit, Mesh } from './types.js';
 import { KERNEL_BYTES } from './kernel-bytes.js';
@@ -55,14 +56,14 @@ export const initKernel = async (): Promise<Kernel> => {
       f64[i * 3 + 1] = p[1];
       f64[i * 3 + 2] = p[2];
     }
-    // faces are fanned into triangles (v0, vj, vj+1), each remembering its face number
+    // faces are cut into triangles (a fan, or ear clipping for a concave one), each remembering its face number
     const i32 = new Int32Array(memory.buffer, triBase, nt * 4);
     let at = 0;
     mesh.faces.forEach((f, face) => {
-      for (let j = 1; j < f.v.length - 1; j++) {
-        i32[at] = f.v[0];
-        i32[at + 1] = f.v[j];
-        i32[at + 2] = f.v[j + 1];
+      for (const [a, b, c] of triangulate(f.v.map((k) => mesh.positions[k]))) {
+        i32[at] = f.v[a];
+        i32[at + 1] = f.v[b];
+        i32[at + 2] = f.v[c];
         i32[at + 3] = face;
         at += 4;
       }

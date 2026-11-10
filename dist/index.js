@@ -4,7 +4,7 @@
 // a target cross that lies on the surface under the cursor. No textures, no
 // shading yet.
 export const name = '3draft';
-export const version = '26.11.10012';
+export const version = '26.11.10013';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export { validate } from './check.js';
 export { boolean, union, subtract, intersect, health, splitParts } from './csg.js';
@@ -33,4 +33,5 @@ export const info = () => ({
     ],
 });
 export { initKernel } from './kernel.js';
-export { insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, nearestSurface, wireFromSegments, moveVertexSet, reshape } from './wire.js';
+export { insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, nearestSurface, wireFromSegments, moveVertexSet, reshape, outlineOf } from './wire.js';
+export { triangulate } from './triangulate.js';

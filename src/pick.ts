@@ -4,6 +4,7 @@
 
 import { cross, dot, norm, plus, minus, times, scale } from './vec.js';
 import { faceNormal } from './mesh.js';
+import { triangulate } from './triangulate.js';
 import { ray } from './camera.js';
 import type { Camera, Hit, Mesh, Vec3 } from './types.js';
 
@@ -42,8 +43,8 @@ export const pick = (mesh: Mesh, cam: Camera, x: number, y: number, { cull = tru
     const outward = pts |> faceNormal |> norm;
     const front = dot(outward, dir) < 0;
     if (cull && !front) return;
-    for (let j = 1; j < pts.length - 1; j++) {
-      const t = hitTriangle(origin, dir, pts[0], pts[j], pts[j + 1]);
+    for (const [a, b, c] of triangulate(pts)) {
+      const t = hitTriangle(origin, dir, pts[a], pts[b], pts[c]);
       if (t !== null && (!best || t < best.distance)) {
         best = {
           face: i,

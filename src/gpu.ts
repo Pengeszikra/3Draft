@@ -5,6 +5,7 @@
 
 import { dot, norm } from './vec.js';
 import { bounds, faceNormal } from './mesh.js';
+import { triangulate } from './triangulate.js';
 import { makeCamera } from './camera.js';
 import { surfaceOf } from './material.js';
 import type { Palette } from './material.js';
@@ -175,8 +176,8 @@ export const buildVertices = (mesh: Mesh, palette?: Palette, { smooth = 0 }: { s
     const s = surfaceOf(face, palette);
     const c = rgb(s.color);
     const mat = [s.metal, s.rough, s.alpha, s.emit];
-    for (let j = 1; j < pts.length - 1; j++) {
-      for (const k of [0, j, j + 1]) {
+    for (const tri of triangulate(pts)) {
+      for (const k of tri) {
         out.set([...pts[k], ...(corners ? corners[fi][k] : flat), ...c, ...mat, s.soft], o);
         o += FLOATS;
       }

@@ -3,6 +3,7 @@
 // the painter-sorted drawing is not.
 import { cross, dot, norm, plus, minus, times, scale } from './vec.js';
 import { faceNormal } from './mesh.js';
+import { triangulate } from './triangulate.js';
 import { ray } from './camera.js';
 const EPS = 1e-9;
 // Moller-Trumbore ray/triangle test. Distance along the ray, or null.
@@ -41,8 +42,8 @@ export const pick = (mesh, cam, x, y, { cull = true } = {}) => {
         const front = dot(outward, dir) < 0;
         if (cull && !front)
             return;
-        for (let j = 1; j < pts.length - 1; j++) {
-            const t = hitTriangle(origin, dir, pts[0], pts[j], pts[j + 1]);
+        for (const [a, b, c] of triangulate(pts)) {
+            const t = hitTriangle(origin, dir, pts[a], pts[b], pts[c]);
             if (t !== null && (!best || t < best.distance)) {
                 best = {
                     face: i,

@@ -61,3 +61,10 @@ export declare const moveVertexSet: (mesh: Mesh, moves: [number, Vec3][]) => Mes
  * (or flip, or collapse) becomes triangles. This is what the grab / scale / extrude of the editor use.
  */
 export declare const reshape: (mesh: Mesh, moves: [number, Vec3][]) => Mesh;
+/**
+ * The closed outline that loose lines make, as an ordered list of vertex ids, or null when they make none. `ids` are the points taken
+ * part in, `lines` the vertex pairs between them. The points are not ordered by angle round their middle (that only works for a convex
+ * shape, an L or a V comes out knotted): the lines are followed. The walk starts at the outermost point and at a junction (more than
+ * one way on) continues in the direction that turns least, the way Rustroke's fill follows the tangent. Winding is not decided here.
+ */
+export declare const outlineOf: (positions: Vec3[], lines: [number, number][], ids: number[]) => number[] | null;

@@ -3,8 +3,9 @@
 // its ends are ordinary mesh vertices, so moving a vertex moves every line (and every face) that uses it.
 // Faces stay convex and planar: a vertex placed inside a face splits it into triangles, a cut splits a convex
 // polygon into two convex ones, and a moved vertex turns the polygons it touches into triangles.
-import { sub, add, scale, dot, len } from './vec.js';
+import { sub, add, scale, dot, len, cross, norm } from './vec.js';
 import { faceNormal, bounds } from './mesh.js';
+import { triangulate } from './triangulate.js';
 const sizeOf = (mesh) => bounds(mesh).radius || 1;
 /** Distance from `p` to the segment a-b, and where along it (0..1). */
 const toSegment = (p, a, b) => {
@@ -87,8 +88,8 @@ export const moveVertex = (mesh, i, to) => {
         if (f.v.length <= 3 || !f.v.includes(i))
             faces.push(f);
         else
-            for (let j = 1; j < f.v.length - 1; j++)
-                faces.push({ ...f, v: [f.v[0], f.v[j], f.v[j + 1]] });
+            for (const [a, b, c] of triangulate(f.v.map((v) => mesh.positions[v])))
+                faces.push({ ...f, v: [f.v[a], f.v[b], f.v[c]] });
     }
     return withFaces(mesh, faces, positions);
 };
@@ -103,8 +104,8 @@ export const fillLoop = (mesh, loop, face = {}, awayFrom = bounds(mesh).center) 
     const centre = scale(pts.reduce((s, p) => add(s, p), [0, 0, 0]), 1 / pts.length);
     const ordered = dot(faceNormal(pts), sub(centre, awayFrom)) >= 0 ? loop : [...loop].reverse();
     const out = [];
-    for (let j = 1; j < ordered.length - 1; j++)
-        out.push({ ...face, v: [ordered[0], ordered[j], ordered[j + 1]] });
+    for (const [a, b, c] of triangulate(ordered.map((v) => mesh.positions[v])))
+        out.push({ ...face, v: [ordered[a], ordered[b], ordered[c]] });
     return withFaces(mesh, [...mesh.faces, ...out]);
 };
 /** Adds the line a-b (not twice, not a point). */
@@ -177,8 +178,8 @@ export const nearestSurface = (mesh, p, tolerance) => {
     let best = null;
     mesh.faces.forEach((f, face) => {
         const pts = f.v.map((v) => mesh.positions[v]);
-        for (let j = 1; j < pts.length - 1; j++) {
-            const q = closestOnTriangle(p, pts[0], pts[j], pts[j + 1]);
+        for (const [a, b, c] of triangulate(pts)) {
+            const q = closestOnTriangle(p, pts[a], pts[b], pts[c]);
             const d = len(sub(q, p));
             if (d <= tolerance && (!best || d < best.d))
                 best = { face, point: q, d };
@@ -237,8 +238,8 @@ export const moveVertexSet = (mesh, moves) => {
         if (rigid)
             faces.push(f);
         else
-            for (let j = 1; j < f.v.length - 1; j++)
-                faces.push({ ...f, v: [f.v[0], f.v[j], f.v[j + 1]] });
+            for (const [a, b, c] of triangulate(f.v.map((v) => mesh.positions[v])))
+                faces.push({ ...f, v: [f.v[a], f.v[b], f.v[c]] });
     }
     return withFaces(mesh, faces, positions);
 };
@@ -266,8 +267,80 @@ export const reshape = (mesh, moves) => {
         if (flat)
             faces.push(f);
         else
-            for (let j = 1; j < f.v.length - 1; j++)
-                faces.push({ ...f, v: [f.v[0], f.v[j], f.v[j + 1]] });
+            for (const [a, b, c] of triangulate(f.v.map((v) => mesh.positions[v])))
+                faces.push({ ...f, v: [f.v[a], f.v[b], f.v[c]] });
     }
     return withFaces(mesh, faces, positions);
+};
+/**
+ * The closed outline that loose lines make, as an ordered list of vertex ids, or null when they make none. `ids` are the points taken
+ * part in, `lines` the vertex pairs between them. The points are not ordered by angle round their middle (that only works for a convex
+ * shape, an L or a V comes out knotted): the lines are followed. The walk starts at the outermost point and at a junction (more than
+ * one way on) continues in the direction that turns least, the way Rustroke's fill follows the tangent. Winding is not decided here.
+ */
+export const outlineOf = (positions, lines, ids) => {
+    if (ids.length < 3 || !lines.length)
+        return null;
+    const P = positions;
+    // the plane: the two farthest points, and the point farthest from the line between them
+    let [a, b] = [ids[0], ids[1]];
+    let far = -1;
+    for (const i of ids)
+        for (const j of ids)
+            if (i < j) {
+                const d = len(sub(P[i], P[j]));
+                if (d > far)
+                    ((far = d), (a = i), (b = j));
+            }
+    const u = norm(sub(P[b], P[a]));
+    let n = null;
+    let best = 1e-12;
+    for (const i of ids) {
+        const m = cross(u, sub(P[i], P[a]));
+        if (len(m) > best)
+            ((best = len(m)), (n = norm(m)));
+    }
+    if (!n)
+        return null;
+    const w = cross(n, u);
+    const flat = (i) => [dot(sub(P[i], P[a]), u), dot(sub(P[i], P[a]), w)];
+    const adj = new Map();
+    const link = (p, q) => (adj.get(p) ?? adj.set(p, []).get(p)).push(q);
+    const seen = new Set();
+    for (const [p, q] of lines) {
+        const k = p < q ? `${p},${q}` : `${q},${p}`;
+        if (p === q || seen.has(k))
+            continue;
+        seen.add(k);
+        link(p, q);
+        link(q, p);
+    }
+    const starts = [...adj.keys()].filter((i) => adj.get(i).length >= 2);
+    if (starts.length < 3)
+        return null;
+    const first = starts.reduce((m, i) => (flat(i)[0] < flat(m)[0] ? i : m));
+    const loop = [first];
+    let prev = null;
+    let at = first;
+    for (let guard = 0; guard < ids.length * 4 + 8; guard++) {
+        const options = adj.get(at).filter((q) => q !== prev);
+        if (!options.length)
+            return null;
+        const here = flat(at);
+        const came = prev === null ? [0, -1] : [here[0] - flat(prev)[0], here[1] - flat(prev)[1]];
+        const turn = (q) => {
+            const t = flat(q);
+            const d = [t[0] - here[0], t[1] - here[1]];
+            return Math.abs(Math.atan2(came[0] * d[1] - came[1] * d[0], came[0] * d[0] + came[1] * d[1]));
+        };
+        const next = options.reduce((m, q) => (turn(q) < turn(m) ? q : m));
+        if (next === first)
+            return loop.length >= 3 ? loop : null;
+        if (loop.includes(next))
+            return null;
+        loop.push(next);
+        prev = at;
+        at = next;
+    }
+    return null;
 };
