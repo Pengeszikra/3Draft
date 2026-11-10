@@ -3511,7 +3511,8 @@
         e.preventDefault();
         return e.button === 2 ? xfCancel() : xfConfirm();
       }
-      if (e.ctrlKey || e.metaKey || (shiftOn && !editing)) {
+      if (editing ? (e.ctrlKey || e.metaKey) && e.shiftKey : e.ctrlKey || e.metaKey || shiftOn) {
+        // (in edit mode only Ctrl+Shift+click paints: Shift+click selects, and Ctrl alone paints nothing there)
         // Ctrl (Cmd on a Mac) + press paints the face, it never starts a rotation; twice quickly paints the whole model (counted here:
         // on a Mac Ctrl+click is a right click and sends no dblclick)
         const t = performance.now();
@@ -3590,7 +3591,7 @@
       pointer = null;
       redraw();
     });
-    stage.addEventListener('dblclick', (e) => (e.ctrlKey || e.metaKey || (shiftOn && !editing) ? undefined : reset())); // (Ctrl + double click is counted in pointerdown)
+    stage.addEventListener('dblclick', (e) => (e.ctrlKey || e.metaKey || shiftOn ? undefined : reset())); // (Ctrl + double click is counted in pointerdown)
     stage.addEventListener('contextmenu', (e) => {
       if (!editing && !e.ctrlKey) return;
       e.preventDefault(); // a right click cancels a grab / scale; Ctrl+click (a Mac right click) paints
