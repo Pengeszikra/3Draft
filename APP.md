@@ -195,3 +195,11 @@ The faces `5` builds are put a hair (0.4% of the object's radius) above the surf
 ## Paint by hovering (Alt+Ctrl)
 
 With the palette open, holding `Alt`+`Ctrl` (`Cmd` on a Mac) paints every face the pointer passes over with the selected material, no click needed, in edit mode as well (`scrub`, driven by the hit of each frame). One stroke, until Alt or Ctrl is let go, is one undo step.
+
+## Record and play
+
+`rec` / `play` in the console (sys group): a recording is JSON `{ format: '3draft-recording', version: 1, seed, view: [w, h], start: { materials, current, toggles }, duration, events: [{ t, e, ... }] }`. Events are the trusted `pointerdown/move/up/cancel`, `keydown/up`, `wheel`, `click`, `dblclick`, `contextmenu`, `input`, `change` (target as a CSS path, pointer positions in window pixels, modifiers `c s a m`). Mouse moves are thinned to ~12 ms, the newest dropped one is kept before the next other event.
+
+Play clears the scene (and the undo history), restores the palette and switches, seeds `Math.random`, then dispatches synthetic events at their times (gaps over 3 s cut, a frame is let to draw between a move and the next key so the cross is known). Pointer capture is faked while playing and real input is blocked. Prisms still flying in are waited for. The saved palette is not written during a play.
+
+API: `rec.start()`, `rec.stop()` → recording, `rec.play(data, { speed, cap })` → `{ done, total, stopped }`, `rec.stopPlay()`, `rec.scene()` (fingerprint), `rec.last`, `?play=<url>`.
