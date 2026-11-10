@@ -187,3 +187,7 @@ The Smooth switch (`N`) rounds the shading of shallow folds (up to 40°), but on
 ## Delete in edit mode
 
 `Shift+X` with a selection deletes only that (`deleteSelection`): points go with the faces and lines that use them (and are removed from the vertex list), a line goes with the faces on it, a face goes alone. One undo step. With nothing selected it deletes the object under the cross, as everywhere.
+
+## Sketch faces and paint, refined
+
+The faces `5` builds are put a hair (0.4% of the object's radius) above the surface, outward, with new points of their own, and take the selected material. Ctrl (Cmd) + press paints a face; two presses within 450 ms paint the whole model (counted in `pointerdown`, because a Ctrl+click on a Mac is a right click and never sends `dblclick`).
