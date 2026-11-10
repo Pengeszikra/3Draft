@@ -191,3 +191,7 @@ The Smooth switch (`N`) rounds the shading of shallow folds (up to 40°), but on
 ## Sketch faces and paint, refined
 
 The faces `5` builds are put a hair (0.4% of the object's radius) above the surface, outward, with new points of their own, and take the selected material. Ctrl (Cmd) + press paints a face; two presses within 450 ms paint the whole model (counted in `pointerdown`, because a Ctrl+click on a Mac is a right click and never sends `dblclick`).
+
+## Paint by hovering (Alt+Ctrl)
+
+With the palette open, holding `Alt`+`Ctrl` (`Cmd` on a Mac) paints every face the pointer passes over with the selected material, no click needed, in edit mode as well (`scrub`, driven by the hit of each frame). One stroke, until Alt or Ctrl is let go, is one undo step.
