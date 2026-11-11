@@ -1,0 +1,159 @@
+// Text as a model: a minimalist, blocky stroke font drawn on a 2 x 4 grid, every stroke a straight wooden wedge-simple bar.
+// The stroke is 20 % of the letter height (and so is the depth the letters stand out from the face).
+// Glyphs are data: lists of poly-lines; a poly-line of one point is a dot. Unknown characters are skipped, lower case is upper case.
+
+import { add, cross, dot, norm, scale, sub } from './vec.js';
+import { box, faceNormal, merge } from './mesh.js';
+import type { Mesh, Vec3 } from './types.js';
+
+type Pt = [number, number];
+const G = (...lines: Pt[][]): Pt[][] => lines;
+const O_: Pt[] = [[0, 0], [0, 4], [2, 4], [2, 0], [0, 0]];
+
+/** The font: x 0..2, y 0..4 (the centre line of the strokes); accents rise above 4. */
+export const GLYPHS: Record<string, Pt[][]> = {
+  A: G([[0, 0], [0, 4], [2, 4], [2, 0]], [[0, 2], [2, 2]]),
+  B: G(O_, [[0, 2], [2, 2]]),
+  C: G([[2, 4], [0, 4], [0, 0], [2, 0]]),
+  D: G([[0, 0], [0, 4], [1, 4], [2, 3], [2, 1], [1, 0], [0, 0]]),
+  E: G([[2, 4], [0, 4], [0, 0], [2, 0]], [[0, 2], [1.5, 2]]),
+  F: G([[2, 4], [0, 4], [0, 0]], [[0, 2], [1.5, 2]]),
+  G: G([[2, 4], [0, 4], [0, 0], [2, 0], [2, 2], [1, 2]]),
+  H: G([[0, 0], [0, 4]], [[2, 0], [2, 4]], [[0, 2], [2, 2]]),
+  I: G([[0, 4], [2, 4]], [[1, 4], [1, 0]], [[0, 0], [2, 0]]),
+  J: G([[2, 4], [2, 0], [0, 0], [0, 1]]),
+  K: G([[0, 0], [0, 4]], [[2, 4], [0, 2], [2, 0]]),
+  L: G([[0, 4], [0, 0], [2, 0]]),
+  M: G([[0, 0], [0, 4], [1, 2], [2, 4], [2, 0]]),
+  N: G([[0, 0], [0, 4], [2, 0], [2, 4]]),
+  O: G(O_),
+  P: G([[0, 0], [0, 4], [2, 4], [2, 2], [0, 2]]),
+  Q: G(O_, [[1, 1], [2, 0]]),
+  R: G([[0, 0], [0, 4], [2, 4], [2, 2], [0, 2]], [[1, 2], [2, 0]]),
+  S: G([[2, 4], [0, 4], [0, 2], [2, 2], [2, 0], [0, 0]]),
+  T: G([[0, 4], [2, 4]], [[1, 4], [1, 0]]),
+  U: G([[0, 4], [0, 0], [2, 0], [2, 4]]),
+  V: G([[0, 4], [1, 0], [2, 4]]),
+  W: G([[0, 4], [0.5, 0], [1, 2], [1.5, 0], [2, 4]]),
+  X: G([[0, 4], [2, 0]], [[0, 0], [2, 4]]),
+  Y: G([[0, 4], [1, 2], [2, 4]], [[1, 2], [1, 0]]),
+  Z: G([[0, 4], [2, 4], [0, 0], [2, 0]]),
+  '0': G(O_, [[0, 0], [2, 4]]),
+  '1': G([[0, 3], [1, 4], [1, 0]]),
+  '2': G([[0, 4], [2, 4], [2, 2], [0, 2], [0, 0], [2, 0]]),
+  '3': G([[0, 4], [2, 4], [2, 0], [0, 0]], [[0, 2], [2, 2]]),
+  '4': G([[0, 4], [0, 2], [2, 2]], [[2, 4], [2, 0]]),
+  '5': G([[2, 4], [0, 4], [0, 2], [2, 2], [2, 0], [0, 0]]),
+  '6': G([[2, 4], [0, 4], [0, 0], [2, 0], [2, 2], [0, 2]]),
+  '7': G([[0, 4], [2, 4], [0, 0]]),
+  '8': G(O_, [[0, 2], [2, 2]]),
+  '9': G([[2, 2], [0, 2], [0, 4], [2, 4], [2, 0], [0, 0]]),
+  '.': G([[1, 0]]),
+  ',': G([[1, 0], [0.5, -1]]),
+  ':': G([[1, 0]], [[1, 2.5]]),
+  '!': G([[1, 4], [1, 1.5]], [[1, 0]]),
+  '?': G([[0, 4], [2, 4], [2, 2], [1, 2], [1, 1]], [[1, 0]]),
+  '-': G([[0, 2], [2, 2]]),
+  _: G([[0, 0], [2, 0]]),
+  '+': G([[0, 2], [2, 2]], [[1, 3], [1, 1]]),
+  '/': G([[0, 0], [2, 4]]),
+  "'": G([[1, 4], [1, 3]]),
+  ' ': [],
+};
+// Hungarian (and other) accents: a letter plus a mark above it
+const ACUTE: Pt[][] = G([[0.7, 5.4], [1.3, 6.4]]);
+const DOUBLE: Pt[][] = G([[0, 5.4], [0.6, 6.4]], [[1.4, 5.4], [2, 6.4]]);
+const DOTS: Pt[][] = G([[0, 5.6]], [[2, 5.6]]);
+const ACCENTS: Record<string, [string, Pt[][]]> = {
+  Á: ['A', ACUTE], É: ['E', ACUTE], Í: ['I', ACUTE], Ó: ['O', ACUTE], Ú: ['U', ACUTE],
+  Ö: ['O', DOTS], Ü: ['U', DOTS], Ő: ['O', DOUBLE], Ű: ['U', DOUBLE],
+};
+
+/** Grid units: the centre line is 4 high, the stroke 1: the letter is 5 high, so the stroke is 20 % of it. */
+export const STROKE = 0.2;
+const CELL_H = 5;
+const ADVANCE = 4; // 3 wide letter + 1 gap
+const SPACE = 3;
+
+export interface TextFrame {
+  /** The lower left corner of the first letter. */
+  origin: Vec3;
+  /** The reading direction, the up direction and the outward normal of the face (a right-handed frame: right × up = normal). */
+  right: Vec3;
+  up: Vec3;
+  normal: Vec3;
+  /** The letter height: also the face height it was taken from. */
+  height: number;
+}
+
+/** The frame of a face: it starts in the lower left corner (up = world up on the face; on a floor or ceiling: away from the viewer), and its height is the face's height. */
+export const faceFrame = (mesh: Mesh, face: number): TextFrame => {
+  const f = mesh.faces[face]!;
+  const n = norm(faceNormal(f.v.map((i) => mesh.positions[i]!)));
+  let up: Vec3 = sub([0, 1, 0], scale(n, dot([0, 1, 0], n)));
+  if (Math.hypot(...up) < 1e-3) up = sub([0, 0, -1], scale(n, dot([0, 0, -1], n)));
+  up = norm(up);
+  const right = norm(cross(up, n));
+  let lo = Infinity, hi = -Infinity, left = Infinity;
+  for (const i of f.v) {
+    const p = mesh.positions[i]!;
+    const u = dot(p, up);
+    lo = Math.min(lo, u);
+    hi = Math.max(hi, u);
+    left = Math.min(left, dot(p, right));
+  }
+  const p0 = mesh.positions[f.v[0]!]!;
+  // the point of the face plane with the lowest up and the lowest right
+  const origin = add(add(scale(right, left), scale(up, lo)), scale(n, dot(p0, n)));
+  return { origin, right, up, normal: n, height: Math.max(1e-6, hi - lo) };
+};
+
+const strokesOf = (ch: string): { at: number; lines: Pt[][] }[] => {
+  const up = ch.toUpperCase();
+  const acc = ACCENTS[up];
+  if (acc) return [{ at: 0, lines: GLYPHS[acc[0]]! }, { at: 0, lines: acc[1] }];
+  const g = GLYPHS[up];
+  return g ? [{ at: 0, lines: g }] : [];
+};
+
+export interface TextOptions {
+  mat?: string;
+  color?: string;
+}
+
+/** The text as one mesh: every stroke a bar of stroke × stroke section standing out of the face by the stroke width. */
+export const textMesh = (text: string, frame: TextFrame, { mat, color = '#c8c8c8' }: TextOptions = {}): Mesh => {
+  const s = frame.height / CELL_H; // world units per grid unit
+  const bars: Mesh[] = [];
+  let x = 0;
+  const half = 0.5; // the outer edge of the letter starts half a stroke before the centre line
+  for (const ch of text) {
+    if (ch === ' ') {
+      x += SPACE;
+      continue;
+    }
+    for (const part of strokesOf(ch)) {
+      for (const line of part.lines) {
+        const pts = line.length === 1 ? [line[0]!, line[0]!] : line;
+        for (let i = 0; i + 1 < pts.length; i++) {
+          const [ax, ay] = pts[i]!;
+          const [bx, by] = pts[i + 1]!;
+          const dx = bx - ax;
+          const dy = by - ay;
+          const len = Math.hypot(dx, dy);
+          const dir: Vec3 = len ? add(scale(frame.right, dx / len), scale(frame.up, dy / len)) : frame.right;
+          const ez = frame.normal;
+          const ey = cross(ez, dir);
+          const cx = x + half + (ax + bx) / 2;
+          const cy = half + (ay + by) / 2;
+          const at = add(add(add(frame.origin, scale(frame.right, cx * s)), scale(frame.up, cy * s)), scale(ez, (1 * s) / 2));
+          const bar = box({ size: [(len + 1) * s, s, s], at, axes: [dir, ey, ez], color });
+          if (mat) bar.faces.forEach((f) => (f.mat = mat));
+          bars.push(bar);
+        }
+      }
+    }
+    x += ADVANCE;
+  }
+  return merge(...bars);
+};

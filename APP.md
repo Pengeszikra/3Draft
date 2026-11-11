@@ -230,3 +230,6 @@ The `scene` panel has one list for adding a scene: the examples, and under `save
 **View in the scene file.** A scene is saved with its view: `view: { edges, light, glow, smooth, studio, cam }` (the switches and the camera). It is applied when the scene stands alone (`merge` off, or nothing was in the scene); a merged scene keeps the view you have. The edges start off.
 
 **`?ply=name`** opens the scene saved here under that name at once, alone, with its view, in zen. Without such a saved scene the page starts as usual.
+
+## Text
+Edit mode, a face selected (3), **T**: asks for the words and makes a new model out of them (`text-xxxx`), standing out of the face in the active material. The face gives the lower-left start corner, the reading direction (world up on the face; on a floor: away from the viewer) and the letter height. The font is `src/text.ts`: data, poly-lines on a 2 × 4 grid, every stroke a bar; stroke and depth are 20 % of the letter height. The model carries `text` and `textFrame` (saved in scenes), and T on a text model fixes the words in place. The engine exports `textMesh`, `faceFrame`, `GLYPHS`.
