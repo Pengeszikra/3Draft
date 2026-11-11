@@ -209,3 +209,11 @@ API: `rec.start()`, `rec.stop()` → recording, `rec.play(data, { speed, cap })`
 ## Saw and boolean with concave and loose shells
 
 `saw` cuts a model of several shells shell by shell: every closed shell is sawn on its own, a shell the plane misses (or one that is not closed) goes whole to the side its middle is on; it still throws when there is no closed shell at all. The BSP of `boolean` / `saw` takes a concave face as the triangles of its ear clipping (`polysOf` in `src/csg.ts`). `E` on a free face (a sketch outline: none of its lines is shared with another face) keeps the old face as a reversed back, so what is pulled out is a closed shell that can be sawn.
+
+## Console layout, edge lines, palette
+
+Every console group hangs from the same top line. `edit` (1 2 3 4 5 Q / G S R E F ⇧X), `view` (freeze, view, edges, light, palette / store, smooth, studio, filmic) and `sys` (undo, reset, zen, help / rec, play) are two rows each (`.grp.rows` with `.row`). `light` is a switch: every press (or `L`) turns the sun a step of 45°, it is on while the sun is turned from its start. `rec` is red.
+
+`edges` (the E switch) works in the GPU views too: `render({ edges: true })` draws the face edges (`buildEdges` / `sceneEdges` in `src/gpu.ts`, each vertex pair once, cached per part, none above 300 000 faces) as 1-pixel `line-list` / `gl.LINES` after the solid faces, dark at 40% alpha, depth tested with a hair of nudge towards the eye so a line wins against the face it lies on.
+
+With the palette open (`body.pal`, desktop) the view, the top line and the console get narrower by the width of the panel (`--palR`) instead of staying behind it; on the phone layout the panel still covers the view.

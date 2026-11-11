@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { triangulate, buildVertices, pick, makeCamera, project, faceNormal } from './index.js';
+import { box, triangulate, buildVertices, pick, makeCamera, project, faceNormal } from './index.js';
 const area = (p, t) => {
     const n = faceNormal([p[t[0]], p[t[1]], p[t[2]]]);
     return Math.hypot(...n) / 2;
@@ -61,4 +61,9 @@ test('outlineOf follows the lines round an L (angle order would knot it) and thr
     const out2 = outlineOf(ring, withBridge, [0, 1, 2, 3, 4, 5]);
     assert.ok(out2 && out2.length >= 3);
     assert.equal(outlineOf(ring, [[0, 1], [1, 2]], [0, 1, 2]), null, 'an open chain is no outline');
+});
+test('buildEdges lists every edge of the faces once', async () => {
+    const { buildEdges } = await import('./index.js');
+    const cube = box({ size: [1, 1, 1] });
+    assert.equal(buildEdges(cube).length / 6, 12, 'a cube has 12 edges');
 });

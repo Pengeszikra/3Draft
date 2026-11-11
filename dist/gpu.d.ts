@@ -58,6 +58,8 @@ export interface GpuRenderOptions {
         fill?: number;
         rim?: number;
     };
+    /** Thin (1 pixel) dark lines along the edges of every face, hidden where the surface is. Off by default. */
+    edges?: boolean;
 }
 /** One copy of a prototype: its position, orthonormal frame and color. */
 export interface Instance {
@@ -78,6 +80,10 @@ export interface Gpu {
     device: Handle;
     adapter: Handle;
 }
+/** Line-list endpoints (x y z, x y z) of every edge of every face, each pair of vertices once. */
+export declare const buildEdges: (mesh: Mesh) => Float32Array;
+/** The edge lines of a scene: of its parts (kept while a part stays the same Mesh) or of the whole mesh. Empty when the scene is huge. */
+export declare const sceneEdges: (mesh: Mesh, parts?: Mesh[]) => Float32Array;
 /**
  * Column-major 4x4 matrix (for WebGPU, z in 0..1) that maps world points exactly
  * like camera.project(): the same pixels, plus a depth between near and far.

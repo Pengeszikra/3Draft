@@ -61,6 +61,8 @@ export interface GpuRenderOptions {
    * (right, softer) and a rim light from behind that edges the shape. Off by default.
    */
   studio?: boolean | { fill?: number; rim?: number };
+  /** Thin (1 pixel) dark lines along the edges of every face, hidden where the surface is. Off by default. */
+  edges?: boolean;
 }
 /** One copy of a prototype: its position, orthonormal frame and color. */
 export interface Instance {
@@ -81,6 +83,41 @@ export interface Gpu {
   device: Handle;
   adapter: Handle;
 }
+
+/** Line-list endpoints (x y z, x y z) of every edge of every face, each pair of vertices once. */
+export const buildEdges = (mesh: Mesh): Float32Array => {
+  const seen = new Set<number>();
+  const n = mesh.positions.length;
+  const out: number[] = [];
+  for (const f of mesh.faces)
+    f.v.forEach((a, i) => {
+      const b = f.v[(i + 1) % f.v.length];
+      const k = a < b ? a * n + b : b * n + a;
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(...mesh.positions[a], ...mesh.positions[b]);
+    });
+  return new Float32Array(out);
+};
+
+const EDGE_LIMIT = 300000; // faces: a bigger scene (a galaxy of super-stars) is drawn without edge lines
+const partEdges = new WeakMap<Mesh, Float32Array>();
+/** The edge lines of a scene: of its parts (kept while a part stays the same Mesh) or of the whole mesh. Empty when the scene is huge. */
+export const sceneEdges = (mesh: Mesh, parts?: Mesh[]): Float32Array => {
+  if (parts && parts.length) {
+    if (parts.reduce((n, m) => n + m.faces.length, 0) > EDGE_LIMIT) return new Float32Array(0);
+    const built = parts.map((m) => {
+      let e = partEdges.get(m);
+      if (!e) partEdges.set(m, (e = buildEdges(m)));
+      return e;
+    });
+    const all = new Float32Array(built.reduce((n, e) => n + e.length, 0));
+    let at = 0;
+    for (const e of built) (all.set(e, at), (at += e.length));
+    return all;
+  }
+  return mesh.faces.length > EDGE_LIMIT ? new Float32Array(0) : buildEdges(mesh);
+};
 
 const FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit) soft(1)
 
@@ -256,6 +293,16 @@ struct IIn {
   return o;
 }
 
+// the edge lines: 1 pixel, nudged a hair towards the eye so they win against the faces they lie on
+@vertex fn vsl(@location(0) pos : vec3<f32>) -> @builtin(position) vec4<f32> {
+  var p = u.vp * vec4<f32>(pos, 1.0);
+  p.z = p.z - 0.0002 * p.w;
+  return p;
+}
+@fragment fn fsl() -> @location(0) vec4<f32> {
+  return vec4<f32>(0.0, 0.0, 0.0, 0.4);
+}
+
 fn toLinear(c : vec3<f32>) -> vec3<f32> {
   return select(pow((c + 0.055) / 1.055, vec3<f32>(2.4)), c / 12.92, c <= vec3<f32>(0.04045));
 }
@@ -421,6 +468,18 @@ export const createGpu = async (
   const glassPipeline = make('vs', [meshLayout], true);
   // the instanced pipeline reads position and normal only from the prototype (locations 0, 1)
   const instPipeline = make('vsi', [{ ...meshLayout, attributes: meshLayout.attributes.slice(0, 2) }, instanceLayout]);
+  const linePipeline = device.createRenderPipeline({
+    layout: pipelineLayout,
+    vertex: { module, entryPoint: 'vsl', buffers: [{ arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] }] },
+    fragment: {
+      module,
+      entryPoint: 'fsl',
+      targets: [{ format, blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }],
+    },
+    primitive: { topology: 'line-list' },
+    depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'less-equal' },
+    multisample: { count: sampleCount },
+  });
   const uniforms = device.createBuffer({ size: 192, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   const bind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
   const instBind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
@@ -443,6 +502,12 @@ export const createGpu = async (
 
   let vertexBuffer: Handle = null;
   let capacity = 0;
+  let edgeBuffer: Handle = null;
+  let edgeCapacity = 0;
+  let edgeCount = 0; // vertices (two per line)
+  let edgeMesh: Mesh | null = null;
+  let edgeParts: Mesh[] | undefined;
+  let edgeOn = false;
   let glassBuffer: Handle = null; // the see-through triangles, sorted far to near for the eye
   let glassCapacity = 0;
   let glassTris: { c: Vec3; at: number }[] = []; // centroid and offset (in floats) in glassSource
@@ -467,7 +532,7 @@ export const createGpu = async (
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
@@ -525,6 +590,20 @@ export const createGpu = async (
       uploaded = mesh;
       uploadedPalette = palette;
     }
+    if (!edges) edgeCount = 0;
+    else if (mesh !== edgeMesh || parts !== edgeParts || !edgeOn) {
+      const e = sceneEdges(mesh, parts);
+      if (e.byteLength > edgeCapacity) {
+        edgeBuffer?.destroy();
+        edgeCapacity = Math.max(e.byteLength, 4096);
+        edgeBuffer = device.createBuffer({ size: edgeCapacity, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+      }
+      if (e.byteLength) device.queue.writeBuffer(edgeBuffer, 0, e);
+      edgeCount = e.length / 3;
+      edgeMesh = mesh;
+      edgeParts = parts;
+    }
+    edgeOn = edges;
     if (instances?.mesh && instances.mesh !== protoMesh) {
       const v = buildVertices(instances.mesh);
       protoBuffer?.destroy();
@@ -608,6 +687,12 @@ export const createGpu = async (
       pass.setVertexBuffer(0, protoBuffer);
       pass.setVertexBuffer(1, instBuffer);
       pass.draw(protoCount, instCount);
+    }
+    if (edgeCount) {
+      pass.setPipeline(linePipeline);
+      pass.setBindGroup(0, bind);
+      pass.setVertexBuffer(0, edgeBuffer);
+      pass.draw(edgeCount);
     }
     if (glassCount) {
       // after everything solid (and the instances): see-through faces, far to near

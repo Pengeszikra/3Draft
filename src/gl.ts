@@ -4,7 +4,7 @@
 
 import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
-import { buildVertices, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
+import { buildVertices, sceneEdges, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
 import type { Gpu, GpuRenderOptions, Pixels } from './gpu.js';
 import type { Palette } from './material.js';
 import type { Mesh, Vec3, ViewName, ViewSpec } from './types.js';
@@ -39,6 +39,20 @@ void main() {
   vN = normalize(aEx) * aNrm.x + normalize(aEy) * aNrm.y + normalize(aEz) * aNrm.z;
   vC = aCol; vW = w; vM = vec4(0.0, 0.7, 1.0, 0.0); vS = 0.0;
 }`;
+
+// the edge lines: 1 pixel, nudged a hair towards the eye so they win against the faces they lie on
+const GL_VERT_LINE = `#version 300 es
+precision highp float;
+uniform mat4 uVp;
+layout(location = 0) in vec3 aPos;
+void main() {
+  vec4 p = uVp * vec4(aPos, 1.0);
+  gl_Position = vec4(p.xy, p.z * 2.0 - p.w - 0.0004 * p.w, p.w);
+}`;
+const GL_FRAG_LINE = `#version 300 es
+precision mediump float;
+out vec4 outColor;
+void main() { outColor = vec4(0.0, 0.0, 0.0, 0.4); }`;
 
 const GL_FRAG = /* glsl */ `#version 300 es
 precision highp float;
@@ -157,6 +171,8 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     const g = (n: string) => gl.getUniformLocation(p, n);
     return { vp: g('uVp'), light: g('uLight'), sky: g('uSky'), ground: g('uGround'), eye: g('uEye'), mat: g('uMat'), fx: g('uFx'), fill: g('uFill'), rim: g('uRim') };
   };
+  const lineProg = program(GL_VERT_LINE, GL_FRAG_LINE);
+  const lineVp = gl.getUniformLocation(lineProg, 'uVp');
   const meshU = uni(meshProg);
   const instU = uni(instProg);
 
@@ -178,6 +194,15 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const glassBuf = buffer();
   const protoBuf = buffer();
   const instBuf = buffer();
+  const edgeBuf = buffer();
+  const edgeVao = vaoWith(() => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf);
+    attr(0, 3, 12, 0);
+  });
+  let edgeCount = 0;
+  let edgeMesh: Mesh | null = null;
+  let edgeParts: Mesh[] | undefined;
+  let edgeOn = false;
   const meshAttrs = (b: WebGLBuffer) => () => {
     gl.bindBuffer(gl.ARRAY_BUFFER, b);
     attr(0, 3, stride, 0);
@@ -222,7 +247,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false }: GpuRenderOptions = {},
   ): void => {
     const L = { ...defaultLight, ...light };
     const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
@@ -278,6 +303,15 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
       uploaded = mesh;
       uploadedPalette = palette;
     }
+    if (!edges) edgeCount = 0;
+    else if (mesh !== edgeMesh || parts !== edgeParts || !edgeOn) {
+      const e = sceneEdges(mesh, parts);
+      upload(edgeBuf, e);
+      edgeCount = e.length / 3;
+      edgeMesh = mesh;
+      edgeParts = parts;
+    }
+    edgeOn = edges;
     if (instances?.mesh && instances.mesh !== protoMesh) {
       const v = buildVertices(instances.mesh);
       upload(protoBuf, v);
@@ -343,6 +377,19 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
       setU(instU);
       gl.bindVertexArray(instVao);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, protoCount, instCount);
+    }
+    if (edgeCount) {
+      gl.useProgram(lineProg);
+      gl.uniformMatrix4fv(lineVp, false, vp);
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthFunc(gl.LEQUAL);
+      gl.depthMask(false);
+      gl.bindVertexArray(edgeVao);
+      gl.drawArrays(gl.LINES, 0, edgeCount);
+      gl.depthMask(true);
+      gl.depthFunc(gl.LESS);
+      gl.disable(gl.BLEND);
     }
     if (glassCount) {
       // after everything solid: see-through faces, far to near; they test depth but do not write it
