@@ -12,6 +12,8 @@ export interface Material {
     emit?: number;
     /** 0..1: soft, skin-like light. The light wraps round the form and a warm, scattered band shows where light turns to shade. */
     soft?: number;
+    /** A screen: a page shown on every four-cornered face of this material (the viewer puts an iframe over the picture, warped to the face). The renderers ignore it. */
+    url?: string;
 }
 export type Palette = Record<string, Material>;
 /** What a face is made of, all numbers filled in. */

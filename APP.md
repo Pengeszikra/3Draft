@@ -218,3 +218,7 @@ Every console group hangs from the same top line; `view` is first, so it stays p
 `edges` (the E switch) works in the GPU views too: `render({ edges: true })` draws the face edges (`buildEdges` / `sceneEdges` in `src/gpu.ts`, each vertex pair once, cached per part, none above 300 000 faces) as 1-pixel `line-list` / `gl.LINES` after the solid faces, dark at 40% alpha, depth tested with a hair of nudge towards the eye so a line wins against the face it lies on.
 
 With the palette open (`body.pal`, desktop) the view, the top line and the console get narrower by the width of the panel (`--palR`) instead of staying behind it; on the phone layout the panel still covers the view.
+
+## Screen material
+
+A material with an `url` (the palette's url field; the built-in `monitor` has one) is a screen: on every four-cornered face made of it the page runs in an iframe. The iframe is a DOM layer over the picture (`#screens`), warped onto the face with a CSS `matrix3d` (a perspective map of the face's four corners, up is the world up, the face's own up when it lies flat). Limits: it is not part of the 3D picture (no depth against other objects, so something standing in front does not hide it, and no light), it does not show in a VR view, faces seen from behind or behind the eye are hidden, at most 6 screens at once, the pointer goes through it (no clicking inside yet), and sites that forbid framing (X-Frame-Options, CSP) stay blank. Only http(s) addresses are taken. Faces with another number of corners are plain surfaces.
