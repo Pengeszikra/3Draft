@@ -1396,7 +1396,9 @@
         const x = pointer.x - r.left - (r.width - size) / 2;
         const y = pointer.y - r.top - (r.height - size) / 2;
         cam = makeCamera(view, scene, size, shown_fit);
-        hit = kernel ? kernel.pick(scene, cam, x, y) : pick(scene, cam, x, y);
+        // editing sees the far side of a face too: from inside a hull its walls face away, and they must still be selectable
+        const cull = !editing;
+        hit = kernel ? kernel.pick(scene, cam, x, y, { cull }) : pick(scene, cam, x, y, { cull });
         cam.at = { x, y };
         panelPointer = { x, y };
         if (hit) lastHitId = owner(hit.face)?.id ?? lastHitId;
