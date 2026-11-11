@@ -233,3 +233,6 @@ The `scene` panel has one list for adding a scene: the examples, and under `save
 
 ## Text
 Edit mode, a face selected (3), **T**: asks for the words and makes a new model out of them (`text-xxxx`), standing out of the face in the active material. The face gives the lower-left start corner, the reading direction (world up on the face; on a floor: away from the viewer) and the letter height. The font is `src/text.ts`: data, poly-lines on a 2 × 4 grid, every stroke a bar; stroke and depth are 20 % of the letter height. The model carries `text` and `textFrame` (saved in scenes), and T on a text model fixes the words in place. The engine exports `textMesh`, `faceFrame`, `GLYPHS`.
+
+## Lathe
+Edit mode, a face selected, **6**: the face's plane (its `faceFrame`) is the drawing board, its bottom line the axis. V puts contour points, Enter asks for the segments (>= 4, Enter on its own = 7) and `lathe(contour, frame, segments, { mat, color })` (`src/lathe.ts`) turns the `[u, r]` contour round the axis into one closed mesh with outward faces; a tip on the axis is a point, an end off it gets a disc. The result is a new model.

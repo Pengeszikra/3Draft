@@ -5,13 +5,15 @@
 // shading yet.
 
 export const name = '3draft' as const;
-export const version = '26.11.11030';
+export const version = '26.11.11031';
 
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export type { BoxOptions } from './mesh.js';
 export { validate } from './check.js';
 export { boolean, union, subtract, intersect, health, splitParts } from './csg.js';
+export { lathe } from './lathe.js';
+export type { LatheFrame } from './lathe.js';
 export { textMesh, faceFrame, GLYPHS, STROKE as TEXT_STROKE } from './text.js';
 export type { TextFrame, TextOptions } from './text.js';
 export { saw, planeThroughLine, planeThroughTriangle, sectionSegments } from './saw.js';
