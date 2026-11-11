@@ -4,10 +4,11 @@
 // a target cross that lies on the surface under the cursor. No textures, no
 // shading yet.
 export const name = '3draft';
-export const version = '26.11.11032';
+export const version = '26.11.11033';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export { validate } from './check.js';
 export { boolean, union, subtract, intersect, health, splitParts } from './csg.js';
+export { bevel } from './bevel.js';
 export { lathe } from './lathe.js';
 export { textMesh, faceFrame, GLYPHS, STROKE as TEXT_STROKE } from './text.js';
 export { saw, planeThroughLine, planeThroughTriangle, sectionSegments } from './saw.js';
