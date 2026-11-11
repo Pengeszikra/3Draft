@@ -1,5 +1,5 @@
 export declare const name: "3draft";
-export declare const version = "26.11.11009";
+export declare const version = "26.11.11010";
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export type { BoxOptions } from './mesh.js';
