@@ -4,7 +4,7 @@
 
 import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
-import { buildVertices, buildMarks, MARK_FLOATS, sceneEdges, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
+import { buildVertices, buildMarks, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
 import type { Gpu, GpuRenderOptions, Pixels } from './gpu.js';
 import type { Palette } from './material.js';
 import type { Mesh, Vec3, ViewName, ViewSpec } from './types.js';
@@ -100,6 +100,7 @@ const GL_FRAG = /* glsl */ `#version 300 es
 precision highp float;
 uniform vec4 uLight; uniform vec4 uSky; uniform vec4 uGround; uniform vec4 uEye; uniform vec4 uMat;
 uniform vec4 uFx; uniform vec4 uFill; uniform vec4 uRim;
+uniform vec4 uLP[16]; uniform vec4 uLC[16]; uniform float uLN;
 in vec3 vN; in vec3 vC; in vec3 vW; in vec4 vM; in float vS;
 out vec4 outColor;
 
@@ -107,6 +108,22 @@ vec3 toLinear(vec3 c) { return mix(pow((c + 0.055) / 1.055, vec3(2.4)), c / 12.9
 vec3 toSrgb(vec3 c) { return mix(1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, c * 12.92, vec3(lessThanEqual(c, vec3(0.0031308)))); }
 // ACES filmic curve (Narkowicz fit): highlights roll off softly instead of clipping
 vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), vec3(0.0), vec3(1.0)); }
+// Glow: every emitting cluster is a local light with a smooth falloff to zero at its reach
+vec3 glowAt(vec3 p, vec3 n) {
+  vec3 sum = vec3(0.0);
+  for (int k = 0; k < 16; k++) {
+    if (float(k) >= uLN) break;
+    vec3 d = uLP[k].xyz - p;
+    float dist = max(length(d), 0.001);
+    float x = dist / uLP[k].w;
+    float win = clamp(1.0 - x * x * x * x, 0.0, 1.0);
+    win = win * win;
+    float s = dist / (uLP[k].w * 0.25);
+    float wrap = max((dot(n, d / dist) + 0.3) / 1.3, 0.0);
+    sum += uLC[k].rgb * (win / (1.0 + s * s)) * wrap * 1.6;
+  }
+  return sum;
+}
 
 // Direct light, shared by both looks: x diffuse, y highlight, z scattered light (soft materials).
 vec3 lights(vec3 n, vec3 v, float shin, float soft) {
@@ -147,6 +164,7 @@ vec4 filmic(vec3 n, vec3 v) {
            + env * fres * (1.0 - rough) * 0.5
            + vec3(spec) * mix(vec3(1.0), albedo, metal);
   lit = lit + albedo * vec3(1.0, 0.38, 0.26) * lt.z * 0.5 * (1.0 - metal);
+  lit = lit + albedo * glowAt(vW, n) * (1.0 - metal);
   lit = lit + albedo * vM.w * uFx.z;
   return vec4(toSrgb(aces(lit * uFx.y)), vM.z);
 }
@@ -156,8 +174,9 @@ void main() {
   if (!gl_FrontFacing) n = -n;
   vec3 v = normalize(uEye.xyz - vW);
   if (uLight.w > 0.5) {
-    if (uFx.x > 0.5) { outColor = vec4(toSrgb(aces(toLinear(vC) * vM.w * uFx.z * uFx.y)), vM.z); return; }
-    outColor = vec4(vC * min(vM.w, 1.0), vM.z); return;
+    vec3 g = glowAt(vW, n) * (1.0 - vM.x);
+    if (uFx.x > 0.5) { outColor = vec4(toSrgb(aces(toLinear(vC) * (vM.w * uFx.z + g) * uFx.y)), vM.z); return; }
+    outColor = vec4(clamp(vC * (min(vM.w, 1.0) + g), vec3(0.0), vec3(1.0)), vM.z); return;
   }
   if (uFx.x > 0.5) { outColor = filmic(n, v); return; }
   float metal = vM.x;
@@ -173,6 +192,7 @@ void main() {
            + vC * env * metal * (1.0 - 0.6 * rough)
            + vec3(spec) * mix(vec3(1.0), vC, metal)
            + vC * vec3(1.0, 0.38, 0.26) * lt.z * 0.25 * (1.0 - metal);
+  lit = lit + vC * glowAt(vW, n) * (1.0 - metal);
   lit = mix(lit, vC * 1.15, min(vM.w, 1.0));
   outColor = vec4(clamp(lit, vec3(0.0), vec3(1.0)), vM.z);
 }`;
@@ -215,7 +235,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const instProg = program(GL_VERT_INST, GL_FRAG);
   const uni = (p: WebGLProgram) => {
     const g = (n: string) => gl.getUniformLocation(p, n);
-    return { vp: g('uVp'), light: g('uLight'), sky: g('uSky'), ground: g('uGround'), eye: g('uEye'), mat: g('uMat'), fx: g('uFx'), fill: g('uFill'), rim: g('uRim') };
+    return { vp: g('uVp'), light: g('uLight'), sky: g('uSky'), ground: g('uGround'), eye: g('uEye'), mat: g('uMat'), fx: g('uFx'), fill: g('uFill'), rim: g('uRim'), lp: g('uLP'), lc: g('uLC'), ln: g('uLN') };
   };
   const lineProg = program(GL_VERT_LINE, GL_FRAG_LINE);
   const lineVp = gl.getUniformLocation(lineProg, 'uVp');
@@ -307,7 +327,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false }: GpuRenderOptions = {},
   ): void => {
     const L = { ...defaultLight, ...light };
     const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
@@ -405,6 +425,14 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     const key = S ? rig(0.7, -0.5, 0.6) : norm(L.direction);
     const fill = rig(0.6, 0.8, 0.1);
     const rim = rig(-0.8, 0.3, 0.5);
+    const glowLights = glow ? sceneLights(mesh, parts, palette) : new Float32Array(0);
+    const glowN = glowLights.length / LIGHT_FLOATS;
+    const glowPos = new Float32Array(MAX_LIGHTS * 4);
+    const glowCol = new Float32Array(MAX_LIGHTS * 4);
+    for (let k = 0; k < glowN; k++) {
+      glowPos.set(glowLights.subarray(k * LIGHT_FLOATS, k * LIGHT_FLOATS + 4), k * 4);
+      glowCol.set(glowLights.subarray(k * LIGHT_FLOATS + 4, k * LIGHT_FLOATS + 7), k * 4);
+    }
     const setU = (u: ReturnType<typeof uni>) => {
       gl.uniformMatrix4fv(u.vp, false, vp);
       gl.uniform4f(u.light, key[0], key[1], key[2], unlit ? 1 : 0);
@@ -415,6 +443,11 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
       gl.uniform4f(u.fx, filmic ? 1 : 0, filmic ? filmic.exposure : 1, filmic ? filmic.emit : 0, S ? 1 : 0);
       gl.uniform4f(u.fill, fill[0], fill[1], fill[2], S ? S.fill : 0);
       gl.uniform4f(u.rim, rim[0], rim[1], rim[2], S ? S.rim : 0);
+      gl.uniform1f(u.ln, glowN);
+      if (glowN) {
+        gl.uniform4fv(u.lp, glowPos);
+        gl.uniform4fv(u.lc, glowCol);
+      }
     };
 
     gl.viewport(0, 0, px, px);

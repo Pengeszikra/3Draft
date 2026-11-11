@@ -10,7 +10,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 
 ## The view
 
-- **Starting view: WebGPU.** If WebGPU is unavailable, or the GPU device is lost, the app falls back to SVG by itself and says so in the footer (`9` or the `WebGPU` button switches by hand). SVG shows colour and transparency only; WebGPU also shows metal, roughness and emission. The **filmic look** (`C`) adds linear light, Fresnel and tone mapping, so highlights roll off softly and `lamp`-like materials glow; switch it off for the plain flat look. **Smooth** (`N`) shades faces that meet at less than 40 degrees as one round surface (box corners stay sharp), and **Studio** (`K`) lights the model with a key, a fill and a rim light that follow the camera; both are on at the start (WebGPU view only). The palette's `soft` slider gives a material skin-like light: it wraps round the form, with a warm band where light turns to shade.
+- **Starting view: WebGPU.** If WebGPU is unavailable, or the GPU device is lost, the app falls back to SVG by itself and says so in the footer (`9` or the `WebGPU` button switches by hand). SVG shows colour and transparency only; WebGPU also shows metal, roughness and emission. **Glow** (`C`) turns the emitting materials (`emit` above 0.05, like `lamp`) into local light sources: nearby emitting faces merge into one light (up to 16, the brightest kept) whose reach grows with the emitting area, and it lights the surfaces around it with a smooth falloff, without shadows. With `light` off only these lights (and the emission itself) show. The old filmic shader path (`tonemap` option) stays in the engine, the console no longer switches it. **Smooth** (`N`) shades faces that meet at less than 40 degrees as one round surface (box corners stay sharp), and **Studio** (`K`) lights the model with a key, a fill and a rim light that follow the camera; both are on at the start (WebGPU view only). The palette's `soft` slider gives a material skin-like light: it wraps round the form, with a warm band where light turns to shade.
 - **The drawing fills the stage.** On a desktop it covers the whole area; on a phone it is a little larger than the short side.
 - **Drag** rotates, **double click** resets the view, the arrow keys rotate too.
 - **The cross** follows the pointer and lies on the surface under it. The cursor is always a cross. On a phone, with no mouse, it aims at the middle.
@@ -36,7 +36,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `O` | boolean (see below) |
 | `H` | move gizmo (see below) |
 | `E` | edges and points on / off (also the `Edges` button) |
-| `C` | filmic look on / off (also the `Filmic` button; on at the start, WebGPU view only) |
+| `C` | glow on / off: emitting materials light their surroundings (also the `Glow` button; WebGPU and WebGL2 views) |
 | `N` | smooth shading on / off (the `Smooth` button; on at the start, WebGPU view only) |
 | `K` | studio light (key, fill, rim; follows the camera) on / off (the `Studio` button; on at the start, WebGPU view only) |
 | `9`, `L` | SVG / WebGPU, turn the light |
@@ -148,8 +148,8 @@ The material palette (`P`) and the help page (`?` or the console's ? button) are
 
 On a desktop window the 3D view fills the whole window. A dark **console** lies over its bottom edge (about two or three lines high, chamfered, with engraved group labels and a few LEDs); the readouts (yaw, pitch, speed, pick, objects, view, live) are one quiet line at the top, the title and version in the corners. The phone / installed-app layout is unchanged.
 
-- **Switches** (edges, view, filmic, smooth, studio, freeze) are real toggles; the action buttons are icons (hover for the tooltip); **?** opens the help, the key explainer with every mode and key.
-- **Two panels:** the standard console shows `view` (two rows of switches: freeze, view mode, edges, light, palette / store, smooth, studio, filmic, edit (red while editing); light off = no lighting, only emission and edges; a switch is blue when on), `scene` (examples, clear). Place, delete and target (M, ⇧X, T) have no console buttons any more: they act on what the pointer is over, so they live on the keys and the phone pad (the old buttons stay in the page, hidden, for the code that updates them); in edit mode these are replaced by an `edit` panel: points / lines / faces / saw (1–4), move / scale / extrude (G S E), delete (⇧X), done (Q). Each button presses its key.
+- **Switches** (edges, view, glow, smooth, studio, freeze) are real toggles; the action buttons are icons (hover for the tooltip); **?** opens the help, the key explainer with every mode and key.
+- **Two panels:** the standard console shows `view` (two rows of switches: freeze, view mode, edges, light, palette / store, smooth, studio, glow, edit (red while editing); light off = no lighting, only emission and edges; a switch is blue when on), `scene` (examples, clear). Place, delete and target (M, ⇧X, T) have no console buttons any more: they act on what the pointer is over, so they live on the keys and the phone pad (the old buttons stay in the page, hidden, for the code that updates them); in edit mode these are replaced by an `edit` panel: points / lines / faces / saw (1–4), move / scale / extrude (G S E), delete (⇧X), done (Q). Each button presses its key.
 - **Marks in the GPU:** in the WebGPU and WebGL2 views the editor's marks (points, lines, selection, sketch, saw, snap, gizmo axes, the cross) are drawn by the GPU itself (`marks` render option, `buildMarks`: round-capped screen-space segments over the picture), not by an SVG layer. The SVG view still draws them as SVG.
 - **Keys are data:** `ACTIONS` (what the program can do) and `KEYMAP` (which key does it) are plain objects, also on `window`; `bindKey('q', 'scene')` rebinds a key, `bindKey('q')` frees it. The console buttons call the actions directly, so they work whatever the keys are. A mode or a user setting can swap `KEYMAP` as a whole.
 
@@ -213,7 +213,7 @@ API: `rec.start()`, `rec.stop()` → recording, `rec.play(data, { speed, cap })`
 
 ## Console layout, edge lines, palette
 
-Every console group hangs from the same top line. `edit` (1 2 3 4 5 Q / G S R E F ⇧X), `view` (freeze, view, edges, light, palette / store, smooth, studio, filmic) and `sys` (undo, reset, zen, help / rec, play) are two rows each (`.grp.rows` with `.row`). `light` is a switch: every press (or `L`) turns the sun a step of 45°, it is on while the sun is turned from its start. `rec` is red.
+Every console group hangs from the same top line. `edit` (1 2 3 4 5 Q / G S R E F ⇧X), `view` (freeze, view, edges, light, palette / store, smooth, studio, glow) and `sys` (undo, reset, zen, help / rec, play) are two rows each (`.grp.rows` with `.row`). `light` is a switch: every press (or `L`) turns the sun a step of 45°, it is on while the sun is turned from its start. `rec` is red.
 
 `edges` (the E switch) works in the GPU views too: `render({ edges: true })` draws the face edges (`buildEdges` / `sceneEdges` in `src/gpu.ts`, each vertex pair once, cached per part, none above 300 000 faces) as 1-pixel `line-list` / `gl.LINES` after the solid faces, dark at 40% alpha, depth tested with a hair of nudge towards the eye so a line wins against the face it lies on.
 

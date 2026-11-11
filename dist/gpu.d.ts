@@ -62,6 +62,8 @@ export interface GpuRenderOptions {
     edges?: boolean;
     /** No lighting at all: a surface shows only its emission (flat colour times emit); lines and marks still draw. Off by default. */
     unlit?: boolean;
+    /** Glow: emitting materials light their surroundings as local lights (no shadows), up to 16 at a time. Off by default. */
+    glow?: boolean;
     /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
     marks?: Mark[];
 }
@@ -92,6 +94,15 @@ export declare const buildMarks: (marks: Mark[]) => Float32Array;
 export declare const buildEdges: (mesh: Mesh) => Float32Array;
 /** The edge lines of a scene: of its parts (kept while a part stays the same Mesh) or of the whole mesh. Empty when the scene is huge. */
 export declare const sceneEdges: (mesh: Mesh, parts?: Mesh[]) => Float32Array;
+/** Floats of one glow light: position (3), reach (1), colour times intensity (3), spare (1). */
+export declare const LIGHT_FLOATS = 8;
+export declare const MAX_LIGHTS = 16;
+/**
+ * Glow: the emitting faces of a scene act as local light sources. Faces close to each other (one cell of a grid) merge into
+ * one light at their weighted centre; the brightest MAX_LIGHTS stay. Each light has a reach that grows with the emitting area.
+ * Float32Array, LIGHT_FLOATS per light.
+ */
+export declare const sceneLights: (mesh: Mesh, parts?: Mesh[], palette?: Palette) => Float32Array;
 /**
  * Column-major 4x4 matrix (for WebGPU, z in 0..1) that maps world points exactly
  * like camera.project(): the same pixels, plus a depth between near and far.

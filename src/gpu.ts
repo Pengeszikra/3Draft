@@ -65,6 +65,8 @@ export interface GpuRenderOptions {
   edges?: boolean;
   /** No lighting at all: a surface shows only its emission (flat colour times emit); lines and marks still draw. Off by default. */
   unlit?: boolean;
+  /** Glow: emitting materials light their surroundings as local lights (no shadows), up to 16 at a time. Off by default. */
+  glow?: boolean;
   /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
   marks?: Mark[];
 }
@@ -149,6 +151,67 @@ export const sceneEdges = (mesh: Mesh, parts?: Mesh[]): Float32Array => {
     return all;
   }
   return mesh.faces.length > EDGE_LIMIT ? new Float32Array(0) : buildEdges(mesh);
+};
+
+/** Floats of one glow light: position (3), reach (1), colour times intensity (3), spare (1). */
+export const LIGHT_FLOATS = 8;
+export const MAX_LIGHTS = 16;
+const emitters = new WeakMap<Mesh, { palette: Palette | undefined; data: Float32Array }>();
+/** Every emitting face of a mesh: centre (3), area times emit (1), colour (3), area (1). */
+const emittersOf = (mesh: Mesh, palette?: Palette): Float32Array => {
+  const hit = emitters.get(mesh);
+  if (hit && hit.palette === palette) return hit.data;
+  const rows: number[] = [];
+  for (const face of mesh.faces) {
+    const s = surfaceOf(face, palette);
+    if (s.emit < 0.05) continue;
+    const pts = face.v.map((k) => mesh.positions[k]);
+    const area = Math.hypot(...(pts |> faceNormal)) || 0;
+    if (!area) continue;
+    const c = [0, 1, 2].map((k) => pts.reduce((a, p) => a + p[k], 0) / pts.length);
+    const [r, g, b] = colorOf(s.color);
+    rows.push(...c, area * s.emit, r, g, b, area);
+  }
+  const data = new Float32Array(rows);
+  emitters.set(mesh, { palette, data });
+  return data;
+};
+/**
+ * Glow: the emitting faces of a scene act as local light sources. Faces close to each other (one cell of a grid) merge into
+ * one light at their weighted centre; the brightest MAX_LIGHTS stay. Each light has a reach that grows with the emitting area.
+ * Float32Array, LIGHT_FLOATS per light.
+ */
+export const sceneLights = (mesh: Mesh, parts?: Mesh[], palette?: Palette): Float32Array => {
+  const list = (parts && parts.length ? parts : [mesh]).map((m) => emittersOf(m, palette)).filter((e) => e.length);
+  if (!list.length) return new Float32Array(0);
+  const lo = [Infinity, Infinity, Infinity];
+  const hi = [-Infinity, -Infinity, -Infinity];
+  for (const e of list) for (let i = 0; i < e.length; i += 8) for (let k = 0; k < 3; k++) (lo[k] = Math.min(lo[k], e[i + k]), (hi[k] = Math.max(hi[k], e[i + k])));
+  const cell = Math.max((Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 6) || 1, 1e-3);
+  const cells = new Map<string, { p: number; x: number; y: number; z: number; r: number; g: number; b: number; a: number }>();
+  for (const e of list) {
+    for (let i = 0; i < e.length; i += 8) {
+      const key = [0, 1, 2].map((k) => Math.floor((e[i + k] - lo[k]) / cell)).join(',');
+      const c = cells.get(key) ?? { p: 0, x: 0, y: 0, z: 0, r: 0, g: 0, b: 0, a: 0 };
+      const w = e[i + 3];
+      c.p += w;
+      c.x += e[i] * w;
+      c.y += e[i + 1] * w;
+      c.z += e[i + 2] * w;
+      c.r += e[i + 4] * w;
+      c.g += e[i + 5] * w;
+      c.b += e[i + 6] * w;
+      c.a += e[i + 7];
+      cells.set(key, c);
+    }
+  }
+  const top = [...cells.values()].sort((a, b) => b.p - a.p).slice(0, MAX_LIGHTS);
+  const out = new Float32Array(top.length * LIGHT_FLOATS);
+  top.forEach((c, i) => {
+    const reach = Math.max(2.5 * Math.sqrt(c.p), 0.05); // a 1 m x 1 m lamp at emit 1 reaches 2.5 m
+    out.set([c.x / c.p, c.y / c.p, c.z / c.p, reach, c.r / c.p, c.g / c.p, c.b / c.p, 0], i * LIGHT_FLOATS);
+  });
+  return out;
 };
 
 const FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit) soft(1)
@@ -281,7 +344,9 @@ struct U {
   fx : vec4<f32>,      // filmic (0 or 1), exposure, emission gain, studio (0 or 1)
   fill : vec4<f32>,    // studio: xyz direction towards the fill light, w intensity
   rim : vec4<f32>,     // studio: xyz direction towards the rim light, w intensity
-  res : vec4<f32>,     // marks: canvas pixels (x, y), device pixels per CSS pixel (z)
+  res : vec4<f32>,     // marks: canvas pixels (x, y), device pixels per CSS pixel (z); w: number of glow lights
+  lpos : array<vec4<f32>, 16>, // glow lights: xyz position, w reach
+  lcol : array<vec4<f32>, 16>, // rgb colour times intensity
 };
 @group(0) @binding(0) var<uniform> u : U;
 
@@ -412,6 +477,24 @@ fn lights(n : vec3<f32>, v : vec3<f32>, shin : f32, soft : f32) -> vec3<f32> {
   return vec3<f32>(diff, spec, scat);
 }
 
+// Glow: every emitting cluster is a local light with a smooth falloff to zero at its reach, a little wrap so shade edges soften
+fn glowAt(p : vec3<f32>, n : vec3<f32>) -> vec3<f32> {
+  var sum = vec3<f32>(0.0);
+  let cnt = u32(u.res.w);
+  for (var k = 0u; k < cnt; k = k + 1u) {
+    let d = u.lpos[k].xyz - p;
+    let dist = max(length(d), 0.001);
+    let reach = u.lpos[k].w;
+    let x = dist / reach;
+    var win = clamp(1.0 - x * x * x * x, 0.0, 1.0);
+    win = win * win;
+    let s = dist / (reach * 0.25);
+    let wrap = max((dot(n, d / dist) + 0.3) / 1.3, 0.0);
+    sum = sum + u.lcol[k].rgb * (win / (1.0 + s * s)) * wrap * 1.6;
+  }
+  return sum;
+}
+
 // The filmic path: the same light model, but in linear colour with HDR light and emission, then tone mapped.
 fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
   let metal = i.m.x;
@@ -433,6 +516,7 @@ fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
           + vec3<f32>(spec) * mix(vec3<f32>(1.0), albedo, metal);
   // emission adds light, so a lamp can go above 1.0 and still keep its colour after tone mapping
   lit = lit + albedo * vec3<f32>(1.0, 0.38, 0.26) * lt.z * 0.5 * (1.0 - metal); // soft: the warm scattered band
+  lit = lit + albedo * toLinear(vec3<f32>(1.0)) * glowAt(i.w, n) * (1.0 - metal);
   lit = lit + albedo * i.m.w * u.fx.z;
   return vec4<f32>(toSrgb(aces(lit * u.fx.y)), i.m.z);
 }
@@ -444,8 +528,9 @@ fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
   let v = normalize(u.eye.xyz - i.w);
   if (u.light.w > 0.5) {
     // unlit: no light in the scene, only what glows
-    if (u.fx.x > 0.5) { return vec4<f32>(toSrgb(aces(toLinear(i.c) * i.m.w * u.fx.z * u.fx.y)), i.m.z); }
-    return vec4<f32>(i.c * min(i.m.w, 1.0), i.m.z);
+    let g = glowAt(i.w, n) * (1.0 - i.m.x);
+    if (u.fx.x > 0.5) { return vec4<f32>(toSrgb(aces((toLinear(i.c) * (i.m.w * u.fx.z + g)) * u.fx.y)), i.m.z); }
+    return vec4<f32>(clamp(i.c * (min(i.m.w, 1.0) + g), vec3<f32>(0.0), vec3<f32>(1.0)), i.m.z);
   }
   if (u.fx.x > 0.5) { return filmic(i, n, l, v); }
   let metal = i.m.x;
@@ -463,6 +548,7 @@ fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
           + i.c * env * metal * (1.0 - 0.6 * rough)
           + vec3<f32>(spec) * mix(vec3<f32>(1.0), i.c, metal)
           + i.c * vec3<f32>(1.0, 0.38, 0.26) * lt.z * 0.25 * (1.0 - metal);
+  lit = lit + i.c * glowAt(i.w, n) * (1.0 - metal);
   lit = mix(lit, i.c * 1.15, min(i.m.w, 1.0)); // the plain look: emit 0..1 fades to flat colour, more does not add
   return vec4<f32>(clamp(lit, vec3<f32>(0.0), vec3<f32>(1.0)), i.m.z);
 }
@@ -587,7 +673,7 @@ export const createGpu = async (
     depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' },
     multisample: { count: sampleCount },
   });
-  const uniforms = device.createBuffer({ size: 208, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const uniforms = device.createBuffer({ size: 720, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   const bind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
   const instBind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
 
@@ -642,7 +728,7 @@ export const createGpu = async (
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
@@ -756,7 +842,7 @@ export const createGpu = async (
     // studio rig, relative to the camera: key upper left in front, fill from the right, rim from behind and above
     const rig = (f: number, r: number, up: number): Vec3 => norm([0, 1, 2].map((k) => -cam.f[k] * f + cam.r[k] * r + cam.u[k] * up) as Vec3);
     const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
-    const u = new Float32Array(52);
+    const u = new Float32Array(52 + MAX_LIGHTS * 8);
     u.set(viewProjection(cam, nearPlane(cam, mesh)), 0);
     u.set([...(S ? rig(0.7, -0.5, 0.6) : L.direction |> norm), unlit ? 1 : 0], 16);
     u.set([...L.sky, 0], 20);
@@ -766,7 +852,12 @@ export const createGpu = async (
     u.set([filmic ? 1 : 0, filmic ? filmic.exposure : 1, filmic ? filmic.emit : 0, S ? 1 : 0], 36);
     u.set([...rig(0.6, 0.8, 0.1), S ? S.fill : 0], 40);
     u.set([...rig(-0.8, 0.3, 0.5), S ? S.rim : 0], 44);
-    u.set([px, px, px / size, 0], 48);
+    const lights = glow ? sceneLights(mesh, parts, palette) : new Float32Array(0);
+    u.set([px, px, px / size, lights.length / LIGHT_FLOATS], 48);
+    for (let k = 0; k < lights.length / LIGHT_FLOATS; k++) {
+      u.set(lights.subarray(k * LIGHT_FLOATS, k * LIGHT_FLOATS + 4), 52 + k * 4);
+      u.set([...lights.subarray(k * LIGHT_FLOATS + 4, k * LIGHT_FLOATS + 7), 0], 52 + MAX_LIGHTS * 4 + k * 4);
+    }
     device.queue.writeBuffer(uniforms, 0, u);
     const markData = marks?.length ? buildMarks(marks) : null;
     markCount = markData ? markData.length / MARK_FLOATS : 0;
