@@ -3,6 +3,7 @@
 // Glyphs are data: lists of poly-lines; a poly-line of one point is a dot. Unknown characters are skipped, lower case is upper case.
 import { add, cross, dot, norm, scale, sub } from './vec.js';
 import { box, faceNormal, merge } from './mesh.js';
+import { health, union } from './csg.js';
 const G = (...lines) => lines;
 const O_ = [[0, 0], [0, 4], [2, 4], [2, 0], [0, 0]];
 /** The font: x 0..2, y 0..4 (the centre line of the strokes); accents rise above 4. */
@@ -98,10 +99,95 @@ const strokesOf = (ch) => {
     const g = GLYPHS[up];
     return g ? [{ at: 0, lines: g }] : [];
 };
+/** Faces that lie in one plane and touch along an edge become one face (the boolean cuts the big sides into pieces; a letter wants plain sides). */
+const mergeFlat = (mesh) => {
+    const P = mesh.positions;
+    let faces = mesh.faces.map((f) => ({ ...f, n: norm(faceNormal(f.v.map((i) => P[i]))) }));
+    const tryMerge = (a, b) => {
+        if (a.mat !== b.mat || a.color !== b.color || dot(a.n, b.n) < 1 - 1e-9)
+            return null;
+        const bAt = new Map();
+        b.v.forEach((v, i) => bAt.set(`${v},${b.v[(i + 1) % b.v.length]}`, i));
+        let shared = 0;
+        let start = -1;
+        a.v.forEach((u, i) => {
+            const w = a.v[(i + 1) % a.v.length];
+            if (bAt.has(`${w},${u}`)) {
+                shared++;
+                start = i;
+            }
+        });
+        if (!shared)
+            return null;
+        // the shared edge u -> v of a (v -> u in b): a from v round to u, then b from u round to v
+        const u = a.v[start];
+        const v = a.v[(start + 1) % a.v.length];
+        const ai = (start + 1) % a.v.length;
+        const A = a.v.map((_, k) => a.v[(ai + k) % a.v.length]); // v ... u
+        const bi = bAt.get(`${v},${u}`) + 1; // u in b
+        const B = b.v.map((_, k) => b.v[(bi + k) % b.v.length]); // u ... v
+        const out = [...A, ...B.slice(1, -1)];
+        // spikes: a vertex between two copies of the same neighbour (several shared edges in a row)
+        for (let again = true; again && out.length > 2;) {
+            again = false;
+            for (let i = 0; i < out.length; i++) {
+                if (out[(i + out.length - 1) % out.length] === out[(i + 1) % out.length]) {
+                    out.splice(i, 1);
+                    out.splice(i % out.length, 1);
+                    again = true;
+                    break;
+                }
+            }
+        }
+        if (out.length !== a.v.length + b.v.length - 2 * shared || new Set(out).size !== out.length)
+            return null;
+        // the engine's faces are convex (picking and painting assume it): a merge that would bend a face is not made
+        for (let i = 0; i < out.length; i++) {
+            const p0 = P[out[i]];
+            const p1 = P[out[(i + 1) % out.length]];
+            const p2 = P[out[(i + 2) % out.length]];
+            if (dot(cross(sub(p1, p0), sub(p2, p1)), a.n) < -1e-9)
+                return null;
+        }
+        return out;
+    };
+    for (let again = true; again;) {
+        again = false;
+        outer: for (let i = 0; i < faces.length; i++) {
+            for (let j = i + 1; j < faces.length; j++) {
+                const m = tryMerge(faces[i], faces[j]);
+                if (!m)
+                    continue;
+                faces = faces.filter((_, k) => k !== j);
+                faces[i] = { ...faces[i], v: m };
+                again = true;
+                break outer;
+            }
+        }
+    }
+    return { positions: P, faces: faces.map(({ n: _n, ...f }) => f) };
+};
+/** The bars of one letter fused into plain closed solids (no bar showing through another); if the fusing fails, the loose bars. */
+const solid = (bars) => {
+    if (bars.length < 2)
+        return merge(...bars);
+    try {
+        let m = bars[0];
+        for (const b of bars.slice(1))
+            m = union(m, b);
+        const h = health(m);
+        if (h.allSolid && h.skippedFaces === 0)
+            return mergeFlat(m);
+    }
+    catch {
+        /* fall through */
+    }
+    return merge(...bars);
+};
 /** The text as one mesh: every stroke a bar of stroke × stroke section standing out of the face by the stroke width. */
 export const textMesh = (text, frame, { mat, color = '#c8c8c8' } = {}) => {
     const s = frame.height / CELL_H; // world units per grid unit
-    const bars = [];
+    const letters = [];
     let x = 0;
     const half = 0.5; // the outer edge of the letter starts half a stroke before the centre line
     for (const ch of text) {
@@ -109,6 +195,7 @@ export const textMesh = (text, frame, { mat, color = '#c8c8c8' } = {}) => {
             x += SPACE;
             continue;
         }
+        const bars = [];
         for (const part of strokesOf(ch)) {
             for (const line of part.lines) {
                 const pts = line.length === 1 ? [line[0], line[0]] : line;
@@ -131,7 +218,8 @@ export const textMesh = (text, frame, { mat, color = '#c8c8c8' } = {}) => {
                 }
             }
         }
+        letters.push(solid(bars));
         x += ADVANCE;
     }
-    return merge(...bars);
+    return merge(...letters);
 };

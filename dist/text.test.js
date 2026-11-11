@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { box, bounds } from './mesh.js';
 import { faceFrame, textMesh, GLYPHS, STROKE } from './text.js';
 import { validate } from './check.js';
+import { health } from './csg.js';
 const front = (m) => m.faces.findIndex((f) => f.v.every((i) => m.positions[i][2] > 0.49));
 test('a face gives the frame: lower left corner, its height, outward', () => {
     const m = box({ size: [2, 1, 1] });
@@ -40,4 +41,18 @@ test('every glyph builds, spaces move on, accents and lower case work', () => {
     assert.equal(textMesh('abc', fr).faces.length, textMesh('ABC', fr).faces.length);
     assert.equal(textMesh('   ', fr).faces.length, 0);
     assert.ok(validate(textMesh('HI', fr)).ok ?? true);
+});
+test('a letter is plain solid: the bars are fused, the sides are whole', () => {
+    const m = box();
+    const fr = faceFrame(m, front(m));
+    assert.equal(textMesh('L', fr).faces.length, 10); // an L: two caps of two quads each, six sides
+    assert.equal(textMesh('T', fr).faces.length, 12);
+    for (const ch of Object.keys(GLYPHS))
+        if (ch !== ' ')
+            assert.deepEqual(validate(textMesh(ch, fr)).nonConvexFaces, [], `${ch}: faces stay convex`);
+    for (const ch of ['H', 'O', 'R', 'W', 'K']) {
+        const t = textMesh(ch, fr);
+        assert.ok(health(t).allSolid, ch);
+        assert.equal(health(t).parts.length, 1, ch);
+    }
 });
