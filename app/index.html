@@ -3135,10 +3135,12 @@
       for (const q of o.mesh.positions) q.forEach((c, i) => ((lo[i] = Math.min(lo[i], c)), (hi[i] = Math.max(hi[i], c))));
       return [(lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2];
     };
+    let wasEmpty = false; // the scene was empty when the edit began (the first cube): coming back must frame the cube, not the empty stage
     const enterEdit = () => {
       let o = (hit && owner(hit.face)) ?? lockedObject() ?? null;
       if (!o) {
         // nothing under the cross and no target: a new 1 x 1 x 1 m cube of the selected material, standing on the bench
+        wasEmpty = !scene.positions.length;
         const m = materials[current];
         const c = fit.center; // in front of the eye (or the middle of the view); the cube stands with its base middle there
         const mesh = box({ size: [1, 1, 1], at: [c[0], c[1] + 0.5, c[2]], color: m.color });
@@ -3146,7 +3148,8 @@
         const made = create(`prism-${shortId()}`, mesh);
         o = live(made) ?? made;
       }
-      bench = { seen: [o.id], origin: benchOrigin(o), base: history.length, cam: { center: [...fit.center], radius: fit.radius, dist: fit.dist, yaw, pitch } };
+      bench = { fresh: wasEmpty, seen: [o.id], origin: benchOrigin(o), base: history.length, cam: { center: [...fit.center], radius: fit.radius, dist: fit.dist, yaw, pitch } };
+      wasEmpty = false;
       gizmo = null;
       locked = null;
       editing = live(o) ?? o;
@@ -3169,7 +3172,8 @@
       xf = null;
       emode = 'draw';
       bench = null;
-      if (b) goTo({ ...b.cam });
+      if (b?.fresh) focused = false;
+      if (b) goTo(b.fresh ? { ...overview(), yaw: b.cam.yaw, pitch: b.cam.pitch } : { ...b.cam });
       rebuild();
       showBar();
       redraw();
