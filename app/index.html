@@ -2170,6 +2170,11 @@
     const change = (stale, mesh, wire = stale.wire) => {
       const obj = live(stale) ?? stale;
       delete obj.inst; // an edited instance is an ordinary object from now on
+      if (obj.textFrame && obj.mesh.positions.length === mesh.positions.length && mesh.positions.length) {
+        // a text model that is only moved takes the place its words stand in along
+        const d = mesh.positions[0].map((c, i) => c - obj.mesh.positions[0][i]);
+        if (mesh.positions.every((q, k) => q.every((c, i) => Math.abs(c - obj.mesh.positions[k][i] - d[i]) < 1e-9))) obj.textFrame = { ...obj.textFrame, origin: obj.textFrame.origin.map((c, i) => c + d[i]) };
+      }
       obj.mesh = mesh;
       obj.wire = wire;
       if (obj.host) save(obj, () => col.doc(obj.id).set(docOf(obj)));
@@ -3785,6 +3790,7 @@
       const m = src.mesh;
       const copy = create(`${src.name.replace(/-[a-z0-9]{4}$/, '')}-${shortId()}`, { ...m, positions: m.positions.map((q) => [...q]), faces: m.faces.map((f) => ({ ...f, v: [...f.v] })) });
       if (src.wire?.length) change(copy, copy.mesh, structuredClone(src.wire));
+      if (src.text !== undefined) Object.assign(live(copy) ?? copy, { text: src.text, textFrame: structuredClone(src.textFrame) }); // a copy of a text model is a text model
       grabObject(copy, true);
     };
     // Shift+X in edit mode with something selected deletes just that: a point takes the faces and lines that use it, a line the faces on
