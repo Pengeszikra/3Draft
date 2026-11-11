@@ -249,7 +249,9 @@ struct IIn {
   return p;
 }
 @fragment fn fsl() -> @location(0) vec4<f32> {
-  return vec4<f32>(0.0, 0.0, 0.0, 0.4);
+  // dark lines on the lit picture; with no light the picture is dark, so the lines turn light
+  let g = select(0.0, 0.85, u.light.w > 0.5);
+  return vec4<f32>(g, g, g, select(0.4, 0.55, u.light.w > 0.5));
 }
 
 // the marks: thick round-capped segments, expanded to screen-space quads, drawn over everything (no depth test)
@@ -356,6 +358,11 @@ fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
   if (!front) { n = -n; }
   let l = normalize(u.light.xyz);
   let v = normalize(u.eye.xyz - i.w);
+  if (u.light.w > 0.5) {
+    // unlit: no light in the scene, only what glows
+    if (u.fx.x > 0.5) { return vec4<f32>(toSrgb(aces(toLinear(i.c) * i.m.w * u.fx.z * u.fx.y)), i.m.z); }
+    return vec4<f32>(i.c * min(i.m.w, 1.0), i.m.z);
+  }
   if (u.fx.x > 0.5) { return filmic(i, n, l, v); }
   let metal = i.m.x;
   let rough = i.m.y;
@@ -544,7 +551,7 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
         depth = device.createTexture({ size: [n, n], format: 'depth24plus', sampleCount, usage: GPUTextureUsage.RENDER_ATTACHMENT });
         color = sampleCount > 1 ? device.createTexture({ size: [n, n], format, sampleCount, usage: GPUTextureUsage.RENDER_ATTACHMENT }) : null;
     };
-    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks } = {}, readback = false) => {
+    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false } = {}, readback = false) => {
         const L = { ...defaultLight, ...light };
         const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
         const M = { ...defaultMaterial, ...material };
@@ -665,7 +672,7 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
         const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
         const u = new Float32Array(52);
         u.set(viewProjection(cam, nearPlane(cam, mesh)), 0);
-        u.set([...(S ? rig(0.7, -0.5, 0.6) : norm(L.direction)), 0], 16);
+        u.set([...(S ? rig(0.7, -0.5, 0.6) : norm(L.direction)), unlit ? 1 : 0], 16);
         u.set([...L.sky, 0], 20);
         u.set([...L.ground, 0], 24);
         u.set([...cam.eye, 0], 28);

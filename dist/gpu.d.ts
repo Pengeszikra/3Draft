@@ -60,6 +60,8 @@ export interface GpuRenderOptions {
     };
     /** Thin (1 pixel) dark lines along the edges of every face, hidden where the surface is. Off by default. */
     edges?: boolean;
+    /** No lighting at all: a surface shows only its emission (flat colour times emit); lines and marks still draw. Off by default. */
+    unlit?: boolean;
     /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
     marks?: Mark[];
 }

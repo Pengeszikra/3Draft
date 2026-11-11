@@ -63,6 +63,8 @@ export interface GpuRenderOptions {
   studio?: boolean | { fill?: number; rim?: number };
   /** Thin (1 pixel) dark lines along the edges of every face, hidden where the surface is. Off by default. */
   edges?: boolean;
+  /** No lighting at all: a surface shows only its emission (flat colour times emit); lines and marks still draw. Off by default. */
+  unlit?: boolean;
   /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
   marks?: Mark[];
 }
@@ -331,7 +333,9 @@ struct IIn {
   return p;
 }
 @fragment fn fsl() -> @location(0) vec4<f32> {
-  return vec4<f32>(0.0, 0.0, 0.0, 0.4);
+  // dark lines on the lit picture; with no light the picture is dark, so the lines turn light
+  let g = select(0.0, 0.85, u.light.w > 0.5);
+  return vec4<f32>(g, g, g, select(0.4, 0.55, u.light.w > 0.5));
 }
 
 // the marks: thick round-capped segments, expanded to screen-space quads, drawn over everything (no depth test)
@@ -438,6 +442,11 @@ fn filmic(i : VOut, n : vec3<f32>, l : vec3<f32>, v : vec3<f32>) -> vec4<f32> {
   if (!front) { n = -n; }
   let l = normalize(u.light.xyz);
   let v = normalize(u.eye.xyz - i.w);
+  if (u.light.w > 0.5) {
+    // unlit: no light in the scene, only what glows
+    if (u.fx.x > 0.5) { return vec4<f32>(toSrgb(aces(toLinear(i.c) * i.m.w * u.fx.z * u.fx.y)), i.m.z); }
+    return vec4<f32>(i.c * min(i.m.w, 1.0), i.m.z);
+  }
   if (u.fx.x > 0.5) { return filmic(i, n, l, v); }
   let metal = i.m.x;
   let rough = i.m.y;
@@ -633,7 +642,7 @@ export const createGpu = async (
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
@@ -749,7 +758,7 @@ export const createGpu = async (
     const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
     const u = new Float32Array(52);
     u.set(viewProjection(cam, nearPlane(cam, mesh)), 0);
-    u.set([...(S ? rig(0.7, -0.5, 0.6) : L.direction |> norm), 0], 16);
+    u.set([...(S ? rig(0.7, -0.5, 0.6) : L.direction |> norm), unlit ? 1 : 0], 16);
     u.set([...L.sky, 0], 20);
     u.set([...L.ground, 0], 24);
     u.set([...cam.eye, 0], 28);

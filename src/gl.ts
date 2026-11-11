@@ -52,7 +52,8 @@ void main() {
 const GL_FRAG_LINE = `#version 300 es
 precision mediump float;
 out vec4 outColor;
-void main() { outColor = vec4(0.0, 0.0, 0.0, 0.4); }`;
+uniform float uUnlit;
+void main() { outColor = uUnlit > 0.5 ? vec4(0.85, 0.85, 0.85, 0.55) : vec4(0.0, 0.0, 0.0, 0.4); }`;
 
 // the marks: thick round-capped segments expanded to screen-space quads, over everything (see the WGSL vsm/fsm)
 const GL_VERT_MARK = `#version 300 es
@@ -154,6 +155,10 @@ void main() {
   vec3 n = normalize(vN);
   if (!gl_FrontFacing) n = -n;
   vec3 v = normalize(uEye.xyz - vW);
+  if (uLight.w > 0.5) {
+    if (uFx.x > 0.5) { outColor = vec4(toSrgb(aces(toLinear(vC) * vM.w * uFx.z * uFx.y)), vM.z); return; }
+    outColor = vec4(vC * min(vM.w, 1.0), vM.z); return;
+  }
   if (uFx.x > 0.5) { outColor = filmic(n, v); return; }
   float metal = vM.x;
   float rough = vM.y;
@@ -214,6 +219,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   };
   const lineProg = program(GL_VERT_LINE, GL_FRAG_LINE);
   const lineVp = gl.getUniformLocation(lineProg, 'uVp');
+  const lineUnlit = gl.getUniformLocation(lineProg, 'uUnlit');
   const markProg = program(GL_VERT_MARK, GL_FRAG_MARK);
   const markVp = gl.getUniformLocation(markProg, 'uVp');
   const markRes = gl.getUniformLocation(markProg, 'uRes');
@@ -301,7 +307,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false }: GpuRenderOptions = {},
   ): void => {
     const L = { ...defaultLight, ...light };
     const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
@@ -401,7 +407,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     const rim = rig(-0.8, 0.3, 0.5);
     const setU = (u: ReturnType<typeof uni>) => {
       gl.uniformMatrix4fv(u.vp, false, vp);
-      gl.uniform4f(u.light, key[0], key[1], key[2], 0);
+      gl.uniform4f(u.light, key[0], key[1], key[2], unlit ? 1 : 0);
       gl.uniform4f(u.sky, L.sky[0], L.sky[1], L.sky[2], 0);
       gl.uniform4f(u.ground, L.ground[0], L.ground[1], L.ground[2], 0);
       gl.uniform4f(u.eye, cam.eye[0], cam.eye[1], cam.eye[2], 0);
@@ -435,6 +441,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     if (edgeCount) {
       gl.useProgram(lineProg);
       gl.uniformMatrix4fv(lineVp, false, vp);
+      gl.uniform1f(lineUnlit, unlit ? 1 : 0);
       gl.enable(gl.BLEND);
       gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.depthFunc(gl.LEQUAL);
