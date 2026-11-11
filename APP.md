@@ -1,5 +1,68 @@
 # 3Draft viewer: how to use it
 
+> **Developer handover (read this first if you are the next model or person working here).** Everything below the line is the user manual of the viewer; this block is what you need to *change* it.
+
+## Working on 3Draft: handover
+
+3Draft is a minimalist, AI-first 3D engine (TypeScript, built to plain JS) plus a one-file viewer. It is developed together with two sibling repos by two collaborators (models) taking turns on the same project:
+
+| Repo | Branch | What it is |
+|---|---|---|
+| `Pengeszikra/3Draft` (this) | `main` | engine `src/*.ts` -> committed `dist/`, viewer `app/index.html`, docs `app/help.md` + this file |
+| `Pengeszikra/Spider-Paint` | `master` | static PWA, the viewer re-skinned; loads the engine from jsDelivr pinned to a 3Draft commit. See its `APP.md` |
+| `Pengeszikra/five-percent` | `main` | VR competition entry (Meta Start Developer Competition 2026). See its `APP.md` |
+
+The owner is Hungarian and talks to the assistant in Hungarian; code, comments, commit messages and docs are English.
+
+### Layout
+
+- `src/*.ts` engine, one concern per file, a `*.test.ts` beside it: `mesh/vec/types` (data), `edit` (`reshape`, `moveVertexSet`, `extrudeFace`, `outlineOf`), `saw`, `csg` (booleans), `bevel`, `lathe`, `text` (stroke font -> solid letters), `pick` (+ WASM kernel from `kernel/pick.hexaw`), `camera`, `svg`/`gpu`/`gl` renderers, `check` (`validate`, `health`), `material`, `place`, `wire`. Everything public is exported from `src/index.ts`.
+- `dist/` is **committed** (the viewer and jsDelivr read it). Never edit it by hand; `npm run build` makes it.
+- `app/index.html` the whole viewer in one file (inline module script, no bundler). `app/help.md` is the in-app help page (Markdown). `app/serve.js` a localhost static server.
+- `examples/` generator scripts and `*.scene.json` scenes; `mcp/` an MCP server that lets an LLM build live in the viewer; `tools/blend` Blender helpers.
+
+### Mesh rules the engine relies on
+
+`{ positions: Vec3[], faces: [{ v: number[], color?, mat? }] }`, y up. Faces are **planar, convex and CCW seen from outside**. A solid is *closed* (every edge used twice, once per direction). `validate(mesh)` reports `closed`, `inside_out`, `nonConvexFaces`; run it on anything you generate. New operations must keep these rules (split non-convex results, keep outward winding, keep `color`/`mat` on the faces they came from).
+
+### Commands
+
+```sh
+npm test         # builds, then runs every dist/**/*.test.js (+ examples, mcp, scripts); must be green
+npm run build    # src -> dist (scripts/build.mjs); build:check verifies dist is current
+npm run bump     # date version YY.M.DNNN into package.json + src/version.ts (once per change shipped)
+npm run app      # viewer at http://localhost:5173/app/
+```
+
+### The release routine (do this after every change that ships)
+
+1. `npm run bump`, `npm run build`, `npm test`.
+2. Commit and push `main`. Commit messages are short and end with the attribution lines your session was given (`Co-Authored-By: ...`, `Claude-Session: ...`).
+3. In `Spider-Paint`: `git pull`, `node scripts/sync.mjs ../3draft` (check it prints `Spider Paint <- 3Draft <hash>`), raise `CACHE` in `sw.js` by one, commit, push `master`.
+4. If `sync.mjs` stops with `step "..." did not match`, you changed a line the sync rewrites: fix the step in `Spider-Paint/scripts/sync.mjs`, never hand-edit its `index.html`.
+5. Document user-visible features in `app/help.md` and a section below; engine API in the README.
+
+### How the viewer is organised (`app/index.html`)
+
+- Camera: `fit`, `gcam`, fly keys, FOV easing (`eyeInScene`). Edit mode: `emode` (`draw|vertex|edge|face|saw|lathe`), `sel {kind, items}` (edges are sorted `[a,b]`, faces keyed by `faceKey`), `editing` is the object being edited; mutate it only through `commit/change/create`, which also push an undo step onto `history`.
+- Modal transforms share one state `xf` (`grab|rotate|scale|loop|bevel`): `startXf(kind, extra)` -> `xfUpdate()` on every pointer move/key -> `xfConfirm()` (one `change` + one undo entry) or `xfCancel()`. A new modal tool = a new kind plus a branch in `xfUpdate`. Typed digits give an exact value; `X/Y/Z` lock an axis. Wrap multi-object edits in `asOneStep`.
+- Keys are handled in `editKey`; always `preventDefault` for Ctrl combos the browser owns (Ctrl+R/E/B/D).
+- A text model carries `text` + `textFrame`; double click re-opens the text box.
+
+### Testing the viewer without a human
+
+Playwright Chromium with software GL works: launch with `--use-gl=swiftshader --enable-unsafe-swiftshader`, open `http://localhost:5173/app/?gl&debug`, blur the focused button (`document.activeElement.blur()`) or shortcuts are swallowed, then drive keys/mouse. `?debug` exposes `window.__3draft` with `state()`, `edit()` (mode, selection size, active `xf`), `objects()`, `meshes()`, `screen(kind, i)` (stage pixel of a face/vertex/edge to click) and `load(scene)`. Press `q` for edit mode, `1/2/3` points/lines/faces, `u` undo. A static server started in one shell call may die before the next: start it and run the test in the same call. Recorded sessions (`?play=<url>`, `rec`/`play` in the console) replay human input, see "Record and play".
+
+### Conventions
+
+- No new runtime dependencies. The engine is dependency-free.
+- Prefer exact, small, tested geometry functions in `src/` over logic in the viewer; the viewer only wires UI.
+- Do not start roadmap items (play mode, store/assets, physics, walk/drive, extra views, double-sided faces, real-time AI modelling) without the owner confirming.
+- Hand-offs: leave the tree committed and pushed, tests green, and say in your last message what changed and what is half done.
+
+---
+
+
 The viewer is the human side of 3Draft: a person and an AI look at, and edit, the same scene. The engine is described in the [README](README.md); this page is only about the app.
 
 ```sh
