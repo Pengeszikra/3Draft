@@ -1,4 +1,4 @@
-// Betterman moves: the scene in betterman.json (one body mesh, the hair as a second object, edited by hand in the
+// Betterman moves: the scene in betterman.scene.json (one body mesh, the hair as a second object, edited by hand in the
 // viewer) has no skeleton stored in it. humanoidRig() reads one off the shape, posed() turns its joints.
 // `node examples/betterman.js` writes examples/out/betterman.poses.svg and examples/out/betterman.walk.html
 // (the flip book is not committed: it is 1.3 MB of frames).
@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { humanoidRig, posed, walkPose, HUMANOID_POSES, renderView, merge, orbit, validate } from '../dist/index.js';
 
 export const betterman = () => {
-  const scene = JSON.parse(readFileSync(new URL('./betterman.json', import.meta.url), 'utf8'));
+  const scene = JSON.parse(readFileSync(new URL('./betterman.scene.json', import.meta.url), 'utf8'));
   const meshes = scene.objects.map((o) => o.mesh);
   return { scene, meshes, rig: humanoidRig(meshes) };
 };

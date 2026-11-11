@@ -90,9 +90,9 @@ const custom = posed(meshes, rig, { shoulderL: [0, 0, 1.2], elbowL: [-0.8, 0, 0]
 - **A pose** is `{ jointName: [rx, ry, rz] }` in radians, relative to the bind pose, applied x, y, z in the parent's space. For hanging limbs: hip x < 0 swings the leg forward, knee x > 0 bends it, elbow x < 0 bends it, head x > 0 nods, `shoulderL` z > 0 / `shoulderR` z < 0 lifts the arm. `posed` only moves the points: faces keep their order, colour and material, and a face that the move bends (or folds) becomes triangles, so the result is still planar, convex and closed. `{ ground: true }` keeps the lowest point on the floor, `{ move }` shifts the figure. `posedJoints` gives the joint positions in a pose.
 - **Ready poses:** `HUMANOID_POSES` (`bind`, `tpose`, `wave`, `sit`, `phone`) and `walkPose(t, { stride, run })`, one frame of a walk or run on the spot, `t` from 0 to 1.
 
-`examples/betterman.js` moves the figure of `examples/betterman.json` (one body mesh with per-face materials, the hair as a second object) and writes a pose sheet and a walk flip book to `examples/out/`.
+`examples/betterman.js` moves the figure of `examples/betterman.scene.json` (one body mesh with per-face materials, the hair as a second object) and writes a pose sheet and a walk flip book to `examples/out/`.
 
-Limits for now: the weights are per mesh as loaded, so recompute the rig after an edit; the walk is on the spot and the feet slide; hands have no fingers of their own; the viewer does not use any of this yet.
+Limits for now: the weights are per mesh as loaded, so recompute the rig after an edit; the walk is on the spot and the feet slide; hands have no fingers of their own. In the viewer this is pose mode (`J`, see [APP.md](APP.md)).
 
 ### TypeScript and `|>`
 
@@ -152,6 +152,7 @@ A single `app/index.html` plus a dependency-free static server. Person and AI wo
 | `O` | boolean: mark two objects, then pick the operation |
 | `X` | delete the object under the cross |
 | `H` | move gizmo: 1st world axes, 2nd own axes, 3rd off |
+| `J` | pose mode on a figure: `1`-`5` poses, `6` walk, `7` run, `Enter` keeps, `J` / `Esc` leaves |
 | `U` / `Backspace` | undo |
 
 **Material and look**
