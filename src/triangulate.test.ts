@@ -75,3 +75,17 @@ test('buildEdges lists every edge of the faces once', async () => {
   const cube = box({ size: [1, 1, 1] });
   assert.equal(buildEdges(cube).length / 6, 12, 'a cube has 12 edges');
 });
+
+test('buildMarks: one instance per segment, a lone point is a zero-length segment, colour and opacity become rgba', async () => {
+  const { buildMarks, MARK_FLOATS } = await import('./gpu.js');
+  const out = buildMarks([
+    { color: '#ff0000', width: 4, opacity: 0.5, lines: [[[0, 0, 0], [1, 0, 0], [1, 1, 0]], [[2, 2, 2], [2, 2, 2]]] },
+    { lines: [[[3, 3, 3]]] },
+  ]);
+  assert.equal(out.length, 4 * MARK_FLOATS);
+  assert.deepEqual([...out.subarray(0, 11)], [0, 0, 0, 1, 0, 0, 1, 0, 0, 0.5, 4]);
+  assert.deepEqual([...out.subarray(MARK_FLOATS, MARK_FLOATS + 6)], [1, 0, 0, 1, 1, 0]);
+  const last = out.subarray(3 * MARK_FLOATS);
+  assert.deepEqual([...last.subarray(0, 6)], [3, 3, 3, 3, 3, 3]);
+  assert.equal(last[10], 2);
+});

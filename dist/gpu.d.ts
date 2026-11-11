@@ -1,5 +1,5 @@
 import type { Palette } from './material.js';
-import type { Axes, Camera, Fit, Mesh, Vec3, ViewName, ViewSpec } from './types.js';
+import type { Axes, Camera, Fit, Mark, Mesh, Vec3, ViewName, ViewSpec } from './types.js';
 type Handle = any;
 export interface GpuLight {
     /** Direction towards the light, world space. */
@@ -60,6 +60,8 @@ export interface GpuRenderOptions {
     };
     /** Thin (1 pixel) dark lines along the edges of every face, hidden where the surface is. Off by default. */
     edges?: boolean;
+    /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
+    marks?: Mark[];
 }
 /** One copy of a prototype: its position, orthonormal frame and color. */
 export interface Instance {
@@ -80,6 +82,10 @@ export interface Gpu {
     device: Handle;
     adapter: Handle;
 }
+/** Floats of one mark segment: a (xyz), b (xyz), colour (rgba), width in CSS pixels, one spare. */
+export declare const MARK_FLOATS = 12;
+/** One instance per segment of every polyline of every mark (a zero-length segment is a round point). */
+export declare const buildMarks: (marks: Mark[]) => Float32Array;
 /** Line-list endpoints (x y z, x y z) of every edge of every face, each pair of vertices once. */
 export declare const buildEdges: (mesh: Mesh) => Float32Array;
 /** The edge lines of a scene: of its parts (kept while a part stays the same Mesh) or of the whole mesh. Empty when the scene is huge. */

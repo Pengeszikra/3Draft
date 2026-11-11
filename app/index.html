@@ -1325,6 +1325,8 @@
         const bg = getComputedStyle(document.documentElement).getPropertyValue('--panel').trim();
         const rgb = /^#[0-9a-f]{6}$/i.test(bg) ? [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16) / 255) : undefined;
         const a = lightAngle;
+        const cur = getComputedStyle(stage).getPropertyValue('--cursor').trim();
+        const gpuMarks = marks.map((m) => (m.color ? m : { ...m, color: /^#[0-9a-f]{6}$/i.test(cur) ? cur : '#0b7285' }));
         renderGpu = (readback = false) =>
           gpu[readback ? 'pixels' : 'render'](scene, view, {
             palette: paletteMap,
@@ -1337,6 +1339,7 @@
             smooth: smooth ? 40 : 0,
             studio,
             edges: !stage.classList.contains('clean'),
+            marks: gpuMarks,
             light: { direction: [Math.sin(a) * 0.6, 0.8, Math.cos(a) * 0.6] },
           });
         if (vr) {
@@ -1359,7 +1362,7 @@
           for (const n of eyeNotes) n.textContent = [...flightEl.children].map((c) => c.textContent).filter(Boolean).join('  ');
         } else renderGpu();
         layer.className = 'over';
-        layer.innerHTML = vr ? '' : renderView(nothing, view, { size, fit: shown_fit, marks });
+        layer.innerHTML = ''; // the marks are drawn by the GPU itself
       } else {
         layer.className = '';
         layer.innerHTML = renderView(shown, view, { size, fit: shown_fit, marks, occlude: true, palette: paletteMap });

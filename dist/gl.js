@@ -3,7 +3,7 @@
 // It also runs on a software GL (SwiftShader), so a frame can be checked on a machine without a GPU.
 import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
-import { buildVertices, sceneEdges, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
+import { buildVertices, buildMarks, MARK_FLOATS, sceneEdges, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
 const GL_FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit) soft(1)
 const GL_INSTANCE_FLOATS = 15; // at(3) ex(3) ey(3) ez(3) color(3)
 const GL_COMMON = /* glsl */ `#version 300 es
@@ -44,6 +44,46 @@ const GL_FRAG_LINE = `#version 300 es
 precision mediump float;
 out vec4 outColor;
 void main() { outColor = vec4(0.0, 0.0, 0.0, 0.4); }`;
+// the marks: thick round-capped segments expanded to screen-space quads, over everything (see the WGSL vsm/fsm)
+const GL_VERT_MARK = `#version 300 es
+precision highp float;
+uniform mat4 uVp; uniform vec3 uRes;
+layout(location = 0) in vec3 aA; layout(location = 1) in vec3 aB; layout(location = 2) in vec4 aCol; layout(location = 3) in float aW;
+out vec2 vQ; out vec4 vCol; out vec2 vH;
+void main() {
+  vec4 ca = uVp * vec4(aA, 1.0);
+  vec4 cb = uVp * vec4(aB, 1.0);
+  float e = 0.001;
+  gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  if (ca.w < e && cb.w < e) return;
+  if (ca.w < e) ca = mix(ca, cb, (e - ca.w) / (cb.w - ca.w));
+  if (cb.w < e) cb = mix(cb, ca, (e - cb.w) / (ca.w - cb.w));
+  vec2 half_ = uRes.xy * 0.5;
+  vec2 pa = ca.xy / ca.w * half_;
+  vec2 pb = cb.xy / cb.w * half_;
+  float len = length(pb - pa);
+  vec2 d = len > 0.0001 ? (pb - pa) / len : vec2(1.0, 0.0);
+  float hw = aW * uRes.z * 0.5;
+  vec2 n = vec2(-d.y, d.x);
+  float cx[6] = float[6](0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
+  float cy[6] = float[6](-1.0, -1.0, 1.0, -1.0, 1.0, 1.0);
+  float ext = hw + 1.0;
+  float along = mix(-ext, len + ext, cx[gl_VertexID]);
+  float across = cy[gl_VertexID] * ext;
+  vec2 pos = pa + d * along + n * across;
+  gl_Position = vec4(pos / half_, 0.0, 1.0);
+  vQ = vec2(along, across); vCol = aCol; vH = vec2(len, hw);
+}`;
+const GL_FRAG_MARK = `#version 300 es
+precision highp float;
+in vec2 vQ; in vec4 vCol; in vec2 vH;
+out vec4 outColor;
+void main() {
+  float dx = max(max(-vQ.x, vQ.x - vH.x), 0.0);
+  float dist = length(vec2(dx, vQ.y));
+  float cov = clamp(vH.y + 0.5 - dist, 0.0, 1.0);
+  outColor = vec4(vCol.rgb, vCol.a * cov);
+}`;
 const GL_FRAG = /* glsl */ `#version 300 es
 precision highp float;
 uniform vec4 uLight; uniform vec4 uSky; uniform vec4 uGround; uniform vec4 uEye; uniform vec4 uMat;
@@ -160,6 +200,9 @@ export const createGl = async (canvas, { onError } = {}) => {
     };
     const lineProg = program(GL_VERT_LINE, GL_FRAG_LINE);
     const lineVp = gl.getUniformLocation(lineProg, 'uVp');
+    const markProg = program(GL_VERT_MARK, GL_FRAG_MARK);
+    const markVp = gl.getUniformLocation(markProg, 'uVp');
+    const markRes = gl.getUniformLocation(markProg, 'uRes');
     const meshU = uni(meshProg);
     const instU = uni(instProg);
     const stride = GL_FLOATS * 4;
@@ -185,6 +228,16 @@ export const createGl = async (canvas, { onError } = {}) => {
         gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf);
         attr(0, 3, 12, 0);
     });
+    const markBuf = buffer();
+    const markVao = vaoWith(() => {
+        gl.bindBuffer(gl.ARRAY_BUFFER, markBuf);
+        const s = MARK_FLOATS * 4;
+        attr(0, 3, s, 0, 1);
+        attr(1, 3, s, 12, 1);
+        attr(2, 4, s, 24, 1);
+        attr(3, 1, s, 40, 1);
+    });
+    let markCount = 0;
     let edgeCount = 0;
     let edgeMesh = null;
     let edgeParts;
@@ -227,7 +280,7 @@ export const createGl = async (canvas, { onError } = {}) => {
         gl.bindBuffer(gl.ARRAY_BUFFER, b);
         gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
     };
-    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false } = {}) => {
+    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks } = {}) => {
         const L = { ...defaultLight, ...light };
         const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
         const M = { ...defaultMaterial, ...material };
@@ -384,6 +437,24 @@ export const createGl = async (canvas, { onError } = {}) => {
             gl.drawArrays(gl.TRIANGLES, 0, glassCount);
             gl.depthMask(true);
             gl.disable(gl.BLEND);
+        }
+        const markData = marks?.length ? buildMarks(marks) : null;
+        markCount = markData ? markData.length / MARK_FLOATS : 0;
+        if (markCount && markData) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, markBuf);
+            gl.bufferData(gl.ARRAY_BUFFER, markData, gl.DYNAMIC_DRAW);
+            gl.useProgram(markProg);
+            gl.uniformMatrix4fv(markVp, false, vp);
+            gl.uniform3f(markRes, px, px, px / size);
+            gl.disable(gl.DEPTH_TEST);
+            gl.depthMask(false);
+            gl.enable(gl.BLEND);
+            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+            gl.bindVertexArray(markVao);
+            gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, markCount);
+            gl.disable(gl.BLEND);
+            gl.depthMask(true);
+            gl.enable(gl.DEPTH_TEST);
         }
         gl.bindVertexArray(null);
     };

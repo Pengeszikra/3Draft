@@ -9,7 +9,7 @@ import { triangulate } from './triangulate.js';
 import { makeCamera } from './camera.js';
 import { surfaceOf } from './material.js';
 import type { Palette } from './material.js';
-import type { Axes, Camera, Fit, Mesh, Vec3, ViewName, ViewSpec } from './types.js';
+import type { Axes, Camera, Fit, Mark, Mesh, Vec3, ViewName, ViewSpec } from './types.js';
 
 type Handle = any; // a GPU object: buffers, textures and pipelines are used through duck typing
 
@@ -63,6 +63,8 @@ export interface GpuRenderOptions {
   studio?: boolean | { fill?: number; rim?: number };
   /** Thin (1 pixel) dark lines along the edges of every face, hidden where the surface is. Off by default. */
   edges?: boolean;
+  /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
+  marks?: Mark[];
 }
 /** One copy of a prototype: its position, orthonormal frame and color. */
 export interface Instance {
@@ -83,6 +85,34 @@ export interface Gpu {
   device: Handle;
   adapter: Handle;
 }
+
+/** Floats of one mark segment: a (xyz), b (xyz), colour (rgba), width in CSS pixels, one spare. */
+export const MARK_FLOATS = 12;
+const colorOf = (css: string | undefined): [number, number, number] => {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec((css ?? '#0b7285').trim());
+  const h = m ? (m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1]) : '0b7285';
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as [number, number, number];
+};
+/** One instance per segment of every polyline of every mark (a zero-length segment is a round point). */
+export const buildMarks = (marks: Mark[]): Float32Array => {
+  let n = 0;
+  for (const m of marks) for (const l of m.lines) n += Math.max(1, l.length - 1);
+  const out = new Float32Array(n * MARK_FLOATS);
+  let o = 0;
+  for (const m of marks) {
+    const [r, g, b] = colorOf(m.color);
+    for (const l of m.lines) {
+      const segs = l.length > 1 ? l.length - 1 : 1;
+      for (let i = 0; i < segs; i++) {
+        const a = l[i];
+        const c = l[Math.min(i + 1, l.length - 1)];
+        out.set([a[0], a[1], a[2], c[0], c[1], c[2], r, g, b, m.opacity ?? 1, m.width ?? 2], o);
+        o += MARK_FLOATS;
+      }
+    }
+  }
+  return out;
+};
 
 /** Line-list endpoints (x y z, x y z) of every edge of every face, each pair of vertices once. */
 export const buildEdges = (mesh: Mesh): Float32Array => {
@@ -249,6 +279,7 @@ struct U {
   fx : vec4<f32>,      // filmic (0 or 1), exposure, emission gain, studio (0 or 1)
   fill : vec4<f32>,    // studio: xyz direction towards the fill light, w intensity
   rim : vec4<f32>,     // studio: xyz direction towards the rim light, w intensity
+  res : vec4<f32>,     // marks: canvas pixels (x, y), device pixels per CSS pixel (z)
 };
 @group(0) @binding(0) var<uniform> u : U;
 
@@ -301,6 +332,46 @@ struct IIn {
 }
 @fragment fn fsl() -> @location(0) vec4<f32> {
   return vec4<f32>(0.0, 0.0, 0.0, 0.4);
+}
+
+// the marks: thick round-capped segments, expanded to screen-space quads, drawn over everything (no depth test)
+struct MOut { @builtin(position) p : vec4<f32>, @location(0) q : vec2<f32>, @location(1) c : vec4<f32>, @location(2) h : vec3<f32> };
+@vertex fn vsm(@builtin(vertex_index) vi : u32, @location(0) a : vec3<f32>, @location(1) b : vec3<f32>, @location(2) col : vec4<f32>, @location(3) wd : f32) -> MOut {
+  var o : MOut;
+  var ca = u.vp * vec4<f32>(a, 1.0);
+  var cb = u.vp * vec4<f32>(b, 1.0);
+  let e = 0.001;
+  o.p = vec4<f32>(2.0, 2.0, 2.0, 1.0);
+  if (ca.w < e && cb.w < e) { return o; }
+  if (ca.w < e) { ca = mix(ca, cb, (e - ca.w) / (cb.w - ca.w)); }
+  if (cb.w < e) { cb = mix(cb, ca, (e - cb.w) / (ca.w - cb.w)); }
+  let half = vec2<f32>(u.res.x, u.res.y) * 0.5;
+  let pa = ca.xy / ca.w * half;
+  let pb = cb.xy / cb.w * half;
+  let len = length(pb - pa);
+  var d = vec2<f32>(1.0, 0.0);
+  if (len > 0.0001) { d = (pb - pa) / len; }
+  let hw = wd * u.res.z * 0.5;
+  let n = vec2<f32>(-d.y, d.x);
+  let cx = array<f32, 6>(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
+  let cy = array<f32, 6>(-1.0, -1.0, 1.0, -1.0, 1.0, 1.0);
+  let t = cx[vi];
+  let s = cy[vi];
+  let ext = hw + 1.0;
+  let along = mix(-ext, len + ext, t);
+  let across = s * ext;
+  let pos = pa + d * along + n * across;
+  o.p = vec4<f32>(pos / half, 0.0, 1.0);
+  o.q = vec2<f32>(along, across);
+  o.c = col;
+  o.h = vec3<f32>(len, hw, 0.0);
+  return o;
+}
+@fragment fn fsm(i : MOut) -> @location(0) vec4<f32> {
+  let dx = max(max(-i.q.x, i.q.x - i.h.x), 0.0);
+  let dist = length(vec2<f32>(dx, i.q.y));
+  let cov = clamp(i.h.y + 0.5 - dist, 0.0, 1.0);
+  return vec4<f32>(i.c.rgb, i.c.a * cov);
 }
 
 fn toLinear(c : vec3<f32>) -> vec3<f32> {
@@ -480,7 +551,34 @@ export const createGpu = async (
     depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'less-equal' },
     multisample: { count: sampleCount },
   });
-  const uniforms = device.createBuffer({ size: 192, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const markPipeline = device.createRenderPipeline({
+    layout: pipelineLayout,
+    vertex: {
+      module,
+      entryPoint: 'vsm',
+      buffers: [
+        {
+          arrayStride: MARK_FLOATS * 4,
+          stepMode: 'instance',
+          attributes: [
+            { shaderLocation: 0, offset: 0, format: 'float32x3' },
+            { shaderLocation: 1, offset: 12, format: 'float32x3' },
+            { shaderLocation: 2, offset: 24, format: 'float32x4' },
+            { shaderLocation: 3, offset: 40, format: 'float32' },
+          ],
+        },
+      ],
+    },
+    fragment: {
+      module,
+      entryPoint: 'fsm',
+      targets: [{ format, blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }],
+    },
+    primitive: { topology: 'triangle-list', cullMode: 'none' },
+    depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' },
+    multisample: { count: sampleCount },
+  });
+  const uniforms = device.createBuffer({ size: 208, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   const bind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
   const instBind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
 
@@ -502,6 +600,9 @@ export const createGpu = async (
 
   let vertexBuffer: Handle = null;
   let capacity = 0;
+  let markBuffer: Handle = null;
+  let markCapacity = 0;
+  let markCount = 0;
   let edgeBuffer: Handle = null;
   let edgeCapacity = 0;
   let edgeCount = 0; // vertices (two per line)
@@ -532,7 +633,7 @@ export const createGpu = async (
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
@@ -646,7 +747,7 @@ export const createGpu = async (
     // studio rig, relative to the camera: key upper left in front, fill from the right, rim from behind and above
     const rig = (f: number, r: number, up: number): Vec3 => norm([0, 1, 2].map((k) => -cam.f[k] * f + cam.r[k] * r + cam.u[k] * up) as Vec3);
     const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
-    const u = new Float32Array(48);
+    const u = new Float32Array(52);
     u.set(viewProjection(cam, nearPlane(cam, mesh)), 0);
     u.set([...(S ? rig(0.7, -0.5, 0.6) : L.direction |> norm), 0], 16);
     u.set([...L.sky, 0], 20);
@@ -656,7 +757,18 @@ export const createGpu = async (
     u.set([filmic ? 1 : 0, filmic ? filmic.exposure : 1, filmic ? filmic.emit : 0, S ? 1 : 0], 36);
     u.set([...rig(0.6, 0.8, 0.1), S ? S.fill : 0], 40);
     u.set([...rig(-0.8, 0.3, 0.5), S ? S.rim : 0], 44);
+    u.set([px, px, px / size, 0], 48);
     device.queue.writeBuffer(uniforms, 0, u);
+    const markData = marks?.length ? buildMarks(marks) : null;
+    markCount = markData ? markData.length / MARK_FLOATS : 0;
+    if (markData && markData.byteLength) {
+      if (markData.byteLength > markCapacity) {
+        markBuffer?.destroy();
+        markCapacity = Math.ceil(markData.byteLength * 1.5);
+        markBuffer = device.createBuffer({ size: markCapacity, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+      }
+      device.queue.writeBuffer(markBuffer, 0, markData);
+    }
 
     const encoder = device.createCommandEncoder();
     const offscreen = readback
@@ -701,6 +813,12 @@ export const createGpu = async (
       pass.setVertexBuffer(0, glassBuffer);
       pass.draw(glassCount);
     }
+    if (markCount) {
+      pass.setPipeline(markPipeline);
+      pass.setBindGroup(0, bind);
+      pass.setVertexBuffer(0, markBuffer);
+      pass.draw(6, markCount);
+    }
     pass.end();
     if (!offscreen) {
       device.queue.submit([encoder.finish()]);
@@ -741,6 +859,7 @@ export const createGpu = async (
   const destroy = (): void => {
     vertexBuffer?.destroy();
     glassBuffer?.destroy();
+    markBuffer?.destroy();
     protoBuffer?.destroy();
     instBuffer?.destroy();
     depth?.destroy();
