@@ -16,7 +16,7 @@ The owner is Hungarian and talks to the assistant in Hungarian; code, comments, 
 
 ### Layout
 
-- `src/*.ts` engine, one concern per file, a `*.test.ts` beside it: `mesh/vec/types` (data), `edit` (`reshape`, `moveVertexSet`, `extrudeFace`, `outlineOf`), `saw`, `csg` (booleans), `bevel`, `lathe`, `text` (stroke font -> solid letters), `pick` (+ WASM kernel from `kernel/pick.hexaw`), `camera`, `svg`/`gpu`/`gl` renderers, `check` (`validate`, `health`), `material`, `place`, `wire`. Everything public is exported from `src/index.ts`.
+- `src/*.ts` engine, one concern per file, a `*.test.ts` beside it: `mesh/vec/types` (data), `edit` (`reshape`, `moveVertexSet`, `extrudeFace`, `outlineOf`), `saw`, `csg` (booleans), `bevel`, `lathe`, `text` (stroke font -> solid letters), `pick` (+ WASM kernel from `kernel/pick.hexaw`), `camera`, `svg`/`gpu`/`gl` renderers, `check` (`validate`, `health`), `material`, `place`, `wire`, `rig` (humanoid skeleton and weights read off a shape, `posed`, `walkPose`; engine only, the viewer has no pose or play mode yet: README "Moving a humanoid"). Everything public is exported from `src/index.ts`.
 - `dist/` is **committed** (the viewer and jsDelivr read it). Never edit it by hand; `npm run build` makes it.
 - `app/index.html` the whole viewer in one file (inline module script, no bundler). `app/help.md` is the in-app help page (Markdown). `app/serve.js` a localhost static server.
 - `examples/` generator scripts and `*.scene.json` scenes; `mcp/` an MCP server that lets an LLM build live in the viewer; `tools/blend` Blender helpers.

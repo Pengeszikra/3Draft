@@ -73,6 +73,27 @@ Pass the palette to the renderers: `renderView(mesh, view, { palette })`, `gpu.r
 - **Drawing on a mesh** (`wire.ts`): `insertVertex(mesh, face, point)` puts a vertex on a surface (inside a face it makes a triangle fan, on an edge it joins both faces), `cutFace(mesh, a, b)` cuts a face along a line between two of its vertices, `moveVertex(mesh, i, to)` moves one (polygons that use it become triangles, so faces stay planar), `fillLoop(mesh, loop)` closes a loop of vertices into a face, `addLine` and `findLoop` keep the wire (a list of vertex pairs). These are what the viewer's edit mode (`Q`, see [APP.md](APP.md)) uses.
 - **HEXAW kernel.** The picking hot loop is also written in [HEXAW](https://github.com/Pengeszikra/hexaw) (`kernel/pick.hexaw`, 569 bytes of WebAssembly). `initKernel()` starts it; `kernel.pick` returns exactly what `pick` returns, 0.14 ms instead of 1.7 ms on 7200 faces. The module is embedded as base64 (`src/kernel-bytes.ts`), so the engine needs neither HEXAW nor a fetch at runtime. `npm run kernel` re-assembles it.
 
+### Moving a humanoid
+
+```js
+import { humanoidRig, posed, walkPose, HUMANOID_POSES } from '3draft';
+
+const meshes = scene.objects.map((o) => o.mesh);          // the body, and whatever he wears
+const rig = humanoidRig(meshes);                            // { joints, skin }: read off the shape, nothing is stored in the model
+const frame = posed(meshes, rig, walkPose(0.25), { ground: true }); // the same meshes, moved
+const sitting = posed(meshes, rig, HUMANOID_POSES.sit, { ground: true });
+const custom = posed(meshes, rig, { shoulderL: [0, 0, 1.2], elbowL: [-0.8, 0, 0], head: [0.2, 0.3, 0] });
+```
+
+- **The figure.** It stands on two feet that are parts of one mesh, looks to +z, and its arms hang apart from the trunk (a relaxed or A pose; a T pose is not understood). `humanoidRig` finds the crotch (the highest level under which the legs are still two pieces), the armpits (the same for the arms) and the neck (the narrowest level above the shoulders), and puts 15 joints there: `root`, `spine`, `head`, and per side (`L` is +x, his left) `shoulder`, `elbow`, `wrist`, `hip`, `knee`, `ankle`. It throws with the reason when it finds no figure.
+- **Weights.** Every vertex gets `[[joint, share], ...]`: it follows the bone of its limb, blended over a short band at each joint. Other meshes and loose shells (hair, a hat, a watch) take the weights of the nearest point of the body. Because all of this is read off the shape, a figure edited by hand, or made by somebody else, moves without anyone rigging it.
+- **A pose** is `{ jointName: [rx, ry, rz] }` in radians, relative to the bind pose, applied x, y, z in the parent's space. For hanging limbs: hip x < 0 swings the leg forward, knee x > 0 bends it, elbow x < 0 bends it, head x > 0 nods, `shoulderL` z > 0 / `shoulderR` z < 0 lifts the arm. `posed` only moves the points: faces keep their order, colour and material, and a face that the move bends (or folds) becomes triangles, so the result is still planar, convex and closed. `{ ground: true }` keeps the lowest point on the floor, `{ move }` shifts the figure. `posedJoints` gives the joint positions in a pose.
+- **Ready poses:** `HUMANOID_POSES` (`bind`, `tpose`, `wave`, `sit`, `phone`) and `walkPose(t, { stride, run })`, one frame of a walk or run on the spot, `t` from 0 to 1.
+
+`examples/betterman.js` moves the figure of `examples/betterman.json` (one body mesh with per-face materials, the hair as a second object) and writes a pose sheet and a walk flip book to `examples/out/`.
+
+Limits for now: the weights are per mesh as loaded, so recompute the rig after an edit; the walk is on the spot and the feet slide; hands have no fingers of their own; the viewer does not use any of this yet.
+
 ### TypeScript and `|>`
 
 The source is TypeScript (`src/*.ts`) with the F# style pipeline operator, `value |> fn` ([why](https://dev.to/pengeszikra/pipeline-operator-great-again-1cbn)). `npm run build` rewrites every `|>` into plain calls (`scripts/pipe.mjs`: `a |> f |> g(1)` becomes `g(1)(f(a))`) and lets `tsc` check and emit `dist/`, which is committed, so a clone runs without a build.
@@ -163,7 +184,7 @@ The engine is small enough to read whole (about 2000 lines) and everything it wo
 
 Y is up, the ground is y = 0, faces are counter-clockwise seen from outside.
 
-Examples: `examples/table.js`, `examples/bridge.js` (50 named objects), `examples/cessna.js` (one mesh, 9 colours), and `examples/head.js` (a stylized head: 7 objects with their own palette, soft skin; try N and K), `examples/globe.js` (a globe: an ocean ball and seven continents, each one closed mesh), and `examples/house.js` (a house converted from Blender with `tools/blend/`, 45 objects, approximate colours).
+Examples: `examples/table.js`, `examples/bridge.js` (50 named objects), `examples/cessna.js` (one mesh, 9 colours), and `examples/head.js` (a stylized head: 7 objects with their own palette, soft skin; try N and K), `examples/globe.js` (a globe: an ocean ball and seven continents, each one closed mesh), and `examples/house.js` (a house converted from Blender with `tools/blend/`, 45 objects, approximate colours), and `examples/betterman.js` (a low poly man that walks: see Moving a humanoid).
 
 ---
 

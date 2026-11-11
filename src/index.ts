@@ -5,7 +5,7 @@
 // shading yet.
 
 export const name = '3draft' as const;
-export const version = '26.11.11033';
+export const version = '26.11.12001';
 
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
@@ -66,3 +66,5 @@ export { triangulate } from './triangulate.js';
 export { buildEdges, buildMarks, MARK_FLOATS, sceneEdges } from './gpu.js';
 export type { Tri } from './triangulate.js';
 export type { Wire } from './wire.js';
+export { humanoidRig, posed, posedJoints, walkPose, HUMANOID_POSES, HUMANOID_JOINTS } from './rig.js';
+export type { Joint, Weights, Rig, Pose, PoseOptions } from './rig.js';
