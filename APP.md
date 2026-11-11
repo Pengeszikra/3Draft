@@ -213,7 +213,7 @@ API: `rec.start()`, `rec.stop()` → recording, `rec.play(data, { speed, cap })`
 
 ## Console layout, edge lines, palette
 
-Every console group hangs from the same top line. `edit` (1 2 3 4 5 Q / G S R E F ⇧X), `view` (freeze, view, edges, light, palette / store, smooth, studio, glow) and `sys` (undo, reset, zen, help / rec, play) are two rows each (`.grp.rows` with `.row`). `light` is a switch: every press (or `L`) turns the sun a step of 45°, it is on while the sun is turned from its start. `rec` is red.
+Every console group hangs from the same top line; `view` is first, so it stays put when edit mode swaps `make` and `scene` for `edit`. `edit` (1 2 3 4 5 Q / G S R E F ⇧X), `view` (freeze, view, edges, light, palette / store, smooth, studio, glow) and `sys` (undo, reset, zen, help / rec, play) are two rows each (`.grp.rows` with `.row`). `light` is a switch: every press (or `L`) turns the sun a step of 45°, it is on while the sun is turned from its start. `rec` is red.
 
 `edges` (the E switch) works in the GPU views too: `render({ edges: true })` draws the face edges (`buildEdges` / `sceneEdges` in `src/gpu.ts`, each vertex pair once, cached per part, none above 300 000 faces) as 1-pixel `line-list` / `gl.LINES` after the solid faces, dark at 40% alpha, depth tested with a hair of nudge towards the eye so a line wins against the face it lies on.
 
