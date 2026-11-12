@@ -19,6 +19,12 @@ export interface Material {
   soft?: number;
   /** A screen: a page shown on every four-cornered face of this material (the viewer puts an iframe over the picture, warped to the face). The renderers ignore it. */
   url?: string;
+  /**
+   * A scene screen: the address of a 3Draft scene file (.json, relative to the page or absolute) played on every four-cornered face
+   * of this material. The viewer shows it like a `url` screen: its own player (`?show=<scene>`) in an iframe, the camera turning
+   * round the middle of the model. The renderers ignore it.
+   */
+  scene?: string;
 }
 export type Palette = Record<string, Material>;
 
