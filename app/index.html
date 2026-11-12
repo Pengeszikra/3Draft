@@ -3482,7 +3482,16 @@
         const made = create(`prism-${shortId()}`, mesh);
         o = live(made) ?? made;
       }
-      bench = { fresh: wasEmpty, seen: [o.id], origin: benchOrigin(o), base: history.length, cam: { center: [...fit.center], radius: fit.radius, dist: fit.dist, yaw, pitch } };
+      // an eye inside the object (in its bounding box, e.g. flying in a hull): the camera stays where it is, now and on leaving
+      const eye = eyeNow();
+      const P = o.mesh.positions;
+      const inside = P.length > 0 && [0, 1, 2].every((k) => {
+        let lo = Infinity;
+        let hi = -Infinity;
+        for (const q of P) ((lo = Math.min(lo, q[k])), (hi = Math.max(hi, q[k])));
+        return eye[k] >= lo && eye[k] <= hi;
+      });
+      bench = { fresh: wasEmpty, stay: inside, seen: [o.id], origin: benchOrigin(o), base: history.length, cam: { center: [...fit.center], radius: fit.radius, dist: fit.dist, yaw, pitch } };
       wasEmpty = false;
       gizmo = null;
       locked = null;
@@ -3493,7 +3502,7 @@
       xf = null;
       emode = 'draw';
       barNote = '';
-      goTo({ center: benchLook(), radius: benchRadius(), yaw, pitch });
+      if (!bench.stay) goTo({ center: benchLook(), radius: benchRadius(), yaw, pitch });
       showBar();
       redraw();
     };
@@ -3507,7 +3516,7 @@
       emode = 'draw';
       bench = null;
       if (b?.fresh) focused = false;
-      if (b) goTo(b.fresh ? { ...overview(), yaw: b.cam.yaw, pitch: b.cam.pitch } : { ...b.cam });
+      if (b && !b.stay) goTo(b.fresh ? { ...overview(), yaw: b.cam.yaw, pitch: b.cam.pitch } : { ...b.cam });
       rebuild();
       showBar();
       redraw();

@@ -232,6 +232,10 @@ On the phone layout the console is hidden; the **Exa** menu has a `store` button
 
 `R` turns the selection like `G` and `S` move and scale it: about the middle of the selected **points** or **faces** (a face selection turns about its normal, points about the viewing direction); with a selected **line** that line is the axis, and the other selected parts turn about it (the whole object when the line is all that is selected). `X`, `Y`, `Z` turn it about that world axis through the pivot, a typed number is degrees, the pointer going round the pivot on the screen turns it, click or Enter confirms, Esc cancels. Flying with R needs Shift.
 
+## Editing from inside
+
+`enterEdit` checks whether the eye (`eyeNow()`) is inside the object's bounding box; then `bench.stay` is set and neither `enterEdit` nor `leaveEdit` calls `goTo` (no framing on the way in, no return on the way out).
+
 ## Zoom
 
 The wheel on the stage sets `zoomGoal` (×0.25 to ×30; a pinch, a wheel with Ctrl, goes faster; the page itself never zooms); `zoomNow` eases to it in `draw`, and the lens is `2·atan(tan(fovNow / 2) / zoomNow)` in `shown_fit.fov`, so picking, the instances' level of detail and the skeleton's size all follow. The cross is divided by the zoom (same size on screen). `=` / `ó` (`resetZoom`) sets the goal back to 1. A wheel event whose `deltaX` outweighs its `deltaY` is a sideways one: `orbitPointer(angle)` turns the whole camera rig round the vertical line through `hit.point` (the surface under the cursor; `fit.center` over empty space): `fit.center` is rotated round that line and `yaw` grows by the same angle, so the pointed point stays where it is on screen. During a bevel the wheel still sets its segments. `__3draft.state().zoom` reports it.
