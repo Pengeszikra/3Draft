@@ -232,6 +232,10 @@ On the phone layout the console is hidden; the **Exa** menu has a `store` button
 
 `R` turns the selection like `G` and `S` move and scale it: about the middle of the selected **points** or **faces** (a face selection turns about its normal, points about the viewing direction); with a selected **line** that line is the axis, and the other selected parts turn about it (the whole object when the line is all that is selected). `X`, `Y`, `Z` turn it about that world axis through the pivot, a typed number is degrees, the pointer going round the pivot on the screen turns it, click or Enter confirms, Esc cancels. Flying with R needs Shift.
 
+## Leaving by accident
+
+Outside the store and the scene screens (`!EMBED && !SHOW`): `beforeunload` asks when there are objects or undo steps (`history`, the undo list, shadows `window.history`, hence `window.history.pushState`); a `{ stay: true }` history entry is pushed at start and again on every `popstate`, so the first back only shows "back again to leave" (`noteObj`) and a second one within 2 s really goes back; `overscroll-behavior: none` on `html, body` stops the trackpad's back swipe.
+
 ## Bevel (edit mode, `Ctrl+B`)
 Select lines (`2`), Ctrl+B: modal like `G`. The pointer's distance from where it started is the width (a typed number is metres), the wheel or ArrowUp/ArrowDown the segments (1-16). `bevel(mesh, lines, width, segments)` (`src/bevel.ts`) turns each line shared by two faces into a strip of `segments` quads along a quadratic profile, fills corners (a point with one untouched face is cut off, otherwise a patch), and holds the width back at 0.45 of the shortest slide; it returns `{ mesh, remap, width }` and throws if the surface is open round a line's ends. `Enter` confirms (one undo step), `Esc` cancels.
 
