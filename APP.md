@@ -236,6 +236,10 @@ On the phone layout the console is hidden; the **Exa** menu has a `store` button
 
 `enterEdit` checks whether the eye (`eyeNow()`) is inside the object's bounding box; then `bench.stay` is set and neither `enterEdit` nor `leaveEdit` calls `goTo` (no framing on the way in, no return on the way out).
 
+## Point clouds (the Milky Way)
+
+A scene's `cloud` (and objects with `cloud: <name>` from `cloudProtos`) is drawn by a WebGL2 point layer of its own (`drawCloud`, screen blend over the picture). Each point is a star cluster: far away a small point (at least 1.3 px, dimmed with its area below that); once its radius on screen passes 2.5 px it is drawn as `CLOUD_SPLIT` (8) instances: the first a faint soft haze (keeps the arms' shape), the others small sharp stars (1.25 to 2 px) scattered inside 0.7 of its radius by an integer hash (`pcg`, so no lines or bands), sharing its light. Very close (over 60 px) the clusters fade out, the real neighbourhood stars take over.
+
 ## Zoom
 
 The wheel on the stage sets `zoomGoal` (×0.25 to ×30; a pinch, a wheel with Ctrl, goes faster; the page itself never zooms); `zoomNow` eases to it in `draw`, and the lens is `2·atan(tan(fovNow / 2) / zoomNow)` in `shown_fit.fov`, so picking, the instances' level of detail and the skeleton's size all follow. The cross is divided by the zoom (same size on screen). `=` / `ó` (`resetZoom`) sets the goal back to 1. A wheel event whose `deltaX` outweighs its `deltaY` is a sideways one: `orbitPointer(angle)` turns the whole camera rig round the vertical line through `hit.point` (the surface under the cursor; `fit.center` over empty space): `fit.center` is rotated round that line and `yaw` grows by the same angle, so the pointed point stays where it is on screen. During a bevel the wheel still sets its segments. `__3draft.state().zoom` reports it.
