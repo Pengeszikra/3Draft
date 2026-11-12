@@ -79,6 +79,8 @@ export interface GpuRenderOptions {
    * into a texture every frame and drawn on the quad `corners` (top left, top right, bottom right, bottom left), depth tested
    * against the scene like any face, unlit (it is a display). `uv` = [u0, v0, u1, v1] picks the part of the picture to show
    * (v = 0 is its top). Put the quad a hair in front of its face so it does not fight it.
+   * `hole: true` (no source) punches a see-through hole instead: the quad writes transparent pixels, still depth tested, so a
+   * page put behind the canvas (an iframe) shows where the face is visible and is hidden by whatever stands in front of it.
    */
   screens?: GpuScreen[];
   /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
@@ -87,7 +89,8 @@ export interface GpuRenderOptions {
 /** See GpuRenderOptions.screens. */
 export interface GpuScreen {
   corners: [Vec3, Vec3, Vec3, Vec3];
-  source: any; // a canvas (HTMLCanvasElement, OffscreenCanvas) or an image bitmap
+  source?: any; // a canvas (HTMLCanvasElement, OffscreenCanvas) or an image bitmap
+  hole?: boolean;
   uv?: [number, number, number, number];
 }
 /** Floats per screen vertex: position, then u v. */
@@ -537,6 +540,10 @@ struct QOut { @builtin(position) p : vec4<f32>, @location(0) uv : vec2<f32> };
 @fragment fn fsq(i : QOut) -> @location(0) vec4<f32> {
   return vec4<f32>(textureSample(scrTex, scrSampler, i.uv).rgb, 1.0);
 }
+// a hole: transparent, so what lies behind the canvas shows through
+@fragment fn fsh(i : QOut) -> @location(0) vec4<f32> {
+  return vec4<f32>(0.0);
+}
 
 struct IIn {
   @location(0) pos : vec3<f32>, @location(1) nrm : vec3<f32>,
@@ -745,7 +752,7 @@ export const createGpu = async (
   const context = canvas.getContext('webgpu' as string) as Handle;
   if (!context) throw new Error('Could not get a WebGPU canvas context');
   const format = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({ device, format, alphaMode: 'opaque', });
+  context.configure({ device, format, alphaMode: 'premultiplied' }); // opaque everywhere but where a screen punches a hole
 
   const module = device.createShaderModule({ code: SHADER });
   // shader compile errors are reported to onError too (the browser only logs them to the console)
@@ -822,6 +829,18 @@ export const createGpu = async (
       buffers: [{ arrayStride: SCREEN_FLOATS * 4, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x2' }] }],
     },
     fragment: { module, entryPoint: 'fsq', targets: [{ format }] },
+    primitive: { topology: 'triangle-list', cullMode: 'none' },
+    depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
+    multisample: { count: sampleCount },
+  });
+  const holePipeline = device.createRenderPipeline({
+    layout: pipelineLayout,
+    vertex: {
+      module,
+      entryPoint: 'vsq',
+      buffers: [{ arrayStride: SCREEN_FLOATS * 4, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x2' }] }],
+    },
+    fragment: { module, entryPoint: 'fsh', targets: [{ format }] },
     primitive: { topology: 'triangle-list', cullMode: 'none' },
     depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
     multisample: { count: sampleCount },
@@ -1103,7 +1122,9 @@ export const createGpu = async (
     // screens: copy each picture into its texture (made again when its size changes) and the quads into one buffer
     screenCount = 0;
     const shown: number[] = [];
+    const holes: number[] = [];
     (screens ?? []).forEach((sc, i) => {
+      if (sc.hole) return void holes.push(i);
       const w = sc.source?.width | 0;
       const h = sc.source?.height | 0;
       if (!w || !h) return;
@@ -1121,7 +1142,7 @@ export const createGpu = async (
         onError?.(`screen ${i}: ${(err as Error).message}`);
       }
     });
-    if (shown.length) {
+    if (shown.length || holes.length) {
       const quads = buildScreenQuads(screens!);
       if (quads.byteLength > screenCap) {
         screenBuffer?.destroy();
@@ -1129,7 +1150,7 @@ export const createGpu = async (
         screenBuffer = device.createBuffer({ size: screenCap, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
       }
       device.queue.writeBuffer(screenBuffer, 0, quads);
-      screenCount = shown.length;
+      screenCount = shown.length + holes.length;
     }
 
     const encoder = device.createCommandEncoder();
@@ -1162,7 +1183,7 @@ export const createGpu = async (
       pass.setVertexBuffer(1, instBuffer);
       pass.draw(protoCount, instCount);
     }
-    if (screenCount) {
+    if (shown.length) {
       pass.setPipeline(screenPipeline);
       pass.setBindGroup(0, bind);
       pass.setVertexBuffer(0, screenBuffer);
@@ -1170,6 +1191,12 @@ export const createGpu = async (
         pass.setBindGroup(1, screenTex[i]!.group);
         pass.draw(6, 1, i * 6);
       }
+    }
+    if (holes.length) {
+      pass.setPipeline(holePipeline);
+      pass.setBindGroup(0, bind);
+      pass.setVertexBuffer(0, screenBuffer);
+      for (const i of holes) pass.draw(6, 1, i * 6);
     }
     if (skinSolidCount) {
       pass.setPipeline(skinPipeline);

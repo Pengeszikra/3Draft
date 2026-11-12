@@ -51,6 +51,11 @@ void main() {
   gl_Position = vec4(p.xy, p.z * 2.0 - p.w, p.w);
   vUv = aUv;
 }`;
+const GL_FRAG_HOLE = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 o;
+void main() { o = vec4(0.0); }`;
 const GL_FRAG_SCREEN = `#version 300 es
 precision highp float;
 uniform sampler2D uTex;
@@ -228,7 +233,7 @@ void main() {
  * returns { render(mesh, view, options), pixels(...), destroy() }. `device.lost` resolves when the context is lost.
  */
 export const createGl = async (canvas, { onError } = {}) => {
-    const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, preserveDrawingBuffer: false });
+    const gl = canvas.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false }); // opaque but where a screen punches a hole as WebGL2RenderingContext | null;
     if (!gl)
         throw new Error('WebGL2 is not available in this browser');
     const lost = new Promise((resolve) => canvas.addEventListener('webglcontextlost', (e) => (e.preventDefault(), resolve({ reason: 'lost', message: 'WebGL context lost' }))));
@@ -276,6 +281,8 @@ export const createGl = async (canvas, { onError } = {}) => {
     const screenVp = gl.getUniformLocation(screenProg, 'uVp');
     const screenTexU = gl.getUniformLocation(screenProg, 'uTex');
     const screenTex = [];
+    const holeProg = program(GL_VERT_SCREEN, GL_FRAG_HOLE);
+    const holeVp = gl.getUniformLocation(holeProg, 'uVp');
     const stride = GL_FLOATS * 4;
     const buffer = () => gl.createBuffer();
     const vaoWith = (setup) => {
@@ -545,7 +552,17 @@ export const createGl = async (canvas, { onError } = {}) => {
         if (skinSolidCount)
             drawSkin(skinSolidVao, skinSolidCount);
         // screens: each picture into its texture, then its quad, depth tested like a face
-        const shown = (screens ?? []).map((sc, i) => ({ sc, i })).filter(({ sc }) => (sc.source?.width | 0) > 0 && (sc.source?.height | 0) > 0);
+        const shown = (screens ?? []).map((sc, i) => ({ sc, i })).filter(({ sc }) => !sc.hole && (sc.source?.width | 0) > 0 && (sc.source?.height | 0) > 0);
+        const holes = (screens ?? []).map((sc, i) => ({ sc, i })).filter(({ sc }) => sc.hole);
+        if (holes.length) {
+            // holes: transparent pixels, depth tested (a page behind the canvas shows through)
+            upload(screenBuf, buildScreenQuads(screens));
+            gl.useProgram(holeProg);
+            gl.uniformMatrix4fv(holeVp, false, vp);
+            gl.bindVertexArray(screenVao);
+            for (const { i } of holes)
+                gl.drawArrays(gl.TRIANGLES, i * 6, 6);
+        }
         if (shown.length) {
             upload(screenBuf, buildScreenQuads(screens));
             gl.useProgram(screenProg);

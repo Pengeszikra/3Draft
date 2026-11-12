@@ -76,6 +76,8 @@ export interface GpuRenderOptions {
      * into a texture every frame and drawn on the quad `corners` (top left, top right, bottom right, bottom left), depth tested
      * against the scene like any face, unlit (it is a display). `uv` = [u0, v0, u1, v1] picks the part of the picture to show
      * (v = 0 is its top). Put the quad a hair in front of its face so it does not fight it.
+     * `hole: true` (no source) punches a see-through hole instead: the quad writes transparent pixels, still depth tested, so a
+     * page put behind the canvas (an iframe) shows where the face is visible and is hidden by whatever stands in front of it.
      */
     screens?: GpuScreen[];
     /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
@@ -84,7 +86,8 @@ export interface GpuRenderOptions {
 /** See GpuRenderOptions.screens. */
 export interface GpuScreen {
     corners: [Vec3, Vec3, Vec3, Vec3];
-    source: any;
+    source?: any;
+    hole?: boolean;
     uv?: [number, number, number, number];
 }
 /** Floats per screen vertex: position, then u v. */
