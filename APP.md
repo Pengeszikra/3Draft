@@ -232,6 +232,10 @@ On the phone layout the console is hidden; the **Exa** menu has a `store` button
 
 `R` turns the selection like `G` and `S` move and scale it: about the middle of the selected **points** or **faces** (a face selection turns about its normal, points about the viewing direction); with a selected **line** that line is the axis, and the other selected parts turn about it (the whole object when the line is all that is selected). `X`, `Y`, `Z` turn it about that world axis through the pivot, a typed number is degrees, the pointer going round the pivot on the screen turns it, click or Enter confirms, Esc cancels. Flying with R needs Shift.
 
+## Loader
+
+`withLoader(label, run)` shows `#loader` (a CSS-turned ring and `loading <name>…`) over the stage, waits two animation frames so it is painted before the heavy part, runs `run`, and hides it when the outermost one ends (nested calls are counted). `loadScene` and `addExample` use it, so every way in (the list, file ↑, saved scenes, the starting scene, `?ply`) shows it; not in a scene screen (`SHOW`).
+
 ## Leaving by accident
 
 Outside the store and the scene screens (`!EMBED && !SHOW`): `beforeunload` asks when there are objects or undo steps (`history`, the undo list, shadows `window.history`, hence `window.history.pushState`); a `{ stay: true }` history entry is pushed at start and again on every `popstate`, so the first back only shows "back again to leave" (`noteObj`) and a second one within 2 s really goes back; `overscroll-behavior: none` on `html, body` stops the trackpad's back swipe.
