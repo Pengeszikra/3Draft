@@ -96,7 +96,7 @@ It is one file, `app/index.html`, plus a dependency-free static server (`app/ser
 | `I` | pick material: the material of the face under the cross becomes the selected one |
 | `Ctrl` + press (`Cmd` on a Mac) | paint the face under the cross with the selected material (palette must be on) |
 | `Ctrl` / `Cmd` + double click | paint the whole object |
-| `O` | boolean (see below) |
+| `B` / `B B` | select objects: drag a box / draw a lasso round them (Shift adds, Esc clears); then `G`, `G G`, `R`, `S` move them together (see below) |
 | `H` | move gizmo (see below) |
 | `E` | edges and points on / off (also the `Edges` button) |
 | `C` | glow on / off: emitting materials light their surroundings (also the `Glow` button; WebGPU and WebGL2 views) |
@@ -147,9 +147,13 @@ During `G`, `S` and `E` the move is live: **a click or `Enter` confirms, `Esc` o
   - **three points** are a triangle: the saw plane is the plane of the three points (a slanted cut, a mitre).
   - The plane is previewed as an orange outline where it meets the object. `Enter` cuts, `Esc` forgets the points. The cut object is replaced by closed solids (two, or more when the plane splits an odd shape into several pieces), named `prism-xxxx` with a fresh short id each (an object that is not a prism keeps its name plus a short id); the new faces take the material of the face that was sawn (the one the points were put on) and lie exactly in the plane (no kerf, no triangle sprinkles). The pieces stay where they were, on the bench: move them apart with `G`. One `U` puts the original back. You stay in edit mode, on the first piece, so the next cut can follow at once. Only closed solids can be sawn. The engine part is `saw`, `planeThroughLine`, `planeThroughTriangle`, `sectionSegments`.
 
-## Boolean operations (`O`)
+## Selecting objects (`B`, `B B`) and moving them together
 
-Press `O` over an object: it gets an orange box. Press `O` over another one (green box): a small question asks which operation to run.
+`B` then drag: a box; `B` twice quickly then drag: a lasso. An object is taken when the middle of its bounding box falls inside on the screen; a plain drag replaces the selection, Shift adds; Esc stops the drag, or clears the selection. Selected objects get a teal box (`picked`, ids in the order taken). With a selection, `G` grabs them all, `G G` places them as one (the foot from their common bounding box, opposite where the pointer held one of them; Ctrl+D copies the whole group and the copies become the selection), `R` turns them round the vertical axis through their middle, `S` sizes them from there (`Shift+R` / `Shift+S` still fly); X Y Z and typed numbers as usual. In the code a group is a stand-in object (`groupObj`: one mesh made of all theirs, `members`); `startXf` with `group` keeps each member's place in it, `xfUpdate` moves the points rigidly (`movedRigid`, no reshape) and `spreadGroup` hands the slices back; `xfConfirm` is one undo step for the whole group. `window.__3draft.select(names)` selects by name, for tests.
+
+## Boolean operations (the **bool** button)
+
+Select two objects (`B`, Shift adds the second), then the **bool** button (SYS group): the first one taken is A (orange box), the second B (green box), and a small question asks which operation to run.
 
 | key | operation |
 | --- | --- |
@@ -159,7 +163,7 @@ Press `O` over an object: it gets an orange box. Press `O` over another one (gre
 | `4` | intersect |
 | `5`, `Esc` | cancel |
 
-The result is a new object named like `A-B` and it replaces both operands; `U` brings the two originals back and removes the result. `O` over empty space forgets a marked object.
+The result is a new object named like `A-B` and it replaces both operands; `U` brings the two originals back and removes the result. (`O` no longer does this.)
 
 The math is the engine's `boolean(a, b, op)` (README, part 1). Only closed parts are calculated: a part that is not a closed solid (a surface, a box without a bottom) is left out, and a union keeps it as it is. The status line under the picture is the **health check** of the object under the cross: `solid`, `N of M parts closed · K faces open`, or `no closed part`. Each object needs at least one **closed solid with outward faces**; with none, the reason shows in the dialog. With messy data (coincident faces) the result can come out open; the engine's `validate` says so.
 
