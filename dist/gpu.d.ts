@@ -64,9 +64,26 @@ export interface GpuRenderOptions {
     unlit?: boolean;
     /** Glow: emitting materials light their surroundings as local lights (no shadows), up to 16 at a time. Off by default. */
     glow?: boolean;
+    /**
+     * A skinned figure, bent on the GPU: `meshes` in their bind pose (built and uploaded once while they stay the same Mesh
+     * objects), `weights[m][i]` the joints of vertex i of mesh m (a rig's `skin`; the four strongest are used) and `bones`
+     * the joint moves of this frame (boneMatrices(): 12 floats per joint, at most MAX_BONES joints). Only `bones` changes
+     * from frame to frame. Drawn after `mesh`; it takes no part in the edges, the glow lights or the camera's fit.
+     */
+    skin?: GpuSkin;
     /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
     marks?: Mark[];
 }
+/** See GpuRenderOptions.skin. */
+export interface GpuSkin {
+    meshes: Mesh[];
+    weights: [joint: number, weight: number][][][];
+    bones: Float32Array;
+}
+/** The most joints a GPU skin can have. */
+export declare const MAX_BONES = 64;
+/** Floats per skinned vertex: the 14 of buildVertices, then four joints and their four weights. */
+export declare const SKIN_FLOATS = 22;
 /** One copy of a prototype: its position, orthonormal frame and color. */
 export interface Instance {
     at: Vec3;
@@ -128,6 +145,24 @@ export declare const cornerNormals: (mesh: Mesh, crease: number, soft?: number[]
 export declare const buildVertices: (mesh: Mesh, palette?: Palette, { smooth }?: {
     smooth?: number;
 }) => Float32Array;
+/**
+ * Triangle list of a skinned figure in its bind pose: buildVertices' 14 floats per vertex, then the indices of its four
+ * strongest joints and their weights (summing to 1). The shader moves each vertex by its joints' bone matrices.
+ */
+export declare const buildSkinVertices: (meshes: Mesh[], weights: [number, number][][][], palette?: Palette, { smooth }?: {
+    smooth?: number;
+}) => Float32Array;
+/** Splits a triangle list into the opaque triangles and the see-through ones (alpha < 1, float 11 of a vertex). */
+export declare const splitGlass: (all: Float32Array, floats: number) => {
+    solid: Float32Array;
+    glass: Float32Array;
+};
+/** A skin's vertices, kept while its meshes, palette and smoothing stay the same. */
+export declare const skinCache: () => (skin: GpuSkin, palette: Palette | undefined, crease: number) => {
+    solid: Float32Array;
+    glass: Float32Array;
+    fresh: boolean;
+};
 /**
  * Per-instance data for drawInstances: one entry { at, axes: [ex, ey, ez], color } per copy of a
  * prototype mesh (modelled around the origin). Float32Array, 15 floats per instance.

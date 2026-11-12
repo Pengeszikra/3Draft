@@ -96,3 +96,27 @@ test('smooth shading: shallow folds share normals, sharp corners stay sharp', ()
     const v = buildVertices(mesh, undefined, { smooth: 40 });
     assert.equal(v.length % 14, 0);
 });
+test('buildSkinVertices: the 14 floats of buildVertices, then the four strongest joints with weights adding to 1', async () => {
+    const { buildSkinVertices, buildVertices, SKIN_FLOATS, splitGlass } = await import('./gpu.js');
+    const { box } = await import('./mesh.js');
+    const m = box();
+    const weights = m.positions.map((_, i) => [[1, 0.1], [2, 0.5], [3, 0.2], [4, 0.1], [5, 0.1 + i * 0.001]]);
+    const s = buildSkinVertices([m], [weights]);
+    const v = buildVertices(m);
+    assert.equal(s.length / SKIN_FLOATS, v.length / 14);
+    for (let k = 0; k < v.length / 14; k++) {
+        for (let f = 0; f < 14; f++)
+            assert.equal(s[k * SKIN_FLOATS + f], v[k * 14 + f]);
+        const w = s.subarray(k * SKIN_FLOATS + 18, k * SKIN_FLOATS + 22);
+        assert.ok(Math.abs(w[0] + w[1] + w[2] + w[3] - 1) < 1e-6);
+        assert.equal(s[k * SKIN_FLOATS + 14], 2); // the strongest joint first
+    }
+    assert.throws(() => buildSkinVertices([m], [weights.slice(1)]), /weights know/);
+    assert.equal(splitGlass(s, SKIN_FLOATS).solid.length, s.length);
+});
+test('nearPlane of an empty scene is the usual one, not infinity (a scene that is only a skin)', async () => {
+    const { nearPlane } = await import('./gpu.js');
+    const { makeCamera } = await import('./camera.js');
+    const cam = makeCamera('persp', { positions: [[0, 0, 0]], faces: [] }, 100);
+    assert.equal(nearPlane(cam, { positions: [] }), 0.03);
+});

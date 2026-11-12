@@ -3,7 +3,7 @@
 // It also runs on a software GL (SwiftShader), so a frame can be checked on a machine without a GPU.
 import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
-import { buildVertices, buildMarks, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
+import { buildVertices, buildMarks, skinCache, SKIN_FLOATS, MAX_BONES, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
 const GL_FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit) soft(1)
 const GL_INSTANCE_FLOATS = 15; // at(3) ex(3) ey(3) ez(3) color(3)
 const GL_COMMON = /* glsl */ `#version 300 es
@@ -18,6 +18,28 @@ void main() {
   vec4 p = uVp * vec4(aPos, 1.0);
   gl_Position = vec4(p.xy, p.z * 2.0 - p.w, p.w); // WebGPU depth is 0..1, GL wants -1..1
   vN = aNrm; vC = aCol; vW = aPos; vM = aMat; vS = aSoft;
+}`;
+// a skinned figure: every vertex is moved by up to four joints (three rows of [cols | shift] per joint), mixed by its weights
+const GL_VERT_SKIN = `${GL_COMMON}
+uniform vec4 uBones[${3 * 64}];
+layout(location = 0) in vec3 aPos; layout(location = 1) in vec3 aNrm; layout(location = 2) in vec3 aCol;
+layout(location = 3) in vec4 aMat; layout(location = 4) in float aSoft;
+layout(location = 5) in vec4 aJ; layout(location = 6) in vec4 aW;
+vec3 bone(int k, vec4 p) { return vec3(dot(uBones[k * 3], p), dot(uBones[k * 3 + 1], p), dot(uBones[k * 3 + 2], p)); }
+void main() {
+  vec3 q = vec3(0.0);
+  vec3 n = vec3(0.0);
+  for (int c = 0; c < 4; c++) {
+    float w = aW[c];
+    if (w > 0.0) {
+      int k = int(aJ[c] + 0.5);
+      q += bone(k, vec4(aPos, 1.0)) * w;
+      n += bone(k, vec4(aNrm, 0.0)) * w;
+    }
+  }
+  vec4 p = uVp * vec4(q, 1.0);
+  gl_Position = vec4(p.xy, p.z * 2.0 - p.w, p.w);
+  vN = n; vC = aCol; vW = q; vM = aMat; vS = aSoft;
 }`;
 // the same prototype drawn many times: its frame (ex, ey, ez; scaled axes scale it) and position come per instance
 const GL_VERT_INST = `${GL_COMMON}
@@ -219,6 +241,8 @@ export const createGl = async (canvas, { onError } = {}) => {
     };
     const meshProg = program(GL_VERT, GL_FRAG);
     const instProg = program(GL_VERT_INST, GL_FRAG);
+    const skinProg = program(GL_VERT_SKIN, GL_FRAG);
+    const skinBones = gl.getUniformLocation(skinProg, 'uBones');
     const uni = (p) => {
         const g = (n) => gl.getUniformLocation(p, n);
         return { vp: g('uVp'), light: g('uLight'), sky: g('uSky'), ground: g('uGround'), eye: g('uEye'), mat: g('uMat'), fx: g('uFx'), fill: g('uFill'), rim: g('uRim'), lp: g('uLP'), lc: g('uLC'), ln: g('uLN') };
@@ -231,6 +255,7 @@ export const createGl = async (canvas, { onError } = {}) => {
     const markRes = gl.getUniformLocation(markProg, 'uRes');
     const meshU = uni(meshProg);
     const instU = uni(instProg);
+    const skinU = uni(skinProg);
     const stride = GL_FLOATS * 4;
     const buffer = () => gl.createBuffer();
     const vaoWith = (setup) => {
@@ -277,6 +302,24 @@ export const createGl = async (canvas, { onError } = {}) => {
         attr(4, 1, stride, 52);
     };
     const solidVao = vaoWith(meshAttrs(solidBuf));
+    const skinSolidBuf = buffer();
+    const skinGlassBuf = buffer();
+    const skinAttrs = (b) => () => {
+        const st = SKIN_FLOATS * 4;
+        gl.bindBuffer(gl.ARRAY_BUFFER, b);
+        attr(0, 3, st, 0);
+        attr(1, 3, st, 12);
+        attr(2, 3, st, 24);
+        attr(3, 4, st, 36);
+        attr(4, 1, st, 52);
+        attr(5, 4, st, 56);
+        attr(6, 4, st, 72);
+    };
+    const skinSolidVao = vaoWith(skinAttrs(skinSolidBuf));
+    const skinGlassVao = vaoWith(skinAttrs(skinGlassBuf));
+    const skinVerts = skinCache();
+    let skinSolidCount = 0;
+    let skinGlassCount = 0;
     const glassVao = vaoWith(meshAttrs(glassBuf));
     const instVao = vaoWith(() => {
         gl.bindBuffer(gl.ARRAY_BUFFER, protoBuf);
@@ -306,7 +349,7 @@ export const createGl = async (canvas, { onError } = {}) => {
         gl.bindBuffer(gl.ARRAY_BUFFER, b);
         gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
     };
-    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false } = {}) => {
+    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin } = {}) => {
         const L = { ...defaultLight, ...light };
         const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
         const M = { ...defaultMaterial, ...material };
@@ -387,6 +430,19 @@ export const createGl = async (canvas, { onError } = {}) => {
         }
         if (!instances)
             instCount = 0;
+        let bones = null;
+        if (skin && skin.meshes.length) {
+            const v = skinVerts(skin, palette, crease);
+            if (v.fresh) {
+                upload(skinSolidBuf, v.solid);
+                upload(skinGlassBuf, v.glass);
+                skinSolidCount = v.solid.length / SKIN_FLOATS;
+                skinGlassCount = v.glass.length / SKIN_FLOATS;
+            }
+            bones = skin.bones.subarray(0, MAX_BONES * 12);
+        }
+        else
+            skinSolidCount = skinGlassCount = 0;
         const eyeKey = cam.eye.join(',');
         if (glassTris.length && eyeKey !== glassEye) {
             glassEye = eyeKey;
@@ -452,6 +508,16 @@ export const createGl = async (canvas, { onError } = {}) => {
             gl.bindVertexArray(instVao);
             gl.drawArraysInstanced(gl.TRIANGLES, 0, protoCount, instCount);
         }
+        const drawSkin = (vao, count) => {
+            gl.useProgram(skinProg);
+            setU(skinU);
+            if (bones && bones.length)
+                gl.uniform4fv(skinBones, bones);
+            gl.bindVertexArray(vao);
+            gl.drawArrays(gl.TRIANGLES, 0, count);
+        };
+        if (skinSolidCount)
+            drawSkin(skinSolidVao, skinSolidCount);
         if (edgeCount) {
             gl.useProgram(lineProg);
             gl.uniformMatrix4fv(lineVp, false, vp);
@@ -475,6 +541,14 @@ export const createGl = async (canvas, { onError } = {}) => {
             gl.depthMask(false);
             gl.bindVertexArray(glassVao);
             gl.drawArrays(gl.TRIANGLES, 0, glassCount);
+            gl.depthMask(true);
+            gl.disable(gl.BLEND);
+        }
+        if (skinGlassCount) {
+            gl.enable(gl.BLEND);
+            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+            gl.depthMask(false);
+            drawSkin(skinGlassVao, skinGlassCount);
             gl.depthMask(true);
             gl.disable(gl.BLEND);
         }

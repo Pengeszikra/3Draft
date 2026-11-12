@@ -5,7 +5,7 @@
 // shading yet.
 
 export const name = '3draft' as const;
-export const version = '26.11.12002';
+export const version = '26.11.12003';
 
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
@@ -31,9 +31,9 @@ export { standOn } from './place.js';
 export type { StandOptions, Frame } from './place.js';
 export { paintOrder } from './order.js';
 export type { PaintItem } from './order.js';
-export { createGpu, viewProjection, buildVertices, cornerNormals, buildInstances, defaultLight, defaultMaterial } from './gpu.js';
+export { createGpu, viewProjection, buildVertices, cornerNormals, buildInstances, buildSkinVertices, MAX_BONES, SKIN_FLOATS, defaultLight, defaultMaterial } from './gpu.js';
 export { createGl } from './gl.js';
-export type { Gpu, GpuLight, GpuMaterial, GpuRenderOptions, Instance, Pixels } from './gpu.js';
+export type { Gpu, GpuLight, GpuMaterial, GpuRenderOptions, GpuSkin, Instance, Pixels } from './gpu.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
 export type { RenderOptions } from './svg.js';
 export { surfaceOf, DEFAULTS as MATERIAL_DEFAULTS } from './material.js';
@@ -66,5 +66,5 @@ export { triangulate } from './triangulate.js';
 export { buildEdges, buildMarks, MARK_FLOATS, sceneEdges } from './gpu.js';
 export type { Tri } from './triangulate.js';
 export type { Wire } from './wire.js';
-export { humanoidRig, posed, posedJoints, walkPose, HUMANOID_POSES, HUMANOID_JOINTS } from './rig.js';
+export { humanoidRig, posed, posedJoints, boneMatrices, poseLift, walkPose, HUMANOID_POSES, HUMANOID_JOINTS } from './rig.js';
 export type { Joint, Weights, Rig, Pose, PoseOptions } from './rig.js';

@@ -140,6 +140,38 @@ export const posedJoints = (rig: Rig, pose: Pose = {}, { move = [0, 0, 0] }: Pos
   return rig.joints.map((j, i) => apply(moves[i]!, j.at));
 };
 
+/**
+ * The joint moves of a pose for a GPU skin: 12 floats per joint (`rig.joints` order), the three rows of the 3x4 matrix
+ * [cols | shift], so a vertex goes to (dot(row0, [p, 1]), dot(row1, [p, 1]), dot(row2, [p, 1])). The same moves as posed().
+ */
+export const boneMatrices = (rig: Rig, pose: Pose = {}, { move = [0, 0, 0] }: PoseOptions = {}): Float32Array => {
+  const moves = jointMoves(rig.joints, pose, move);
+  const out = new Float32Array(moves.length * 12);
+  moves.forEach((m, j) => {
+    for (let r = 0; r < 3; r++) out.set([m.cols[0][r], m.cols[1][r], m.cols[2][r], m.shift[r]], j * 12 + r * 4);
+  });
+  return out;
+};
+
+/**
+ * How much a posed figure must be lifted so that its lowest point stays where the bind pose's was (what `ground: true`
+ * does in posed()), without building the posed meshes: only the heights of the points are mixed.
+ */
+export const poseLift = (meshes: Mesh[], rig: Rig, pose: Pose = {}): number => {
+  const bones = boneMatrices(rig, pose);
+  let bind = Infinity;
+  let low = Infinity;
+  meshes.forEach((mesh, m) =>
+    mesh.positions.forEach((p, i) => {
+      bind = Math.min(bind, p[1]);
+      let y = 0;
+      for (const [j, w] of rig.skin[m]![i]!) y += w * (bones[j * 12 + 4]! * p[0] + bones[j * 12 + 5]! * p[1] + bones[j * 12 + 6]! * p[2] + bones[j * 12 + 7]!);
+      low = Math.min(low, y);
+    }),
+  );
+  return Number.isFinite(low) ? bind - low : 0;
+};
+
 // ---------- reading a humanoid off its shape ----------
 
 const smooth = (from: number, to: number, x: number): number => {

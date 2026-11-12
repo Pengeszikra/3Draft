@@ -67,9 +67,26 @@ export interface GpuRenderOptions {
   unlit?: boolean;
   /** Glow: emitting materials light their surroundings as local lights (no shadows), up to 16 at a time. Off by default. */
   glow?: boolean;
+  /**
+   * A skinned figure, bent on the GPU: `meshes` in their bind pose (built and uploaded once while they stay the same Mesh
+   * objects), `weights[m][i]` the joints of vertex i of mesh m (a rig's `skin`; the four strongest are used) and `bones`
+   * the joint moves of this frame (boneMatrices(): 12 floats per joint, at most MAX_BONES joints). Only `bones` changes
+   * from frame to frame. Drawn after `mesh`; it takes no part in the edges, the glow lights or the camera's fit.
+   */
+  skin?: GpuSkin;
   /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
   marks?: Mark[];
 }
+/** See GpuRenderOptions.skin. */
+export interface GpuSkin {
+  meshes: Mesh[];
+  weights: [joint: number, weight: number][][][];
+  bones: Float32Array;
+}
+/** The most joints a GPU skin can have. */
+export const MAX_BONES = 64;
+/** Floats per skinned vertex: the 14 of buildVertices, then four joints and their four weights. */
+export const SKIN_FLOATS = 22;
 /** One copy of a prototype: its position, orthonormal frame and color. */
 export interface Instance {
   at: Vec3;
@@ -244,7 +261,7 @@ export const nearPlane = (cam: Camera, mesh: { positions: Vec3[] }): number => {
     const d = (p[0] - ex) * fx + (p[1] - ey) * fy + (p[2] - ez) * fz;
     if (d > 1e-6 && d < nearest) nearest = d;
   }
-  return nearest > 1000 ? nearest * 0.25 : 0.03;
+  return Number.isFinite(nearest) && nearest > 1000 ? nearest * 0.25 : 0.03; // (an empty scene, e.g. only a skin, has no nearest point)
 };
 
 const rgb = (color?: string): Vec3 => {
@@ -318,6 +335,86 @@ export const buildVertices = (mesh: Mesh, palette?: Palette, { smooth = 0 }: { s
   return out;
 };
 
+/**
+ * Triangle list of a skinned figure in its bind pose: buildVertices' 14 floats per vertex, then the indices of its four
+ * strongest joints and their weights (summing to 1). The shader moves each vertex by its joints' bone matrices.
+ */
+export const buildSkinVertices = (
+  meshes: Mesh[],
+  weights: [number, number][][][],
+  palette?: Palette,
+  { smooth = 0 }: { smooth?: number } = {},
+): Float32Array => {
+  let tris = 0;
+  for (const m of meshes) for (const f of m.faces) tris += Math.max(0, f.v.length - 2);
+  const out = new Float32Array(tris * 3 * SKIN_FLOATS);
+  let o = 0;
+  meshes.forEach((mesh, m) => {
+    const skin = weights[m];
+    if (!skin || skin.length !== mesh.positions.length) throw new Error(`skin: mesh ${m} has ${mesh.positions.length} points, the weights know ${skin?.length ?? 0}`);
+    const four = skin.map((w) => {
+      const top = [...w].sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const sum = top.reduce((t, x) => t + x[1], 0) || 1;
+      const j = [0, 0, 0, 0];
+      const k = [0, 0, 0, 0];
+      top.forEach(([joint, share], c) => {
+        if (joint >= MAX_BONES) throw new Error(`skin: joint ${joint} is over the limit of ${MAX_BONES}`);
+        j[c] = joint;
+        k[c] = share / sum;
+      });
+      return [...j, ...k];
+    });
+    const corners = smooth > 0 ? cornerNormals(mesh, smooth, mesh.faces.map((f) => surfaceOf(f, palette).soft)) : null;
+    mesh.faces.forEach((face, fi) => {
+      const pts = face.v.map((k) => mesh.positions[k]);
+      const flat = pts |> faceNormal |> norm;
+      const s = surfaceOf(face, palette);
+      const c = rgb(s.color);
+      const mat = [s.metal, s.rough, s.alpha, s.emit];
+      for (const tri of triangulate(pts)) {
+        for (const k of tri) {
+          out.set([...pts[k], ...(corners ? corners[fi][k] : flat), ...c, ...mat, s.soft, ...four[face.v[k]]], o);
+          o += SKIN_FLOATS;
+        }
+      }
+    });
+  });
+  return out;
+};
+
+/** Splits a triangle list into the opaque triangles and the see-through ones (alpha < 1, float 11 of a vertex). */
+export const splitGlass = (all: Float32Array, floats: number): { solid: Float32Array; glass: Float32Array } => {
+  const tri = 3 * floats;
+  const solid = new Float32Array(all.length);
+  const glass = new Float32Array(all.length);
+  let a = 0;
+  let b = 0;
+  for (let o = 0; o < all.length; o += tri) {
+    if (all[o + 11] < 1) (glass.set(all.subarray(o, o + tri), b), (b += tri));
+    else (solid.set(all.subarray(o, o + tri), a), (a += tri));
+  }
+  return { solid: solid.subarray(0, a), glass: glass.subarray(0, b) };
+};
+
+/** A skin's vertices, kept while its meshes, palette and smoothing stay the same. */
+export const skinCache = () => {
+  let key: { meshes: Mesh[]; weights: unknown; palette: Palette | undefined; crease: number } | null = null;
+  let data: { solid: Float32Array; glass: Float32Array } | null = null;
+  return (skin: GpuSkin, palette: Palette | undefined, crease: number): { solid: Float32Array; glass: Float32Array; fresh: boolean } => {
+    const same =
+      key &&
+      key.palette === palette &&
+      key.crease === crease &&
+      key.weights === skin.weights &&
+      key.meshes.length === skin.meshes.length &&
+      key.meshes.every((m, i) => m === skin.meshes[i]);
+    if (same && data) return { ...data, fresh: false };
+    data = splitGlass(buildSkinVertices(skin.meshes, skin.weights, palette, { smooth: crease }), SKIN_FLOATS);
+    key = { meshes: [...skin.meshes], weights: skin.weights, palette, crease };
+    return { ...data, fresh: true };
+  };
+};
+
 const INSTANCE_FLOATS = 15; // at(3) ex(3) ey(3) ez(3) color(3)
 
 /**
@@ -349,6 +446,8 @@ struct U {
   lcol : array<vec4<f32>, 16>, // rgb colour times intensity
 };
 @group(0) @binding(0) var<uniform> u : U;
+struct Bones { r : array<vec4<f32>, ${3 * 64}> }; // per joint three rows of [cols | shift]
+@group(0) @binding(1) var<uniform> bones : Bones;
 
 struct VIn { @location(0) pos : vec3<f32>, @location(1) nrm : vec3<f32>, @location(2) col : vec3<f32>, @location(8) mat : vec4<f32>, @location(9) soft : f32 };
 struct VOut {
@@ -366,6 +465,35 @@ struct VOut {
   o.n = i.nrm;
   o.c = i.col;
   o.w = i.pos;
+  o.m = i.mat;
+  o.s = i.soft;
+  return o;
+}
+
+struct SIn {
+  @location(0) pos : vec3<f32>, @location(1) nrm : vec3<f32>, @location(2) col : vec3<f32>, @location(8) mat : vec4<f32>, @location(9) soft : f32,
+  @location(10) j : vec4<f32>, @location(11) wt : vec4<f32>,
+};
+fn bone(k : u32, p : vec4<f32>) -> vec3<f32> {
+  return vec3<f32>(dot(bones.r[k * 3u], p), dot(bones.r[k * 3u + 1u], p), dot(bones.r[k * 3u + 2u], p));
+}
+// a skinned figure: every vertex is moved by up to four joints, mixed by its weights (the normal by their turns)
+@vertex fn vss(i : SIn) -> VOut {
+  var o : VOut;
+  var p = vec3<f32>(0.0);
+  var n = vec3<f32>(0.0);
+  for (var c = 0u; c < 4u; c = c + 1u) {
+    let w = i.wt[c];
+    if (w > 0.0) {
+      let k = u32(i.j[c] + 0.5);
+      p = p + bone(k, vec4<f32>(i.pos, 1.0)) * w;
+      n = n + bone(k, vec4<f32>(i.nrm, 0.0)) * w;
+    }
+  }
+  o.p = u.vp * vec4<f32>(p, 1.0);
+  o.n = n;
+  o.c = i.col;
+  o.w = p;
   o.m = i.mat;
   o.s = i.soft;
   return o;
@@ -603,7 +731,10 @@ export const createGpu = async (
   // ONE explicit layout for every pipeline: with 'auto' each pipeline gets its own, and a bind group made for one is refused by the others
   const bindLayout = device.createBindGroupLayout({
     // visibility 1 | 2 = GPUShaderStage.VERTEX | FRAGMENT
-    entries: [{ binding: 0, visibility: 1 | 2, buffer: { type: 'uniform' } }],
+    entries: [
+      { binding: 0, visibility: 1 | 2, buffer: { type: 'uniform' } },
+      { binding: 1, visibility: 1, buffer: { type: 'uniform' } }, // the bones of a skin
+    ],
   });
   const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindLayout] });
   const make = (entry: string, buffers: Handle[], glass = false): Handle =>
@@ -631,6 +762,12 @@ export const createGpu = async (
       multisample: { count: sampleCount },
     });
   const pipeline = make('vs', [meshLayout]);
+  const skinLayout = {
+    arrayStride: SKIN_FLOATS * 4,
+    attributes: [...meshLayout.attributes, { shaderLocation: 10, offset: 56, format: 'float32x4' }, { shaderLocation: 11, offset: 72, format: 'float32x4' }],
+  };
+  const skinPipeline = make('vss', [skinLayout]);
+  const skinGlassPipeline = make('vss', [skinLayout], true);
   const glassPipeline = make('vs', [meshLayout], true);
   // the instanced pipeline reads position and normal only from the prototype (locations 0, 1)
   const instPipeline = make('vsi', [{ ...meshLayout, attributes: meshLayout.attributes.slice(0, 2) }, instanceLayout]);
@@ -674,8 +811,17 @@ export const createGpu = async (
     multisample: { count: sampleCount },
   });
   const uniforms = device.createBuffer({ size: 720, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-  const bind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
-  const instBind = device.createBindGroup({ layout: bindLayout, entries: [{ binding: 0, resource: { buffer: uniforms } }] });
+  const boneBuffer = device.createBuffer({ size: MAX_BONES * 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const entries = [{ binding: 0, resource: { buffer: uniforms } }, { binding: 1, resource: { buffer: boneBuffer } }];
+  const bind = device.createBindGroup({ layout: bindLayout, entries });
+  const instBind = device.createBindGroup({ layout: bindLayout, entries });
+  const skinVerts = skinCache();
+  let skinSolid: Handle = null;
+  let skinSolidCap = 0;
+  let skinGlass: Handle = null;
+  let skinGlassCap = 0;
+  let skinSolidCount = 0;
+  let skinGlassCount = 0;
 
   // Geometry that did not change since the last frame is not rebuilt or uploaded again.
   let uploaded: Mesh | null = null; // the mesh now in vertexBuffer
@@ -728,7 +874,7 @@ export const createGpu = async (
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
@@ -820,6 +966,27 @@ export const createGpu = async (
       instCount = d.length / INSTANCE_FLOATS;
     }
     if (!instances) instCount = 0;
+    if (skin && skin.meshes.length) {
+      const v = skinVerts(skin, palette, crease);
+      if (v.fresh) {
+        if (v.solid.byteLength > skinSolidCap) {
+          skinSolid?.destroy();
+          skinSolidCap = Math.max(v.solid.byteLength, 4096);
+          skinSolid = device.createBuffer({ size: skinSolidCap, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+        }
+        if (v.solid.byteLength) device.queue.writeBuffer(skinSolid, 0, v.solid);
+        if (v.glass.byteLength > skinGlassCap) {
+          skinGlass?.destroy();
+          skinGlassCap = Math.max(v.glass.byteLength, 4096);
+          skinGlass = device.createBuffer({ size: skinGlassCap, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+        }
+        if (v.glass.byteLength) device.queue.writeBuffer(skinGlass, 0, v.glass);
+        skinSolidCount = v.solid.length / SKIN_FLOATS;
+        skinGlassCount = v.glass.length / SKIN_FLOATS;
+      }
+      const b = skin.bones.subarray(0, MAX_BONES * 12);
+      if (b.byteLength) device.queue.writeBuffer(boneBuffer, 0, b);
+    } else skinSolidCount = skinGlassCount = 0;
 
     const eyeKey = cam.eye.join(',');
     if (glassTris.length && eyeKey !== glassEye) {
@@ -900,6 +1067,12 @@ export const createGpu = async (
       pass.setVertexBuffer(1, instBuffer);
       pass.draw(protoCount, instCount);
     }
+    if (skinSolidCount) {
+      pass.setPipeline(skinPipeline);
+      pass.setBindGroup(0, bind);
+      pass.setVertexBuffer(0, skinSolid);
+      pass.draw(skinSolidCount);
+    }
     if (edgeCount) {
       pass.setPipeline(linePipeline);
       pass.setBindGroup(0, bind);
@@ -912,6 +1085,12 @@ export const createGpu = async (
       pass.setBindGroup(0, bind);
       pass.setVertexBuffer(0, glassBuffer);
       pass.draw(glassCount);
+    }
+    if (skinGlassCount) {
+      pass.setPipeline(skinGlassPipeline);
+      pass.setBindGroup(0, bind);
+      pass.setVertexBuffer(0, skinGlass);
+      pass.draw(skinGlassCount);
     }
     if (markCount) {
       pass.setPipeline(markPipeline);
@@ -962,6 +1141,9 @@ export const createGpu = async (
     markBuffer?.destroy();
     protoBuffer?.destroy();
     instBuffer?.destroy();
+    skinSolid?.destroy();
+    skinGlass?.destroy();
+    boneBuffer.destroy();
     depth?.destroy();
     color?.destroy();
     uniforms.destroy();

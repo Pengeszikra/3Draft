@@ -88,6 +88,14 @@ const custom = posed(meshes, rig, { shoulderL: [0, 0, 1.2], elbowL: [-0.8, 0, 0]
 - **The figure.** It stands on two feet that are parts of one mesh, looks to +z, and its arms hang apart from the trunk (a relaxed or A pose; a T pose is not understood). `humanoidRig` finds the crotch (the highest level under which the legs are still two pieces), the armpits (the same for the arms) and the neck (the narrowest level above the shoulders), and puts 15 joints there: `root`, `spine`, `head`, and per side (`L` is +x, his left) `shoulder`, `elbow`, `wrist`, `hip`, `knee`, `ankle`. It throws with the reason when it finds no figure.
 - **Weights.** Every vertex gets `[[joint, share], ...]`: it follows the bone of its limb, blended over a short band at each joint. Other meshes and loose shells (hair, a hat, a watch) take the weights of the nearest point of the body. Because all of this is read off the shape, a figure edited by hand, or made by somebody else, moves without anyone rigging it.
 - **A pose** is `{ jointName: [rx, ry, rz] }` in radians, relative to the bind pose, applied x, y, z in the parent's space. For hanging limbs: hip x < 0 swings the leg forward, knee x > 0 bends it, elbow x < 0 bends it, head x > 0 nods, `shoulderL` z > 0 / `shoulderR` z < 0 lifts the arm. `posed` only moves the points: faces keep their order, colour and material, and a face that the move bends (or folds) becomes triangles, so the result is still planar, convex and closed. `{ ground: true }` keeps the lowest point on the floor, `{ move }` shifts the figure. `posedJoints` gives the joint positions in a pose.
+- **On the GPU.** For animation the bending is done by the GPU: pass the bind meshes once and only the joints' matrices per frame. `boneMatrices(rig, pose, { move })` gives 12 floats per joint (the same moves as `posed`), `poseLift(meshes, rig, pose)` the lift that `ground: true` would make, without building the meshes:
+
+  ```js
+  const lift = poseLift(meshes, rig, pose);
+  gpu.render(scene, view, { fit, skin: { meshes, weights: rig.skin, bones: boneMatrices(rig, pose, { move: [0, lift, 0] }) } });
+  ```
+
+  Both renderers (`createGpu`, `createGl`) take `skin`: its vertices are built and uploaded once while the meshes stay the same objects, the shader moves every vertex by its four strongest joints (at most `MAX_BONES` = 64). Use `posed` when you need the bent meshes themselves (to keep a pose, to pick, for the SVG view).
 - **Ready poses:** `HUMANOID_POSES` (`bind`, `tpose`, `wave`, `sit`, `phone`) and `walkPose(t, { stride, run })`, one frame of a walk or run on the spot, `t` from 0 to 1.
 
 `examples/betterman.js` moves the figure of `examples/betterman.scene.json` (one body mesh with per-face materials, the hair as a second object) and writes a pose sheet and a walk flip book to `examples/out/`.

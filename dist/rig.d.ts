@@ -30,6 +30,16 @@ export interface PoseOptions {
 export declare const posed: (meshes: Mesh[], rig: Rig, pose?: Pose, { move, ground }?: PoseOptions) => Mesh[];
 /** Where the joints are in a pose (the same order as `rig.joints`). */
 export declare const posedJoints: (rig: Rig, pose?: Pose, { move }?: PoseOptions) => Vec3[];
+/**
+ * The joint moves of a pose for a GPU skin: 12 floats per joint (`rig.joints` order), the three rows of the 3x4 matrix
+ * [cols | shift], so a vertex goes to (dot(row0, [p, 1]), dot(row1, [p, 1]), dot(row2, [p, 1])). The same moves as posed().
+ */
+export declare const boneMatrices: (rig: Rig, pose?: Pose, { move }?: PoseOptions) => Float32Array;
+/**
+ * How much a posed figure must be lifted so that its lowest point stays where the bind pose's was (what `ground: true`
+ * does in posed()), without building the posed meshes: only the heights of the points are mixed.
+ */
+export declare const poseLift: (meshes: Mesh[], rig: Rig, pose?: Pose) => number;
 export declare const HUMANOID_JOINTS: readonly ["root", "spine", "head", "shoulderL", "elbowL", "wristL", "hipL", "kneeL", "ankleL", "shoulderR", "elbowR", "wristR", "hipR", "kneeR", "ankleR"];
 /**
  * The skeleton and the weights of a standing figure, read off its shape. It must stand on two feet joined in one

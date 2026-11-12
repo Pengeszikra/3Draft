@@ -96,3 +96,22 @@ test('loose parts follow the body; what is no figure is refused with the reason'
   assert.throws(() => humanoidRig([box({ size: [1, 1, 1], at: [0, 0.5, 0] })]), /no figure/);
   assert.throws(() => posed([man], rig), /2 mesh/);
 });
+
+test('boneMatrices are the moves posed() makes, and poseLift keeps the lowest point on the floor', async () => {
+  const { boneMatrices, poseLift } = await import('./rig.js');
+  const man = boxMan();
+  const rig = humanoidRig([man]);
+  const pose = walkPose(0.3, { run: true, stride: 0.9 });
+  const B = boneMatrices(rig, pose);
+  assert.equal(B.length, rig.joints.length * 12);
+  // a GPU skin with these matrices puts every vertex where posed() does (posed() only re-cuts faces, not points)
+  const want = posed([man], rig, pose)[0]!.positions;
+  man.positions.forEach((p, i) => {
+    const q = [0, 1, 2].map((r) => rig.skin[0]![i]!.reduce((t, [j, w]) => t + w * (B[j * 12 + r * 4]! * p[0] + B[j * 12 + r * 4 + 1]! * p[1] + B[j * 12 + r * 4 + 2]! * p[2] + B[j * 12 + r * 4 + 3]!), 0));
+    q.forEach((v, k) => assert.ok(Math.abs(v - want[i]![k]!) < 1e-6)); // float32 matrices
+  });
+  const lift = poseLift([man], rig, HUMANOID_POSES.sit);
+  const grounded = posed([man], rig, HUMANOID_POSES.sit, { ground: true })[0]!;
+  const raw = posed([man], rig, HUMANOID_POSES.sit)[0]!;
+  assert.ok(Math.abs(grounded.positions[0]![1] - raw.positions[0]![1] - lift) < 1e-6);
+});
