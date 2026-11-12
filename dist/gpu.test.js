@@ -120,3 +120,14 @@ test('nearPlane of an empty scene is the usual one, not infinity (a scene that i
     const cam = makeCamera('persp', { positions: [[0, 0, 0]], faces: [] }, 100);
     assert.equal(nearPlane(cam, { positions: [] }), 0.03);
 });
+test('buildScreenQuads: two triangles per screen, corners TL TR BR BL with their part of the picture', async () => {
+    const { buildScreenQuads, SCREEN_FLOATS } = await import('./gpu.js');
+    const corners = [[-1, 1, 0], [1, 1, 0], [1, -1, 0], [-1, -1, 0]];
+    const q = buildScreenQuads([{ corners: corners, source: null }, { corners: corners, source: null, uv: [0, 0.25, 1, 0.75] }]);
+    assert.equal(q.length, 2 * 6 * SCREEN_FLOATS);
+    const vert = (i) => Array.from(q.subarray(i * SCREEN_FLOATS, (i + 1) * SCREEN_FLOATS));
+    assert.deepEqual(vert(0), [-1, 1, 0, 0, 0]); // top left, top of the picture
+    assert.deepEqual(vert(2), [1, -1, 0, 1, 1]); // bottom right
+    assert.deepEqual(vert(6), [-1, 1, 0, 0, 0.25]); // the second screen shows the middle band
+    assert.deepEqual(vert(8), [1, -1, 0, 1, 0.75]);
+});

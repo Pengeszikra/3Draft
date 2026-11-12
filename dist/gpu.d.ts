@@ -71,9 +71,26 @@ export interface GpuRenderOptions {
      * from frame to frame. Drawn after `mesh`; it takes no part in the edges, the glow lights or the camera's fit.
      */
     skin?: GpuSkin;
+    /**
+     * Pictures on four-cornered faces (a scene played on a face): each `source` (a canvas, e.g. another renderer's) is copied
+     * into a texture every frame and drawn on the quad `corners` (top left, top right, bottom right, bottom left), depth tested
+     * against the scene like any face, unlit (it is a display). `uv` = [u0, v0, u1, v1] picks the part of the picture to show
+     * (v = 0 is its top). Put the quad a hair in front of its face so it does not fight it.
+     */
+    screens?: GpuScreen[];
     /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
     marks?: Mark[];
 }
+/** See GpuRenderOptions.screens. */
+export interface GpuScreen {
+    corners: [Vec3, Vec3, Vec3, Vec3];
+    source: any;
+    uv?: [number, number, number, number];
+}
+/** Floats per screen vertex: position, then u v. */
+export declare const SCREEN_FLOATS = 5;
+/** The two triangles of every screen quad (SCREEN_FLOATS per vertex), in `screens` order. */
+export declare const buildScreenQuads: (screens: GpuScreen[]) => Float32Array;
 /** See GpuRenderOptions.skin. */
 export interface GpuSkin {
     meshes: Mesh[];

@@ -3,7 +3,7 @@
 // It also runs on a software GL (SwiftShader), so a frame can be checked on a machine without a GPU.
 import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
-import { buildVertices, buildMarks, skinCache, SKIN_FLOATS, MAX_BONES, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
+import { buildVertices, buildMarks, skinCache, SKIN_FLOATS, MAX_BONES, buildScreenQuads, SCREEN_FLOATS, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
 const GL_FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit) soft(1)
 const GL_INSTANCE_FLOATS = 15; // at(3) ex(3) ey(3) ez(3) color(3)
 const GL_COMMON = /* glsl */ `#version 300 es
@@ -41,6 +41,22 @@ void main() {
   gl_Position = vec4(p.xy, p.z * 2.0 - p.w, p.w);
   vN = n; vC = aCol; vW = q; vM = aMat; vS = aSoft;
 }`;
+// a screen: a picture on a quad, as it is (a display does not take the scene's light)
+const GL_VERT_SCREEN = `#version 300 es
+uniform mat4 uVp;
+layout(location = 0) in vec3 aPos; layout(location = 1) in vec2 aUv;
+out vec2 vUv;
+void main() {
+  vec4 p = uVp * vec4(aPos, 1.0);
+  gl_Position = vec4(p.xy, p.z * 2.0 - p.w, p.w);
+  vUv = aUv;
+}`;
+const GL_FRAG_SCREEN = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+in vec2 vUv;
+out vec4 o;
+void main() { o = vec4(texture(uTex, vUv).rgb, 1.0); }`;
 // the same prototype drawn many times: its frame (ex, ey, ez; scaled axes scale it) and position come per instance
 const GL_VERT_INST = `${GL_COMMON}
 layout(location = 0) in vec3 aPos; layout(location = 1) in vec3 aNrm;
@@ -256,6 +272,10 @@ export const createGl = async (canvas, { onError } = {}) => {
     const meshU = uni(meshProg);
     const instU = uni(instProg);
     const skinU = uni(skinProg);
+    const screenProg = program(GL_VERT_SCREEN, GL_FRAG_SCREEN);
+    const screenVp = gl.getUniformLocation(screenProg, 'uVp');
+    const screenTexU = gl.getUniformLocation(screenProg, 'uTex');
+    const screenTex = [];
     const stride = GL_FLOATS * 4;
     const buffer = () => gl.createBuffer();
     const vaoWith = (setup) => {
@@ -318,6 +338,12 @@ export const createGl = async (canvas, { onError } = {}) => {
     const skinSolidVao = vaoWith(skinAttrs(skinSolidBuf));
     const skinGlassVao = vaoWith(skinAttrs(skinGlassBuf));
     const skinVerts = skinCache();
+    const screenBuf = buffer();
+    const screenVao = vaoWith(() => {
+        gl.bindBuffer(gl.ARRAY_BUFFER, screenBuf);
+        attr(0, 3, SCREEN_FLOATS * 4, 0);
+        attr(1, 2, SCREEN_FLOATS * 4, 12);
+    });
     let skinSolidCount = 0;
     let skinGlassCount = 0;
     const glassVao = vaoWith(meshAttrs(glassBuf));
@@ -349,7 +375,7 @@ export const createGl = async (canvas, { onError } = {}) => {
         gl.bindBuffer(gl.ARRAY_BUFFER, b);
         gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
     };
-    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin } = {}) => {
+    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens } = {}) => {
         const L = { ...defaultLight, ...light };
         const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
         const M = { ...defaultMaterial, ...material };
@@ -518,6 +544,35 @@ export const createGl = async (canvas, { onError } = {}) => {
         };
         if (skinSolidCount)
             drawSkin(skinSolidVao, skinSolidCount);
+        // screens: each picture into its texture, then its quad, depth tested like a face
+        const shown = (screens ?? []).map((sc, i) => ({ sc, i })).filter(({ sc }) => (sc.source?.width | 0) > 0 && (sc.source?.height | 0) > 0);
+        if (shown.length) {
+            upload(screenBuf, buildScreenQuads(screens));
+            gl.useProgram(screenProg);
+            gl.uniformMatrix4fv(screenVp, false, vp);
+            gl.uniform1i(screenTexU, 0);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindVertexArray(screenVao);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            for (const { sc, i } of shown) {
+                let t = screenTex[i];
+                if (!t) {
+                    t = screenTex[i] = gl.createTexture();
+                    gl.bindTexture(gl.TEXTURE_2D, t);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                }
+                else
+                    gl.bindTexture(gl.TEXTURE_2D, t);
+                try {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sc.source);
+                    gl.drawArrays(gl.TRIANGLES, i * 6, 6);
+                }
+                catch { }
+            }
+        }
         if (edgeCount) {
             gl.useProgram(lineProg);
             gl.uniformMatrix4fv(lineVp, false, vp);

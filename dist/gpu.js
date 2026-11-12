@@ -7,6 +7,18 @@ import { bounds, faceNormal } from './mesh.js';
 import { triangulate } from './triangulate.js';
 import { makeCamera } from './camera.js';
 import { surfaceOf } from './material.js';
+/** Floats per screen vertex: position, then u v. */
+export const SCREEN_FLOATS = 5;
+/** The two triangles of every screen quad (SCREEN_FLOATS per vertex), in `screens` order. */
+export const buildScreenQuads = (screens) => {
+    const out = new Float32Array(screens.length * 6 * SCREEN_FLOATS);
+    screens.forEach((sc, i) => {
+        const [u0, v0, u1, v1] = sc.uv ?? [0, 0, 1, 1];
+        const uv = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+        [0, 1, 2, 0, 2, 3].forEach((k, j) => out.set([...sc.corners[k], ...uv[k]], (i * 6 + j) * SCREEN_FLOATS));
+    });
+    return out;
+};
 /** The most joints a GPU skin can have. */
 export const MAX_BONES = 64;
 /** Floats per skinned vertex: the 14 of buildVertices, then four joints and their four weights. */
@@ -404,6 +416,20 @@ fn bone(k : u32, p : vec4<f32>) -> vec3<f32> {
   return o;
 }
 
+// a screen: a picture on a quad, as it is (a display does not take the scene's light)
+@group(1) @binding(0) var scrSampler : sampler;
+@group(1) @binding(1) var scrTex : texture_2d<f32>;
+struct QOut { @builtin(position) p : vec4<f32>, @location(0) uv : vec2<f32> };
+@vertex fn vsq(@location(0) pos : vec3<f32>, @location(1) uv : vec2<f32>) -> QOut {
+  var o : QOut;
+  o.p = u.vp * vec4<f32>(pos, 1.0);
+  o.uv = uv;
+  return o;
+}
+@fragment fn fsq(i : QOut) -> @location(0) vec4<f32> {
+  return vec4<f32>(textureSample(scrTex, scrSampler, i.uv).rgb, 1.0);
+}
+
 struct IIn {
   @location(0) pos : vec3<f32>, @location(1) nrm : vec3<f32>,
   @location(3) at : vec3<f32>, @location(4) ex : vec3<f32>, @location(5) ey : vec3<f32>, @location(6) ez : vec3<f32>,
@@ -672,6 +698,30 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
     };
     const skinPipeline = make('vss', [skinLayout]);
     const skinGlassPipeline = make('vss', [skinLayout], true);
+    // screens: a second bind group with the picture (one texture per screen)
+    const texLayout = device.createBindGroupLayout({
+        entries: [
+            { binding: 0, visibility: 2, sampler: {} },
+            { binding: 1, visibility: 2, texture: {} },
+        ],
+    });
+    const screenPipeline = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [bindLayout, texLayout] }),
+        vertex: {
+            module,
+            entryPoint: 'vsq',
+            buffers: [{ arrayStride: SCREEN_FLOATS * 4, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x2' }] }],
+        },
+        fragment: { module, entryPoint: 'fsq', targets: [{ format }] },
+        primitive: { topology: 'triangle-list', cullMode: 'none' },
+        depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
+        multisample: { count: sampleCount },
+    });
+    const screenSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
+    const screenTex = [];
+    let screenBuffer = null;
+    let screenCap = 0;
+    let screenCount = 0;
     const glassPipeline = make('vs', [meshLayout], true);
     // the instanced pipeline reads position and normal only from the prototype (locations 0, 1)
     const instPipeline = make('vsi', [{ ...meshLayout, attributes: meshLayout.attributes.slice(0, 2) }, instanceLayout]);
@@ -772,7 +822,7 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
         depth = device.createTexture({ size: [n, n], format: 'depth24plus', sampleCount, usage: GPUTextureUsage.RENDER_ATTACHMENT });
         color = sampleCount > 1 ? device.createTexture({ size: [n, n], format, sampleCount, usage: GPUTextureUsage.RENDER_ATTACHMENT }) : null;
     };
-    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin } = {}, readback = false) => {
+    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens } = {}, readback = false) => {
         const L = { ...defaultLight, ...light };
         const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
         const M = { ...defaultMaterial, ...material };
@@ -944,6 +994,39 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
             }
             device.queue.writeBuffer(markBuffer, 0, markData);
         }
+        // screens: copy each picture into its texture (made again when its size changes) and the quads into one buffer
+        screenCount = 0;
+        const shown = [];
+        (screens ?? []).forEach((sc, i) => {
+            const w = sc.source?.width | 0;
+            const h = sc.source?.height | 0;
+            if (!w || !h)
+                return;
+            let t = screenTex[i];
+            if (!t || t.w !== w || t.h !== h) {
+                t?.tex.destroy();
+                const tex = device.createTexture({ size: [w, h], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT });
+                const group = device.createBindGroup({ layout: texLayout, entries: [{ binding: 0, resource: screenSampler }, { binding: 1, resource: tex.createView() }] });
+                t = screenTex[i] = { tex, w, h, group };
+            }
+            try {
+                device.queue.copyExternalImageToTexture({ source: sc.source }, { texture: t.tex }, [w, h]);
+                shown.push(i);
+            }
+            catch (err) {
+                onError?.(`screen ${i}: ${err.message}`);
+            }
+        });
+        if (shown.length) {
+            const quads = buildScreenQuads(screens);
+            if (quads.byteLength > screenCap) {
+                screenBuffer?.destroy();
+                screenCap = quads.byteLength;
+                screenBuffer = device.createBuffer({ size: screenCap, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+            }
+            device.queue.writeBuffer(screenBuffer, 0, quads);
+            screenCount = shown.length;
+        }
         const encoder = device.createCommandEncoder();
         const offscreen = readback
             ? device.createTexture({ size: [px, px], format, usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC })
@@ -973,6 +1056,15 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
             pass.setVertexBuffer(0, protoBuffer);
             pass.setVertexBuffer(1, instBuffer);
             pass.draw(protoCount, instCount);
+        }
+        if (screenCount) {
+            pass.setPipeline(screenPipeline);
+            pass.setBindGroup(0, bind);
+            pass.setVertexBuffer(0, screenBuffer);
+            for (const i of shown) {
+                pass.setBindGroup(1, screenTex[i].group);
+                pass.draw(6, 1, i * 6);
+            }
         }
         if (skinSolidCount) {
             pass.setPipeline(skinPipeline);
@@ -1048,6 +1140,9 @@ export const createGpu = async (canvas, { sampleCount = 4, onError } = {}) => {
         instBuffer?.destroy();
         skinSolid?.destroy();
         skinGlass?.destroy();
+        screenBuffer?.destroy();
+        for (const t of screenTex)
+            t?.tex.destroy();
         boneBuffer.destroy();
         depth?.destroy();
         color?.destroy();

@@ -96,6 +96,8 @@ const custom = posed(meshes, rig, { shoulderL: [0, 0, 1.2], elbowL: [-0.8, 0, 0]
   ```
 
   Both renderers (`createGpu`, `createGl`) take `skin`: its vertices are built and uploaded once while the meshes stay the same objects, the shader moves every vertex by its four strongest joints (at most `MAX_BONES` = 64). Use `posed` when you need the bent meshes themselves (to keep a pose, to pick, for the SVG view).
+
+**Pictures on faces.** Both renderers also take `screens: [{ corners: [tl, tr, br, bl], source: canvas, uv? }]`: every frame each canvas (another renderer's, a 2D canvas, an image bitmap) is copied into a texture and drawn on that quad, unlit and depth tested against the scene, so things in front hide it. The viewer uses it to play a scene on a face (a material's `scene`).
 - **Ready poses:** `HUMANOID_POSES` (`bind`, `tpose`, `wave`, `sit`, `phone`) and `walkPose(t, { stride, run })`, one frame of a walk or run on the spot, `t` from 0 to 1.
 
 `examples/betterman.js` moves the figure of `examples/betterman.scene.json` (one body mesh with per-face materials, the hair as a second object) and writes a pose sheet and a walk flip book to `examples/out/`.
