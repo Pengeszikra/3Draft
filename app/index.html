@@ -4053,6 +4053,22 @@
     // L: select the loop. A selected line takes all the lines of its ring (the lines the loop cut would cross, round and round until it
     // closes or ends); a selected face takes the faces of its ring. One face has two rings (two ways round): L again takes the other one;
     // two faces that touch go the way their shared line says.
+    // Alt+N: flip normals. The selected faces (3) turn round: their winding is reversed, so the side they face is the other one
+    // (a screen shown on the back of its face, a face that came out inside out). With no faces selected, the whole object.
+    const flipNormals = () => {
+      if (!editing || !has(editing)) return;
+      const m = editing.mesh;
+      const keys = sel.kind === 'face' && sel.items.length ? new Set(sel.items.map((k) => k.join())) : null;
+      let n = 0;
+      const faces = m.faces.map((f) => (keys && !keys.has(faceKey(f).join()) ? f : (n++, { ...f, v: [...f.v].reverse() })));
+      if (!n) return noteEdit('nothing to flip');
+      const obj = live(editing) ?? editing;
+      history.push(() => has(obj) && change(obj, m));
+      change(obj, { ...m, faces });
+      noteEdit(`flipped ${n} face${n > 1 ? 's' : ''}${keys ? '' : ' (the whole object)'}`);
+      rebuild();
+      redraw();
+    };
     const selectLoop = () => {
       const m = editing.mesh;
       if (sel.kind === 'edge' && sel.items.length) {
@@ -4384,6 +4400,11 @@
       else if (e.key === 'Escape') closeText();
     });
     const editKey = (e) => {
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !xf && e.code === 'KeyN') {
+        e.preventDefault(); // (on a Mac Option+N types a ˜)
+        if (!e.repeat) flipNormals();
+        return true;
+      }
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && !xf && e.key.toLowerCase() === 'r') {
         e.preventDefault(); // Ctrl+R would reload the page
         if (!e.repeat) loopCut();

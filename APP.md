@@ -235,6 +235,8 @@ Select a line (`2`), press Ctrl+R: every four-sided face on the ring through tha
 
 ## Fill (edit mode, `F`)
 
+`Alt+N` (`flipNormals`, matched on `e.code === 'KeyN'` because Option+N types a character on a Mac) reverses the winding of the selected faces, or of every face when none is selected: the faces then face the other side (a screen shows on the side its winding faces). One `U` step.
+
 `F` makes one new face of the selected **points** (or the points of the selected **lines**): they are ordered round their middle in their own plane, the face is wound so that it faces away from the middle of the object, and it takes the material of a neighbouring face (else the palette's). It closes a hole in a solid. It needs three or more points that do not lie on a line. One `U` step. Flying down with F needs Shift.
 
 Concave outlines (an L, a V, a star) are filled too: the lines are **followed** instead of the points being ordered by angle (`outlineOf` in `src/wire.ts`). The selected lines, or for selected points the open lines of the mesh between them, make a graph; the walk starts at the outermost point and at a junction goes on where the direction turns least (the tangent rule of Rustroke's fill). With no closed walk it falls back to the angle order, which is right for any convex outline. A face may be concave: every consumer (the GPU / WebGL vertex list, the kernel's pick triangles, `pick`, `nearestSurface`, the faces `moveVertex` / `reshape` split) cuts it with `triangulate` (`src/triangulate.ts`): a fan for a convex polygon, ear clipping for a concave one, so no triangle lies outside the outline.
