@@ -5,7 +5,7 @@
 // shading yet.
 
 export const name = '3draft' as const;
-export const version = '26.11.12015';
+export const version = '26.11.12016';
 
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
@@ -16,7 +16,7 @@ export { bevel } from './bevel.js';
 export type { BevelResult } from './bevel.js';
 export { lathe } from './lathe.js';
 export type { LatheFrame } from './lathe.js';
-export { textMesh, faceFrame, GLYPHS, STROKE as TEXT_STROKE } from './text.js';
+export { textMesh, faceFrame, GLYPHS, STROKE as TEXT_STROKE, mergeFlat } from './text.js';
 export type { TextFrame, TextOptions } from './text.js';
 export { saw, planeThroughLine, planeThroughTriangle, sectionSegments } from './saw.js';
 export type { CutPlane, Sawn } from './saw.js';

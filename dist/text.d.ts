@@ -20,6 +20,14 @@ export interface TextOptions {
     mat?: string;
     color?: string;
 }
+/**
+ * Faces that lie in one plane and touch along an edge become one face (the boolean cuts the big sides into pieces; a letter wants
+ * plain sides). Only when the result stays convex and the two have the same material. `edge(u, v)`, when given, must accept every
+ * shared edge of a pair (the viewer's mirror joins only along its plane).
+ */
+export declare const mergeFlat: (mesh: Mesh, { edge }?: {
+    edge?: (u: number, v: number) => boolean;
+}) => Mesh;
 /** The text as one mesh: every stroke a bar of stroke × stroke section standing out of the face by the stroke width. */
 export declare const textMesh: (text: string, frame: TextFrame, { mat, color }?: TextOptions) => Mesh;
 export {};

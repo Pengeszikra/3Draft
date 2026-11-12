@@ -122,8 +122,12 @@ export interface TextOptions {
   color?: string;
 }
 
-/** Faces that lie in one plane and touch along an edge become one face (the boolean cuts the big sides into pieces; a letter wants plain sides). */
-const mergeFlat = (mesh: Mesh): Mesh => {
+/**
+ * Faces that lie in one plane and touch along an edge become one face (the boolean cuts the big sides into pieces; a letter wants
+ * plain sides). Only when the result stays convex and the two have the same material. `edge(u, v)`, when given, must accept every
+ * shared edge of a pair (the viewer's mirror joins only along its plane).
+ */
+export const mergeFlat = (mesh: Mesh, { edge }: { edge?: (u: number, v: number) => boolean } = {}): Mesh => {
   const P = mesh.positions;
   type F = { v: number[]; n: Vec3; mat?: string; color?: string };
   let faces: F[] = mesh.faces.map((f) => ({ ...f, n: norm(faceNormal(f.v.map((i) => P[i]!))) }));
@@ -138,9 +142,10 @@ const mergeFlat = (mesh: Mesh): Mesh => {
       if (bAt.has(`${w},${u}`)) {
         shared++;
         start = i;
+        if (edge && !edge(u, w)) shared = -Infinity;
       }
     });
-    if (!shared) return null;
+    if (!(shared > 0)) return null;
     // the shared edge u -> v of a (v -> u in b): a from v round to u, then b from u round to v
     const u = a.v[start]!;
     const v = a.v[(start + 1) % a.v.length]!;

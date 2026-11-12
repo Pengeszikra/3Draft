@@ -241,6 +241,8 @@ Select a line (`2`), press Ctrl+R: every four-sided face on the ring through tha
 
 ## Fill (edit mode, `F`)
 
+`M` (`mirrorWait`, then optional `-`, then `X Y Z`: `startMirror(k, neg)`) is an `xf` of kind `mirror` (`xf.mirror = { k, neg, d0, d, faces, wire }`): the faces whose points are all selected (and the selected lines) are copied across the plane `coord k = d` (reversed, so they face out), `d` starts at the selection's max (min with `-`) along the axis and follows `axisDistance` or a typed shift (`mirrorPreview`). `Enter` runs `mirrorWeld` in `xfConfirm`: points within a millionth of the size become one, faces with the same point set (back to back on the plane) are dropped, unused points go, `mergeFlat` (engine, exported from `src/text.ts`, with an `edge` filter) joins coplanar pairs whose shared edges lie on the plane, and points left straight in the middle of a side on the plane are dropped; the bar reports welded / gone / joined and `validate`'s closed. The plane is drawn as a magenta square mark.
+
 `Alt+N` (`flipNormals`, matched on `e.code === 'KeyN'` because Option+N types a character on a Mac) reverses the winding of the selected faces, or of every face when none is selected: the faces then face the other side (a screen shows on the side its winding faces). One `U` step.
 
 `F` makes one new face of the selected **points** (or the points of the selected **lines**): they are ordered round their middle in their own plane, the face is wound so that it faces away from the middle of the object, and it takes the material of a neighbouring face (else the palette's). It closes a hole in a solid. It needs three or more points that do not lie on a line. One `U` step. Flying down with F needs Shift.
