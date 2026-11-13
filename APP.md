@@ -264,6 +264,10 @@ Two halves (`aimAt`, `pickTarget`, the pick block of the frame):
 
 `nextTarget` cycles a round taken by `tabOrder` when the round starts (no target, or a target not in the round, e.g. set by T): the objects in the field of view first, by screen distance from the middle, then the others by distance from the eye. The round is kept while Tab goes on (turning onto a target does not reshuffle it); the first Tab of a round takes the first object (skipping the current target). Tab with no target starts a round too (it no longer falls back to T's nearest object).
 
+## Find a target (Enter)
+
+`openFind` (action `find`, `KEYMAP.Enter`; not while editing, posing, transforming or in the old VR view): `#findBox` in the middle of the screen, an input and up to `FIND_SHOW` = 8 matches with their distance (ly / kly / Mly in a star map). Matching (`findRank`) on the folded name (`fold`: NFD, accents dropped, lower case): the whole name 0, starts with it 1, a word starts with it 2, any part 3, the letters in order 4 (last resort); within a rank nearer first. Only objects in the scene (as Tab). ↑↓ or Tab / Shift+Tab choose, Enter (or a click) targets: `locked`, `tabRound` reset, `lookAt` (in space the starship turns, the braking program as for Tab); Esc or leaving the box closes it. The box's keys do not reach the viewer's commands.
+
 ## FPS counter
 
 Before the build stamp (`#fps`): frames drawn in the last second (`fpsFrames`, counted in `drawFrame`, so the XR loop counts too), refreshed every second; `– fps` while nothing moves (a still picture is not redrawn).
