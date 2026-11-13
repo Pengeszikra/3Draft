@@ -45,7 +45,7 @@ export const merge = (...meshes: Mesh[]): Mesh => {
   const faces: Mesh['faces'] = [];
   for (const m of meshes) {
     const offset = positions.length;
-    positions.push(...m.positions);
+    for (const q of m.positions) positions.push(q); // (no spread: a big mesh would overflow the call stack)
     for (const f of m.faces) faces.push({ ...f, v: f.v.map((i) => i + offset) });
   }
   return { positions, faces };

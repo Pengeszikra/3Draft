@@ -215,7 +215,7 @@ export const humanoidRig = (meshes: Mesh[]): Rig => {
   for (const mesh of meshes) {
     const base = P.length;
     start.push(base);
-    P.push(...mesh.positions);
+    for (const q of mesh.positions) P.push(q);
     for (const f of mesh.faces) f.v.forEach((a, k) => edges.push([base + a, base + f.v[(k + 1) % f.v.length]!]));
   }
   if (P.length < 8) throw new Error('no figure: the scene is empty');
