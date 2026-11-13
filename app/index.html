@@ -1321,6 +1321,8 @@
     const BRAKE_MIN = 0.5;
     const BRAKE_RATE = 4; // 1/s
     const BRAKE_HARD = 0.6; // s
+    const GALAXY_BRAKE_SPEED = 1e5; // ly/s: a galaxy stops the ship only when it comes faster than this
+    let brakeEngaged = false;
     const BRAKE_HOLD = 1.05; // radii from the middle: the ship comes right up to the target's surface (as the old target approach, STOP)
     let throttle = 1;
     let braking = false;
@@ -1465,9 +1467,22 @@
       const d = b.center.map((c, i) => c - eye[i]);
       const len = Math.hypot(...d) || 1;
       if (d[0] * v[0] + d[1] * v[1] + d[2] * v[2] <= 0) return; // not closing in
+      // A galaxy stops the ship only when it comes fast from far (over GALAXY_BRAKE_SPEED): then it brakes to the galaxy's edge once,
+      // and from there (or coming slower, or from inside) you fly into it freely
+      const galaxy = isGalaxy(o.inst);
+      if (galaxy) {
+        if (len <= b.radius * BRAKE_HOLD) return;
+        if (!brakeEngaged) {
+          if (full * throttle < GALAXY_BRAKE_SPEED) return;
+          brakeEngaged = true;
+        }
+      }
       // the ship stops at the target's surface (BRAKE_HOLD radii from its middle): a star's ball, a galaxy's bounding sphere
       const rest = len - Math.max(b.radius * BRAKE_HOLD, 1e-6);
-      if (rest <= Math.max(b.radius * 0.02, 1e-7)) return void arrive();
+      if (rest <= Math.max(b.radius * 0.02, 1e-7)) {
+        if (galaxy) braking = false; // (once: then the galaxy lets you in)
+        return void arrive();
+      }
       const floor = Math.min(BRAKE_MIN, rest * 4); // the last stretch: no slower than this, but it shrinks with the distance left
       const want = Math.min(1, Math.max(floor, rest / BRAKE_S) / full);
       if (want < throttle) throttle += (want - throttle) * (1 - Math.exp(-dt * BRAKE_RATE));
@@ -1741,6 +1756,7 @@
         travel = null;
         steer = { all: true };
         braking = true;
+        brakeEngaged = false;
         focused = true;
         return redraw();
       }
