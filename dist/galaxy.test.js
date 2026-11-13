@@ -41,3 +41,14 @@ test('different seeds give different galaxies; a spiral is flat, an elliptical i
     const e = galaxyPoints({ kind: 'E', seed: 12, b: 0.9, c: 0.9 });
     assert.ok(spread(e, 1) > spread(e, 0) * 0.6);
 });
+test('the points are shuffled: the first tenth already spreads like the whole', () => {
+    const q = galaxyPoints({ kind: 'S', seed: 21, n: 5000 });
+    const rms = (from, to) => {
+        let s = 0;
+        for (let i = from; i < to; i++)
+            s += q.p[3 * i] ** 2 + q.p[3 * i + 2] ** 2;
+        return Math.sqrt(s / (to - from));
+    };
+    const all = rms(0, q.n), head = rms(0, 500);
+    assert.ok(Math.abs(head - all) / all < 0.15, `${head} vs ${all}`);
+});

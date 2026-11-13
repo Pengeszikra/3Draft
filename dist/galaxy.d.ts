@@ -17,7 +17,7 @@ export interface GalaxyRecipe {
     /** irregular: number of star-forming clumps (6) */
     clumps?: number;
 }
-/** points in the unit frame: positions (3 per point), radii, colours 0xRRGGBB, brightness (1 = normal) */
+/** points in the unit frame: positions (3 per point), radii, colours 0xRRGGBB, brightness (1 = normal); in random order */
 export interface GalaxyPoints {
     n: number;
     p: Float32Array;

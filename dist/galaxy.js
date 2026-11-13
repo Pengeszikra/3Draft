@@ -83,7 +83,24 @@ export const galaxyPoints = (g) => {
             add(x, y, z, 0.07, mix(WHITE, GOLD, rnd()), 0.7);
         }
     }
-    if (i < n)
-        return { n: i, p: out.p.slice(0, 3 * i), r: out.r.slice(0, i), c: out.c.slice(0, i), l: out.l.slice(0, i) };
-    return out;
+    const q = i < n ? { n: i, p: out.p.slice(0, 3 * i), r: out.r.slice(0, i), c: out.c.slice(0, i), l: out.l.slice(0, i) } : out;
+    // shuffled (with the same seed): any first part of the list is an even sample of the whole galaxy, so a viewer may draw only
+    // the first m points of a galaxy that is small on screen
+    for (let a = q.n - 1; a > 0; a--) {
+        const b = Math.floor(rnd() * (a + 1));
+        const t = [q.p[3 * a], q.p[3 * a + 1], q.p[3 * a + 2], q.r[a], q.c[a], q.l[a]];
+        q.p[3 * a] = q.p[3 * b];
+        q.p[3 * a + 1] = q.p[3 * b + 1];
+        q.p[3 * a + 2] = q.p[3 * b + 2];
+        q.r[a] = q.r[b];
+        q.c[a] = q.c[b];
+        q.l[a] = q.l[b];
+        q.p[3 * b] = t[0];
+        q.p[3 * b + 1] = t[1];
+        q.p[3 * b + 2] = t[2];
+        q.r[b] = t[3];
+        q.c[b] = t[4];
+        q.l[b] = t[5];
+    }
+    return q;
 };

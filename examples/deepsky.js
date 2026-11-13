@@ -66,7 +66,9 @@ const GLOW = { S: '#bcd0ff', E: '#ffd9a0', I: '#a9c4ff', D: '#ffe2b8' };
 const galaxyObject = (name, raH, dec, mly, kly, kind, type, q, pa) => {
   const radius = kly * 500; // ly
   const g = recipe(kind, type, q, name);
-  if (kly > 120) g.n = Math.round((g.n ?? { S: 1800, E: 1400, I: 700, D: 350 }[kind]) * Math.min(2, Math.sqrt(kly / 120))); // the giants get more points
+  // as many points as the Milky Way's cloud (29 650 for ~90 kly) at the same size, in proportion to the diameter: Andromeda
+  // gets ~50 000; the viewer draws only part of them while a galaxy is small on screen
+  g.n = Math.round(Math.min(60000, Math.max(300, (30000 * kly) / 90 * { S: 1, E: 1, I: 0.6, D: 0.4 }[kind])));
   const flat = kind === 'S' || (kind === 'E' && /S0/.test(type)) || kind === 'I';
   return { name, proto: 'ghost', at: LY(raH, dec, mly * 1e6), scale: round(radius), mats: { core: 'gal-ghost' }, glow: round(radius * 4), glowColor: GLOW[kind], far: true,
     galaxy: g, rot: flat ? rotFor(raH, dec, q, pa) : rotFor(raH, dec, null, null) };
