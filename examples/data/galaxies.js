@@ -1,12 +1,13 @@
 // Nearby galaxies: [name, RA hours, Dec degrees, distance in million light years, diameter in thousand light years, type]
 // type: S spiral, E elliptical / lenticular, I irregular, D dwarf spheroidal. Positions, distances and sizes are rounded
-// values from general knowledge (good to a few percent), not a catalogue extract.
+// values from general knowledge (good to a few percent), not a catalogue extract. Diameters are optical (D25), like OpenNGC's
+// major axes (M31: 152 kly, not the 220 kly of its faint halo), so the Milky Way's cloud (~90 kly) compares fairly.
 export const GALAXIES = [
   ['LMC', 5.39, -69.75, 0.163, 14, 'I'], ['SMC', 0.877, -72.8, 0.2, 7, 'I'], ['Sagittarius dSph', 18.92, -30.5, 0.07, 10, 'D'],
   ['Ursa Minor dwarf', 15.15, 67.2, 0.205, 2, 'D'], ['Draco dwarf', 17.34, 57.9, 0.258, 3, 'D'], ['Sculptor dwarf', 1.0, -33.7, 0.29, 4, 'D'],
   ['Sextans dwarf', 10.22, -1.6, 0.28, 8, 'D'], ['Carina dwarf', 6.69, -50.97, 0.33, 3, 'D'], ['Fornax dwarf', 2.67, -34.45, 0.47, 5, 'D'],
   ['Leo I', 10.14, 12.3, 0.82, 2, 'D'], ['Leo II', 11.22, 22.15, 0.69, 2, 'D'],
-  ['Andromeda (M31)', 0.712, 41.27, 2.537, 220, 'S'], ['M32', 0.712, 40.87, 2.49, 6.5, 'E'], ['M110', 0.673, 41.69, 2.69, 17, 'E'],
+  ['Andromeda (M31)', 0.712, 41.27, 2.537, 152, 'S'], ['M32', 0.712, 40.87, 2.49, 6.5, 'E'], ['M110', 0.673, 41.69, 2.69, 17, 'E'],
   ['Triangulum (M33)', 1.564, 30.66, 2.73, 60, 'S'], ['IC 10', 0.33, 59.3, 2.2, 5, 'I'], ['NGC 6822', 19.75, -14.8, 1.63, 7, 'I'],
   ['NGC 147', 0.55, 48.5, 2.53, 10, 'D'], ['NGC 185', 0.64, 48.34, 2.05, 8, 'D'], ['IC 1613', 1.07, 2.13, 2.38, 10, 'I'],
   ['WLM', 0.027, -15.46, 3.0, 8, 'I'], ['Pegasus dwarf', 23.47, 14.74, 3.0, 6, 'I'], ['Leo A', 9.93, 30.75, 2.58, 5, 'I'],
