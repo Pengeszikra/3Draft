@@ -107,9 +107,9 @@ export const start = { eye: eye.map(Math.round), yaw: Math.round((Math.atan2(d[0
 
 const scene = {
   format: '3draft-scene', version: 2,
-  palette: [...near.palette, ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, start, cloud, cloudProtos: CLOUD_PROTOS, objects,
+  palette: [...near.palette, ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, start: near.start, vehicle: 'starship', cloud, cloudProtos: CLOUD_PROTOS, objects,
 };
 if (import.meta.url === new URL(process.argv[1], 'file:').href) {
   writeFileSync(new URL('./milkyway.scene.json', import.meta.url), JSON.stringify(scene));
-  console.log(cloud.n, 'super-stars,', objects.length, 'objects, start', JSON.stringify(start));
+  console.log(cloud.n, 'super-stars,', objects.length, 'objects, start (next to the Sun)', JSON.stringify(near.start), '(outside view:', JSON.stringify(start) + ')');
 }

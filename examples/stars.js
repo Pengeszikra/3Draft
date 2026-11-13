@@ -158,13 +158,15 @@ export const starObject = ([name, x, y, z, absmag, spect, ci, lumField], { plain
 };
 export const STAR_PALETTE = palette;
 
+// the eye starts next to the Sun, looking at it, so you are among the stars and not outside the cloud
+const SUN_EYE = [0.25, 0.06, 0.6];
+export const SUN_START = { eye: SUN_EYE, yaw: Math.round((Math.atan2(-SUN_EYE[0], SUN_EYE[2]) * 180) / Math.PI * 10) / 10, pitch: Math.round((Math.asin(SUN_EYE[1] / Math.hypot(...SUN_EYE)) * 180) / Math.PI * 10) / 10 };
+
 export const stars = ({ plain = false, extras = true } = {}) => {
   const objects = (plain ? STARS5000.slice(0, 300) : STARS).map((row) => starObject(row, { plain }));
-  // the eye starts next to the Sun, looking at it, so you are among the stars and not outside the cloud
-  const eye = [0.25, 0.06, 0.6];
-  const start = { eye, yaw: Math.round((Math.atan2(-eye[0], eye[2]) * 180) / Math.PI * 10) / 10, pitch: Math.round((Math.asin(eye[1] / Math.hypot(...eye)) * 180) / Math.PI * 10) / 10 };
+  const start = SUN_START;
   if (plain && extras) objects.push(...galaxies());
-  return plain ? { palette: [...palette.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, cloudProtos: CLOUD_PROTOS, start, objects } : { palette, prototypes: PROTOTYPES, start, objects };
+  return plain ? { palette: [...palette.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, cloudProtos: CLOUD_PROTOS, start, vehicle: 'starship', objects } : { palette, prototypes: PROTOTYPES, start, vehicle: 'starship', objects };
 };
 
 if (import.meta.url === new URL(process.argv[1], 'file:').href) {

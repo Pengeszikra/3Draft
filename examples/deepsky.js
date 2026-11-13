@@ -11,7 +11,7 @@ import { writeFileSync } from 'node:fs';
 import { STARS as NEAR } from './data/stars5000.js';
 import { FAR_STARS, NGC, AXES } from './data/deepsky-data.js';
 import { GALAXIES } from './data/galaxies.js';
-import { starObject, STAR_PALETTE, PLAIN, GALAXY_PROTOS, GALAXY_PALETTE, LY, blackHole } from './stars.js';
+import { starObject, STAR_PALETTE, PLAIN, GALAXY_PROTOS, GALAXY_PALETTE, LY, blackHole, SUN_START } from './stars.js';
 import { cloud, centre, start } from './milkyway.js';
 
 const round = (v) => Math.round(v * 1e4) / 1e4;
@@ -116,7 +116,7 @@ const objects = [...near, ...far, ...holes, ...galaxies];
 export const scene = {
   format: '3draft-scene', version: 2,
   palette: [...STAR_PALETTE.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS },
-  start, cloud, objects,
+  start: SUN_START, vehicle: 'starship', cloud, objects,
 };
 if (import.meta.url === new URL(process.argv[1], 'file:').href) {
   const json = JSON.stringify(scene);
