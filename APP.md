@@ -238,7 +238,7 @@ On the phone layout the console is hidden; the **Exa** menu has a `store` button
 
 ## Point clouds (the Milky Way)
 
-A scene's `cloud` (and objects with `cloud: <name>` from `cloudProtos`) is drawn by a WebGL2 point layer of its own (`drawCloud`, screen blend over the picture). Each point is a star cluster: far away a small point (at least 1.3 px, dimmed with its area below that); once its radius on screen passes 2.5 px it is drawn as `CLOUD_SPLIT` (8) instances: the first a faint soft haze (keeps the arms' shape), the others small sharp stars (1.25 to 2 px) scattered inside 0.7 of its radius by an integer hash (`pcg`, so no lines or bands), sharing its light. Very close (over 60 px) the clusters fade out, the real neighbourhood stars take over.
+A scene's `cloud` (and objects with `cloud: <name>` from `cloudProtos`) is drawn by a WebGL2 point layer of its own (`drawCloud`, screen blend over the picture). Each point stays one clean, sharp point at any distance (1.3 to 2.4 px, a little brighter as it comes closer, never a growing blob and never split up); below 1.3 px far away it dims with its area. Only very close (its natural radius over 400 px) does it fade, where the real neighbourhood stars stand.
 
 ## Zoom
 
