@@ -1122,7 +1122,7 @@
     // takes 300 trackpad pixels, below CAR_SLOW (10 km/h, parking) 150; full throttle 750
     // The four sliders of the drive group set them (kept in this browser): trackpad pixels for full lock and for full gas, and the
     // seconds the let-go wheel and the let-go brake take to come back (to ~5 %). A finger on a touch screen counts 1.67 trackpad pixels.
-    const carTune = { steer: 300, gas: 750, steerBack: 0.25, brakeBack: 0.3 }; // (the sliders' middles: what felt right)
+    const carTune = { steer: 280, gas: 750, steerBack: 0.45, brakeBack: 0.05 }; // (what felt right on a Mac trackpad)
     try {
       Object.assign(carTune, JSON.parse(localStorage.getItem('3draft.carTune') ?? '{}'));
     } catch {}
