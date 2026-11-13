@@ -18,7 +18,7 @@ const e1 = norm(GC.map((v, i) => -v - dot([-GC[0], -GC[1], -GC[2]], e3) * e3[i])
 const e2 = cross(e3, e1); // counter-clockwise seen from the north pole
 const CENTRE = [0, 1, 2].map((i) => -(R0 * e1[i] + 20 * e3[i])); // the Sun floats 20 ly above the plane
 // galactic frame (centre, in-plane x towards the Sun, y, z north) -> scene coordinates
-const toScene = (x, y, z) => {
+export const toScene = (x, y, z) => {
   const q = [0, 1, 2].map((i) => CENTRE[i] + x * e1[i] + y * e2[i] + z * e3[i]);
   return [q[0], q[2], -q[1]];
 };
@@ -78,8 +78,8 @@ for (let i = 0; i < 150; i++) {
   add(r * s * Math.cos(ph), r * s * Math.sin(ph), r * u, 90, hex(mixc(GOLD, WHITE, rnd())), 2.5);
 }
 
-const UNIT = 10; // positions are stored in units of 10 ly
-const cloud = { unit: UNIT, n: pts.length, p: [], r: [], c: [], l: [] };
+export const UNIT = 10; // positions are stored in units of 10 ly
+export const cloud = { unit: UNIT, n: pts.length, p: [], r: [], c: [], l: [] };
 for (const [x, y, z, r, c, l] of pts) {
   cloud.p.push(...toScene(x, y, z).map((v) => Math.round(v / UNIT)));
   cloud.r.push(r);
@@ -92,7 +92,7 @@ const near = stars({ plain: true, extras: false });
 const sc = toScene(0, 0, 0);
 const keep = new Set(['LMC', 'SMC', 'Andromeda (M31)', 'Triangulum (M33)']);
 const others = galaxies().filter((g) => keep.has(g.name));
-const centre = toScene(0, 0, 0);
+export const centre = toScene(0, 0, 0);
 const sun = [0, 0, 0];
 void sc; void sun;
 const objects = [...near.objects, blackHole(centre.map((v) => Math.round(v * 1e4) / 1e4)), ...others];
@@ -103,11 +103,13 @@ const eyeEq = [0, 1, 2].map((i) => CENTRE[i] + 150000 * up[i]);
 const eye = [eyeEq[0], eyeEq[2], -eyeEq[1]];
 const d = [centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]];
 const L = Math.hypot(...d);
-const start = { eye: eye.map(Math.round), yaw: Math.round((Math.atan2(d[0], -d[2]) * 18000) / Math.PI) / 100, pitch: Math.round((-Math.asin(d[1] / L) * 18000) / Math.PI) / 100 };
+export const start = { eye: eye.map(Math.round), yaw: Math.round((Math.atan2(d[0], -d[2]) * 18000) / Math.PI) / 100, pitch: Math.round((-Math.asin(d[1] / L) * 18000) / Math.PI) / 100 };
 
 const scene = {
   format: '3draft-scene', version: 2,
   palette: [...near.palette, ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS }, start, cloud, cloudProtos: CLOUD_PROTOS, objects,
 };
-writeFileSync(new URL('./milkyway.scene.json', import.meta.url), JSON.stringify(scene));
-console.log(cloud.n, 'super-stars,', objects.length, 'objects, start', JSON.stringify(start));
+if (import.meta.url === new URL(process.argv[1], 'file:').href) {
+  writeFileSync(new URL('./milkyway.scene.json', import.meta.url), JSON.stringify(scene));
+  console.log(cloud.n, 'super-stars,', objects.length, 'objects, start', JSON.stringify(start));
+}

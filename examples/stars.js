@@ -137,25 +137,29 @@ export const galaxies = () => {
   return out;
 };
 
+// one star row ([name, x y z in parsec, absMag, spect, ci, lum]) -> a scene object; `boost` widens the glow of luminous far stars
+export const starObject = ([name, x, y, z, absmag, spect, ci, lumField], { plain = true, boost = false } = {}) => {
+  const k = klass(spect, ci);
+  const lum = lumField > 0 ? lumField : Math.pow(10, (4.85 - absmag) / 2.5);
+  const T = ci != null && k !== 'D' ? temp(ci) : TYPICAL[k];
+  const rSun = k === 'D' ? 0.012 : Math.sqrt(lum) / Math.pow(Math.max(T, 1500) / 5772, 2); // R/R_sun from L and T
+  const r = Math.max(FLOOR, SUN * rSun);
+  let halo = r + 0.04 + 0.16 * Math.log10(1 + lum * 100) / 2; // grows slowly with luminosity
+  if (boost) halo = Math.max(halo, 0.08 * Math.pow(lum, 0.4)); // a supergiant hundreds of light years away still shows
+  return {
+    name: name === 'Sol' ? 'Sun' : name,
+    proto: 'star',
+    at: [round(x * LY_PER_PC), round(z * LY_PER_PC), round(-y * LY_PER_PC)], // equatorial z is up; flip y so it is not mirrored
+    ...(plain ? { glow: round(halo) } : {}),
+    scale: plain ? round(r) : { core: round(r), halo: round(halo) },
+    mats: plain ? { core: `star-${k}` } : { core: `star-${k}`, halo: `halo-${k}` },
+    color: tint(ci, k),
+  };
+};
+export const STAR_PALETTE = palette;
+
 export const stars = ({ plain = false, extras = true } = {}) => {
-  const objects = [];
-  for (const [name, x, y, z, absmag, spect, ci, lumField] of plain ? STARS5000.slice(0, 300) : STARS) {
-    const k = klass(spect, ci);
-    const lum = lumField > 0 ? lumField : Math.pow(10, (4.85 - absmag) / 2.5);
-    const T = ci != null && k !== 'D' ? temp(ci) : TYPICAL[k];
-    const rSun = k === 'D' ? 0.012 : Math.sqrt(lum) / Math.pow(Math.max(T, 1500) / 5772, 2); // R/R_sun from L and T
-    const r = Math.max(FLOOR, SUN * rSun);
-    const halo = r + 0.04 + 0.16 * Math.log10(1 + lum * 100) / 2; // grows slowly with luminosity
-    objects.push({
-      name: name === 'Sol' ? 'Sun' : name,
-      proto: 'star',
-      at: [round(x * LY_PER_PC), round(z * LY_PER_PC), round(-y * LY_PER_PC)], // equatorial z is up; flip y so it is not mirrored
-      ...(plain ? { glow: round(halo) } : {}),
-      scale: plain ? round(r) : { core: round(r), halo: round(halo) },
-      mats: plain ? { core: `star-${k}` } : { core: `star-${k}`, halo: `halo-${k}` },
-      color: tint(ci, k),
-    });
-  }
+  const objects = (plain ? STARS5000.slice(0, 300) : STARS).map((row) => starObject(row, { plain }));
   // the eye starts next to the Sun, looking at it, so you are among the stars and not outside the cloud
   const eye = [0.25, 0.06, 0.6];
   const start = { eye, yaw: Math.round((Math.atan2(-eye[0], eye[2]) * 180) / Math.PI * 10) / 10, pitch: Math.round((Math.asin(eye[1] / Math.hypot(...eye)) * 180) / Math.PI * 10) / 10 };
