@@ -82,10 +82,45 @@ const curated = GALAXIES.map(([name, ra, dec, mly, kly, t]) => {
   return galaxyObject(name, ra, dec, mly, kly, t, t === 'D' ? 'dSph' : type, ax?.[0] ?? null, ax?.[1] ?? null);
 });
 const taken = new Set(GALAXIES.flatMap(([name]) => [...name.matchAll(/\b(M\d+|NGC \d+|IC \d+)\b/g)].map((m) => m[1])));
+// ---- interacting galaxies: one moment of each pair, sampled by the engine (a restricted N-body run, recipe kind 'P'), every pair
+// with its own seed; the parameters are set by hand to look like the observed shape. [name, RA h, Dec deg, distance Mly, system
+// radius kly, recipe, the single galaxies of the lists it replaces]
+const PAIRS = [
+  ['M81 + M82 (interacting)', 9.9286, 69.372, 12, 110, { ratio: 0.3, peri: 2.5, incl1: 30, incl2: 60, time: 6 }, ['Bode (M81)', 'Cigar (M82)']],
+  ['Whirlpool M51 + NGC 5195', 13.4989, 47.231, 31, 70, { ratio: 0.3, peri: 1.6, incl1: 15, incl2: 70, time: 2.5 }, ['Whirlpool (M51)']],
+  ['Antennae (NGC 4038 + 4039)', 12.0315, -18.877, 65, 250, { ratio: 1, peri: 1.2, incl1: 60, incl2: -60, time: 4 }, ['Antennae Galaxies · NGC 4038', 'Antennae Galaxies · NGC 4039']],
+  ['NGC 520 (Arp 157)', 1.4097, 3.792, 100, 90, { ratio: 0.8, peri: 0.8, incl1: 40, incl2: 120, time: 6, merge: 0.6 }, ['NGC 520 NED01', 'NGC 520 NED02']],
+  ['NGC 3256 (merger)', 10.4642, -43.904, 100, 120, { ratio: 1, peri: 0.5, incl1: 30, incl2: 80, time: 8, merge: 0.8 }, ['NGC 3256']],
+  ['NGC 2207 + IC 2163', 6.2736, -21.374, 114, 110, { ratio: 0.5, peri: 1.5, incl1: 20, incl2: 50, time: 1.5 }, ['NGC 2207', 'IC 2163']],
+  ['Atoms for Peace (NGC 7252)', 22.3458, -24.678, 220, 200, { ratio: 1, peri: 0.4, incl1: 20, incl2: 70, time: 12, merge: 3 }, []],
+  ['Arp 220', 15.5826, 23.503, 250, 80, { ratio: 1, peri: 0.3, incl1: 40, incl2: 100, time: 10, merge: 3 }, []],
+  ["Stephan's Quintet (NGC 7319 + 7318B)", 22.6003, 33.971, 290, 150, { ratio: 0.6, peri: 0.6, incl1: 50, incl2: 100, time: 1 }, []],
+  ['Mice (NGC 4676 A + B)', 12.7696, 30.727, 300, 180, { ratio: 1, peri: 1, incl1: 15, incl2: 60, time: 1.5 }, []],
+  ['Penguin and Egg (Arp 142, NGC 2936 + 2937)', 9.6291, 2.754, 326, 100, { ratio: 0.4, peri: 1.2, incl1: 20, kind2: 'E', time: 1.5 }, []],
+];
+const pairObject = (name, ra, dec, mly, kly, rec, at) => {
+  const radius = kly * 1000;
+  return { name, proto: 'ghost', at: at ?? LY(ra, dec, mly * 1e6), scale: round(radius), mats: { core: 'gal-ghost' }, glow: round(radius * 2), glowColor: '#c9d6ff', far: true,
+    galaxy: { kind: 'P', seed: hash(name), n: 3000, ...rec }, rot: rotFor(ra, dec, null, null) };
+};
+const pairs = PAIRS.map(([name, ra, dec, mly, kly, rec]) => pairObject(name, ra, dec, mly, kly, rec));
+// Stephan's Quintet's other members (two small ellipticals) and NGC 7320, which only looks like one of them (it is 40 Mly away)
+const extras = [
+  galaxyObject('NGC 7317 (Stephan)', 22.5977, 33.945, 290, 70, 'E', 'E', null, null),
+  galaxyObject('NGC 7318A (Stephan)', 22.5991, 33.966, 290, 120, 'E', 'E', null, null),
+  galaxyObject('NGC 7320 (in front of Stephan)', 22.6009, 33.948, 39, 29, 'S', 'Scd', 0.55, 132),
+];
+// the Sagittarius dwarf's stream round the Milky Way: only the dwarf's particles, the frame on the Milky Way's middle
+const sgr = pairObject('Sagittarius stream', 17.76, -29.0, 0, 160, { ratio: 0.003, peri: 0.4, ecc: 0.6, size2: 0.08, kind2: 'E', first: false, time: 25, n: 1600 }, blackHole(centre).at);
+sgr.glow = 1; // (no big haze over the Milky Way: the stream shows by its points)
+const replaced = new Set([...PAIRS.flatMap((x) => x[6]), 'Sagittarius dSph']);
+const kept = curated.filter((g) => !replaced.has(g.name));
+const special = [...pairs, ...extras, sgr];
 const fromCatalogue = NGC.filter(([name]) => !name.split(' · ').some((x) => taken.has(x)))
-  .slice(0, 1000 - curated.length)
-  .map(([name, ra, dec, mly, kly, type, q, pa]) => galaxyObject(name, ra, dec, mly, kly, kindOf(type), type, q, pa));
-const galaxies = [...curated, ...fromCatalogue];
+  .map(([name, ra, dec, mly, kly, type, q, pa]) => galaxyObject(name, ra, dec, mly, kly, kindOf(type), type, q, pa))
+  .filter((g) => !replaced.has(g.name))
+  .slice(0, 1000 - kept.length - special.length);
+const galaxies = [...kept, ...special, ...fromCatalogue];
 
 // ---- black holes
 const hole = (name, at, scale, rot) => ({ name, proto: 'hole', at: at.map(round), scale: round(scale), mats: { core: 'bh-core', disc: 'bh-disc' }, glow: round(scale * 17), glowColor: '#cfd8ff', far: true, rot });

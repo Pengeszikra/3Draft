@@ -55,3 +55,14 @@ test('the points are shuffled: the first tenth already spreads like the whole', 
   const all = rms(0, q.n), head = rms(0, 500);
   assert.ok(Math.abs(head - all) / all < 0.15, `${head} vs ${all}`);
 });
+
+test('an interacting pair: the same seed gives the same moment, another seed another one; all inside the unit ball', () => {
+  const rec = { kind: 'P' as const, seed: 7, n: 800, ratio: 1, peri: 1, incl1: 15, incl2: 60, time: 1.5 };
+  const a = galaxyPoints(rec), b = galaxyPoints(rec), c = galaxyPoints({ ...rec, seed: 8 });
+  assert.ok(a.n > 700);
+  assert.deepEqual(Array.from(a.p), Array.from(b.p));
+  assert.notDeepEqual(Array.from(a.p.slice(0, 60)), Array.from(c.p.slice(0, 60)));
+  for (let i = 0; i < a.n; i++) assert.ok(Math.hypot(a.p[3 * i]!, a.p[3 * i + 1]!, a.p[3 * i + 2]!) <= 1.0001);
+  const m = galaxyPoints({ ...rec, merge: 3, time: 10, peri: 0.4 });
+  assert.ok(m.n > 700);
+});
