@@ -23,6 +23,18 @@ export const buildScreenQuads = (screens) => {
 export const MAX_BONES = 64;
 /** Floats per skinned vertex: the 14 of buildVertices, then four joints and their four weights. */
 export const SKIN_FLOATS = 22;
+/** a × b for column-major 4×4 matrices */
+export const mul4 = (a, b) => {
+    const m = new Float32Array(16);
+    for (let c = 0; c < 4; c++)
+        for (let r = 0; r < 4; r++) {
+            let v = 0;
+            for (let k = 0; k < 4; k++)
+                v += a[k * 4 + r] * b[c * 4 + k];
+            m[c * 4 + r] = v;
+        }
+    return m;
+};
 /** Floats of one mark segment: a (xyz), b (xyz), colour (rgba), width in CSS pixels, one spare. */
 export const MARK_FLOATS = 12;
 const colorOf = (css) => {

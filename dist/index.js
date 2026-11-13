@@ -4,7 +4,7 @@
 // a target cross that lies on the surface under the cursor. No textures, no
 // shading yet.
 export const name = '3draft';
-export const version = '26.11.13037';
+export const version = '26.11.13038';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export { validate } from './check.js';
 export { boolean, union, subtract, intersect, health, splitParts } from './csg.js';
@@ -18,7 +18,7 @@ export { pick, crosshair } from './pick.js';
 export { instantiate, lodLevel } from './instances.js';
 export { standOn } from './place.js';
 export { paintOrder } from './order.js';
-export { createGpu, viewProjection, buildVertices, cornerNormals, buildInstances, buildSkinVertices, MAX_BONES, SKIN_FLOATS, buildScreenQuads, SCREEN_FLOATS, defaultLight, defaultMaterial } from './gpu.js';
+export { createGpu, viewProjection, buildVertices, cornerNormals, buildInstances, buildSkinVertices, MAX_BONES, SKIN_FLOATS, buildScreenQuads, SCREEN_FLOATS, defaultLight, defaultMaterial, mul4 } from './gpu.js';
 export { createGl } from './gl.js';
 export { renderView, renderViews, renderSheet } from './svg.js';
 export { surfaceOf, DEFAULTS as MATERIAL_DEFAULTS } from './material.js';

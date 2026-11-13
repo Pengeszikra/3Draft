@@ -3,7 +3,7 @@
 // It also runs on a software GL (SwiftShader), so a frame can be checked on a machine without a GPU.
 import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
-import { buildVertices, buildMarks, skinCache, SKIN_FLOATS, MAX_BONES, buildScreenQuads, SCREEN_FLOATS, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
+import { buildVertices, buildMarks, skinCache, SKIN_FLOATS, MAX_BONES, buildScreenQuads, SCREEN_FLOATS, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial, mul4 } from './gpu.js';
 const GL_FLOATS = 14; // position(3) normal(3) color(3) material(4: metal, rough, alpha, emit) soft(1)
 const GL_INSTANCE_FLOATS = 15; // at(3) ex(3) ey(3) ez(3) color(3)
 const GL_COMMON = /* glsl */ `#version 300 es
@@ -382,16 +382,24 @@ export const createGl = async (canvas, { onError } = {}) => {
         gl.bindBuffer(gl.ARRAY_BUFFER, b);
         gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
     };
-    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens } = {}) => {
+    const draw = (mesh, view, { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, xr } = {}) => {
         const L = { ...defaultLight, ...light };
         const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
         const M = { ...defaultMaterial, ...material };
-        const cam = makeCamera(view, mesh, size, fit);
-        const n = Math.max(1, Math.round(size * dpr));
-        if (n !== px) {
-            px = n;
-            canvas.width = n;
-            canvas.height = n;
+        let cam = makeCamera(view, mesh, size, fit);
+        if (xr) {
+            // a WebXR eye: its axes from the rows of the view matrix (right, up, back), its place from the caller
+            const v = xr.view;
+            cam = { ...cam, eye: [...xr.eye], r: [v[0], v[4], v[8]], u: [v[1], v[5], v[9]], f: [-v[2], -v[6], -v[10]], ortho: false };
+            marks = undefined;
+        }
+        else {
+            const n = Math.max(1, Math.round(size * dpr));
+            if (n !== px) {
+                px = n;
+                canvas.width = n;
+                canvas.height = n;
+            }
         }
         const crease = smooth === true ? 40 : smooth || 0;
         if (mesh !== uploaded || palette !== uploadedPalette || crease !== uploadedSmooth) {
@@ -492,7 +500,7 @@ export const createGl = async (canvas, { onError } = {}) => {
         // studio rig, relative to the camera: key upper left in front, fill from the right, rim from behind and above
         const rig = (f, r, up) => norm([0, 1, 2].map((k) => -cam.f[k] * f + cam.r[k] * r + cam.u[k] * up));
         const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
-        const vp = viewProjection(cam, nearPlane(cam, mesh));
+        const vp = xr ? mul4(xr.projection, xr.view) : viewProjection(cam, nearPlane(cam, mesh));
         const key = S ? rig(0.7, -0.5, 0.6) : norm(L.direction);
         const fill = rig(0.6, 0.8, 0.1);
         const rim = rig(-0.8, 0.3, 0.5);
@@ -520,7 +528,19 @@ export const createGl = async (canvas, { onError } = {}) => {
                 gl.uniform4fv(u.lc, glowCol);
             }
         };
-        gl.viewport(0, 0, px, px);
+        if (xr) {
+            // into the XR layer's framebuffer, only this eye's part of it (the scissor keeps the other eye when clearing)
+            const [x, y, w, h] = xr.viewport;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, xr.framebuffer);
+            gl.viewport(x, y, w, h);
+            gl.enable(gl.SCISSOR_TEST);
+            gl.scissor(x, y, w, h);
+        }
+        else {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.disable(gl.SCISSOR_TEST);
+            gl.viewport(0, 0, px, px);
+        }
         gl.clearColor(background[0], background[1], background[2], 1);
         gl.clearDepth(1);
         gl.depthMask(true);
@@ -643,6 +663,8 @@ export const createGl = async (canvas, { onError } = {}) => {
             gl.enable(gl.DEPTH_TEST);
         }
         gl.bindVertexArray(null);
+        if (xr)
+            gl.disable(gl.SCISSOR_TEST);
     };
     const render = (mesh, view, options) => draw(mesh, view, options);
     const pixels = (mesh, view, options) => {
@@ -659,5 +681,5 @@ export const createGl = async (canvas, { onError } = {}) => {
     const destroy = () => {
         gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
-    return { render, pixels, destroy, device: { lost }, adapter: null };
+    return { render, pixels, destroy, device: { lost }, adapter: null, context: gl };
 };

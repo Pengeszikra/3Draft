@@ -83,6 +83,13 @@ export interface GpuRenderOptions {
    * page put behind the canvas (an iframe) shows where the face is visible and is hidden by whatever stands in front of it.
    */
   screens?: GpuScreen[];
+  /**
+   * WebXR (WebGL2 renderer only): draw one eye of an immersive frame instead of the canvas. `framebuffer` is the XRWebGLLayer's,
+   * `viewport` the eye's (x, y, width, height from layer.getViewport), `projection` and `view` the XRView's projectionMatrix and
+   * the inverse of its transform (column-major, the eye's own space), already turned into scene space by the caller; `eye` is the
+   * eye's position in the scene. `size` and `fit` are not used then; the canvas keeps its size. Marks are not drawn.
+   */
+  xr?: GpuXrEye;
   /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
   marks?: Mark[];
 }
@@ -126,6 +133,23 @@ export interface Pixels {
   height: number;
   data: Uint8ClampedArray;
 }
+export interface GpuXrEye {
+  framebuffer: unknown; // WebGLFramebuffer | null
+  viewport: [number, number, number, number];
+  projection: ArrayLike<number>;
+  view: ArrayLike<number>;
+  eye: Vec3;
+}
+/** a × b for column-major 4×4 matrices */
+export const mul4 = (a: ArrayLike<number>, b: ArrayLike<number>): Float32Array => {
+  const m = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+    let v = 0;
+    for (let k = 0; k < 4; k++) v += a[k * 4 + r]! * b[c * 4 + k]!;
+    m[c * 4 + r] = v;
+  }
+  return m;
+};
 export interface Gpu {
   render(mesh: Mesh, view: ViewName | ViewSpec, options?: GpuRenderOptions): void;
   /** Same frame, drawn offscreen and read back as RGBA (tests, thumbnails). */
@@ -133,6 +157,8 @@ export interface Gpu {
   destroy(): void;
   device: Handle;
   adapter: Handle;
+  /** the WebGL2 context (the WebGL2 renderer only): what a WebXR layer is made from */
+  context?: unknown;
 }
 
 /** Floats of one mark segment: a (xyz), b (xyz), colour (rgba), width in CSS pixels, one spare. */

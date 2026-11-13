@@ -4,7 +4,7 @@
 
 import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
-import { buildVertices, buildMarks, skinCache, SKIN_FLOATS, MAX_BONES, buildScreenQuads, SCREEN_FLOATS, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial } from './gpu.js';
+import { buildVertices, buildMarks, skinCache, SKIN_FLOATS, MAX_BONES, buildScreenQuads, SCREEN_FLOATS, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial, mul4 } from './gpu.js';
 import type { Gpu, GpuRenderOptions, Pixels } from './gpu.js';
 import type { Palette } from './material.js';
 import type { Mesh, Vec3, ViewName, ViewSpec } from './types.js';
@@ -405,17 +405,24 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, xr }: GpuRenderOptions = {},
   ): void => {
     const L = { ...defaultLight, ...light };
     const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
     const M = { ...defaultMaterial, ...material };
-    const cam = makeCamera(view, mesh, size, fit);
-    const n = Math.max(1, Math.round(size * dpr));
-    if (n !== px) {
-      px = n;
-      canvas.width = n;
-      canvas.height = n;
+    let cam = makeCamera(view, mesh, size, fit);
+    if (xr) {
+      // a WebXR eye: its axes from the rows of the view matrix (right, up, back), its place from the caller
+      const v = xr.view;
+      cam = { ...cam, eye: [...xr.eye] as Vec3, r: [v[0]!, v[4]!, v[8]!], u: [v[1]!, v[5]!, v[9]!], f: [-v[2]!, -v[6]!, -v[10]!], ortho: false };
+      marks = undefined;
+    } else {
+      const n = Math.max(1, Math.round(size * dpr));
+      if (n !== px) {
+        px = n;
+        canvas.width = n;
+        canvas.height = n;
+      }
     }
 
     const crease = smooth === true ? 40 : smooth || 0;
@@ -510,7 +517,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     // studio rig, relative to the camera: key upper left in front, fill from the right, rim from behind and above
     const rig = (f: number, r: number, up: number): Vec3 => norm([0, 1, 2].map((k) => -cam.f[k] * f + cam.r[k] * r + cam.u[k] * up) as Vec3);
     const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
-    const vp = viewProjection(cam, nearPlane(cam, mesh));
+    const vp = xr ? mul4(xr.projection, xr.view) : viewProjection(cam, nearPlane(cam, mesh));
     const key = S ? rig(0.7, -0.5, 0.6) : norm(L.direction);
     const fill = rig(0.6, 0.8, 0.1);
     const rim = rig(-0.8, 0.3, 0.5);
@@ -539,7 +546,18 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
       }
     };
 
-    gl.viewport(0, 0, px, px);
+    if (xr) {
+      // into the XR layer's framebuffer, only this eye's part of it (the scissor keeps the other eye when clearing)
+      const [x, y, w, h] = xr.viewport;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, xr.framebuffer as WebGLFramebuffer | null);
+      gl.viewport(x, y, w, h);
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(x, y, w, h);
+    } else {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.viewport(0, 0, px, px);
+    }
     gl.clearColor(background[0], background[1], background[2], 1);
     gl.clearDepth(1);
     gl.depthMask(true);
@@ -656,6 +674,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
       gl.enable(gl.DEPTH_TEST);
     }
     gl.bindVertexArray(null);
+    if (xr) gl.disable(gl.SCISSOR_TEST);
   };
 
   const render = (mesh: Mesh, view: ViewName | ViewSpec, options?: GpuRenderOptions): void => draw(mesh, view, options);
@@ -672,5 +691,5 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     gl.getExtension('WEBGL_lose_context')?.loseContext();
   };
 
-  return { render, pixels, destroy, device: { lost }, adapter: null };
+  return { render, pixels, destroy, device: { lost }, adapter: null, context: gl };
 };
