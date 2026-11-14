@@ -7,6 +7,9 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+/** The viewer pages this server has (name -> path); the MCP live link reports them. */
+export const VIEWERS = { '3draft': '/app/' };
+
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const allowed = new Set(['app', 'dist', 'examples']);
 const types = {

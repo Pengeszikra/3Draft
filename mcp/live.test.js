@@ -126,3 +126,44 @@ test('gives up cleanly when no port is free', async () => {
     await a.close();
   }
 });
+
+test('viewer commands go out as view events, and the viewer\'s report comes back through view_state', async () => {
+  const scene = createScene();
+  const live = await startLive(scene, { port: 0 });
+  scene.info.live = live;
+  const base = `http://localhost:${live.port}`;
+  const got = [];
+  let buf = '';
+  let wake = null;
+  const req = http.get(`${base}/events`, (res) => {
+    res.setEncoding('utf8');
+    res.on('data', (c) => {
+      buf += c;
+      let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const block = buf.slice(0, i);
+        buf = buf.slice(i + 2);
+        if (block.includes('event: view')) (got.push(JSON.parse(block.split('\n').find((l) => l.startsWith('data: ')).slice(6))), wake?.());
+      }
+    });
+  });
+  while (live.clients() < 1) await new Promise((r) => setTimeout(r, 10));
+  const rev = scene.data().rev;
+  const out = JSON.parse(scene.call('view_target', { name: 'andromeda' }).text);
+  assert.equal(out.sent_to, 1);
+  if (!got.length) await new Promise((r) => (wake = r));
+  assert.deepEqual(got[0], { cmd: 'target', name: 'andromeda' });
+  assert.equal(scene.data().rev, rev, 'a viewer command does not change the scene');
+  assert.ok(scene.call('view_vehicle', { vehicle: 'boat' }).isError);
+  const post = await new Promise((resolve, reject) => {
+    const r = http.request(`${base}/viewer-state`, { method: 'POST', headers: { 'content-type': 'application/json', host: `localhost:${live.port}` } }, (res) => (res.resume(), resolve(res.statusCode)));
+    r.on('error', reject);
+    r.end(JSON.stringify({ vehicle: 'starship', target: 'Andromeda (M31)' }));
+  });
+  assert.equal(post, 204);
+  const st = JSON.parse(scene.call('view_state', {}).text);
+  assert.equal(st.viewer.target, 'Andromeda (M31)');
+  assert.equal(st.open_tabs, 1);
+  req.destroy();
+  await live.close();
+});

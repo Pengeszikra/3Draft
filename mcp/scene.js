@@ -127,6 +127,13 @@ export const createScene = () => {
     return fail(`unknown view "${v}"`);
   };
 
+  // a viewer command: to every open viewer through the live link (`view` event)
+  const sendView = (cmd) => {
+    if (!info.live?.command) fail('the live viewer is off (3DRAFT_LIVE=0) or could not bind a port');
+    const sent = info.live.command(cmd);
+    return sent ? { sent_to: sent, ...cmd } : { sent_to: 0, note: 'no viewer is open: call viewer for the URL and ask the user to open it' };
+  };
+
   const tools = [
     {
       name: 'add_box',
@@ -396,12 +403,51 @@ export const createScene = () => {
         return { objects: objects.size };
       },
     },
+    // ---- The open viewer (the live link): these do not change the scene, they steer what the browser shows
+    {
+      name: 'view_target',
+      description: 'Make the open viewer target an object by name (as the viewer\'s Enter search: case and accents do not matter; the whole name, then the start, a word start, any part). In a star map the starship turns to it and the braking program stops it at the surface when you fly there. Works on everything the viewer shows, also the loaded example scenes (stars, galaxies), not only the MCP objects.',
+      inputSchema: { type: 'object', properties: { name: { type: 'string', description: 'the name or a part of it, e.g. "andromeda", "Sirius", "seat"' } }, required: ['name'] },
+      live: true,
+      run: (a) => sendView({ cmd: 'target', name: String(a.name ?? fail('name is required')) }),
+    },
+    {
+      name: 'view_camera',
+      description: 'Put the open viewer\'s eye at a point, looking along yaw / pitch (degrees; yaw 0 looks towards -z, pitch > 0 up). In a star map the units are light years (the Sun at the origin). `roll` (degrees) banks the starship.',
+      inputSchema: { type: 'object', properties: { eye: vec3Schema, yaw: { type: 'number' }, pitch: { type: 'number' }, roll: { type: 'number' } }, required: ['eye'] },
+      live: true,
+      run: (a) => sendView({ cmd: 'camera', eye: vec3(a.eye, 'eye'), yaw: number(a.yaw, 'yaw', { fallback: 0 }), pitch: number(a.pitch, 'pitch', { min: -90, max: 90, fallback: 0 }), roll: number(a.roll, 'roll', { fallback: 0 }) }),
+    },
+    {
+      name: 'view_vehicle',
+      description: 'Switch the open viewer\'s vehicle: "starship" (space flight, light years), "car" (drives on the ground), or "none" (the ordinary model camera).',
+      inputSchema: { type: 'object', properties: { vehicle: { type: 'string', enum: ['none', 'starship', 'car'] } }, required: ['vehicle'] },
+      live: true,
+      run: (a) => {
+        if (!['none', 'starship', 'car'].includes(a.vehicle)) fail('vehicle must be none, starship or car');
+        return sendView({ cmd: 'vehicle', vehicle: a.vehicle });
+      },
+    },
+    {
+      name: 'view_example',
+      description: 'Load one of the viewer\'s bundled scenes into the open viewer (beside the MCP objects, or instead of everything with replace: true). The names are the viewer\'s scene list, e.g. deepsky (1000 galaxies, 400 black holes, 3000 stars), stars, milkyway, stars-plain, globe, bridge, ex27, betterman (Spider Paint also: human, tr74, station-screen). It is shown in the browser only: render and inspect do not see it.',
+      inputSchema: { type: 'object', properties: { name: { type: 'string' }, replace: { type: 'boolean', description: 'clear the viewer first (default false)' } }, required: ['name'] },
+      live: true,
+      run: (a) => sendView({ cmd: 'example', name: String(a.name ?? fail('name is required')), replace: Boolean(a.replace) }),
+    },
+    {
+      name: 'view_state',
+      description: 'What the open viewer shows now (it reports every 2 seconds): vehicle, eye, yaw / pitch / roll (degrees), the target, the speed, the object count, the loaded scene. null when no viewer is open.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      run: () => ({ viewer: info.live?.viewer?.() ?? null, open_tabs: info.live?.clients() ?? 0 }),
+    },
     {
       name: 'viewer',
       description: 'The URL of the live viewer: a browser page that shows this scene and updates after every change you make. Tell the user to open it. Returns null when the live viewer is off.',
       inputSchema: { type: 'object', properties: {} },
       annotations: { readOnlyHint: true },
-      run: () => (info.live ? { url: info.live.url, open_tabs: info.live.clients() } : { url: null, note: 'the live viewer is off (3DRAFT_LIVE=0) or could not bind a port' }),
+      run: () => (info.live ? { url: info.live.url, ...(Object.keys(info.live.viewers ?? {}).length > 1 ? { viewers: info.live.viewers } : {}), open_tabs: info.live.clients() } : { url: null, note: 'the live viewer is off (3DRAFT_LIVE=0) or could not bind a port' }),
     },
   ];
 
@@ -412,7 +458,7 @@ export const createScene = () => {
     if (args === null || typeof args !== 'object' || Array.isArray(args)) return { isError: true, text: 'arguments must be an object' };
     try {
       const out = tool.run(args);
-      if (!tool.annotations?.readOnlyHint) {
+      if (!tool.annotations?.readOnlyHint && !tool.live) {
         rev += 1;
         for (const fn of listeners) fn(rev);
       }

@@ -16,6 +16,8 @@ const INSTRUCTIONS = [
   'Build with add_box / add_extrusion (add_mesh for raw geometry), then ALWAYS look: call render (a sheet of four views by default),',
   'read the SVG, then fix. inspect checks the geometry, pick turns a pixel of a render into a 3D point and a surface normal.',
   'The user can watch the scene live: call the viewer tool for the URL and tell them to open it (it updates after every change).',
+  'With a viewer open you can also steer it: view_example loads a bundled scene (deepsky: 1000 galaxies, 400 black holes, 3000 stars; stars, milkyway, globe, bridge...),',
+  'view_target aims at an object by name, view_camera puts the eye somewhere (light years in a star map), view_vehicle switches starship / car / none, view_state reads what it shows.',
   'Name objects after what they are ("seat", "leg_fl") so you can transform, recolor and remove them later.',
 ].join(' ');
 

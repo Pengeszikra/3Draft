@@ -7532,6 +7532,41 @@
       events.onerror = () => {
         liveEl.textContent = events.readyState === EventSource.CLOSED ? 'off' : 'reconnecting…';
       };
+      // viewer commands of the MCP server (view_target, view_camera, view_vehicle, view_example)
+      events.addEventListener('view', async (e) => {
+        try {
+          const c = JSON.parse(e.data);
+          if (c.cmd === 'target') {
+            findInput.value = c.name;
+            findShow();
+            const f = found[0];
+            if (!f) return void (liveEl.textContent = `no "${c.name}"`);
+            locked = f.o.id;
+            tabRound = null;
+            lookAt(f.o);
+          } else if (c.cmd === 'camera') {
+            letGo(); // (a target would turn the ship back to it)
+            gravity = null;
+            lookFrom(c.eye, c.yaw ?? 0, c.pitch ?? 0);
+            roll = ((c.roll ?? 0) * Math.PI) / 180;
+            redraw();
+          } else if (c.cmd === 'vehicle') setVehicle(c.vehicle === 'none' ? null : c.vehicle);
+          else if (c.cmd === 'example') await (c.replace ? withLoader(c.name, async () => loadScene(await sceneOf(c.name), true)) : addExample(c.name));
+          reportView();
+        } catch (err) {
+          liveEl.textContent = 'bad command';
+          liveEl.title = String(err.message ?? err);
+        }
+      });
+      // what the viewer shows, for the view_state tool
+      const reportView = () => {
+        if (events.readyState !== EventSource.OPEN) return;
+        const deg = (a) => +((a * 180) / Math.PI).toFixed(2);
+        const t = lockedObject();
+        const state = { vehicle: vehicle ?? 'none', eye: eyeNow().map((v) => +v.toFixed(4)), yaw: deg(yaw), pitch: deg(pitch), roll: deg(roll), target: t ? t.name ?? t.id : null, speed: space() ? +(Math.hypot(pace(level.f), pace(level.r), pace(level.u)) * UNIT * throttle).toFixed(3) : null, orbit: orbit?.phase ?? null, objects: allObjects().length, scene: startScene ?? null, view: mode };
+        fetch('/viewer-state', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(state) }).catch(() => {});
+      };
+      setInterval(reportView, 2000);
     }
 
     // Published as a Claude artifact with the `db` capability: the objects live in the shared
