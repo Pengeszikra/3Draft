@@ -4,13 +4,16 @@
 //                   turned by their catalogue axis ratio and position angle
 //   400 black holes Sagittarius A*, the known stellar ones of the Milky Way and the LMC, and the central black holes of the
 //                   biggest galaxies of the list (every big galaxy has one)
-//   3000 stars      the nearest 1000 (HYG) and 2000 notable ones farther out (named first, then by brightness, out to ~3000 ly)
+//   3000 stars      the nearest 1000 (HYG) and 2000 notable ones farther out (named first, then by brightness, out to ~3000 ly),
+//                   + the few constellation stars the list lacked (figures.js)
+//   89 figures      the constellations as seen from Earth (d3-celestial's lines matched to HYG stars: build-figures.mjs)
 // Lengths are light years, the Sun at the origin, equatorial x y z -> [x, z, -y] like the other star scenes.
 // Data: examples/data/deepsky-data.js (build-deepsky.mjs), stars5000.js, galaxies.js.
 import { writeFileSync } from 'node:fs';
 import { STARS as NEAR } from './data/stars5000.js';
 import { FAR_STARS, NGC, AXES } from './data/deepsky-data.js';
 import { GALAXIES } from './data/galaxies.js';
+import { FIGURE_STARS, FIGURES } from './data/figures.js';
 import { starObject, STAR_PALETTE, PLAIN, GALAXY_PROTOS, GALAXY_PALETTE, LY, blackHole, SUN_START } from './stars.js';
 import { cloud, centre, start } from './milkyway.js';
 
@@ -145,13 +148,15 @@ for (const g of big) {
 
 // ---- stars
 const near = NEAR.slice(0, 1000).map((row) => starObject(row));
-const far = FAR_STARS.map((row) => starObject(row, { boost: true }));
+const far = [...FAR_STARS, ...FIGURE_STARS].map((row) => starObject(row, { boost: true })); // (+ the constellation stars the list lacked)
 
 const objects = [...near, ...far, ...holes, ...galaxies];
 export const scene = {
   format: '3draft-scene', version: 2,
   palette: [...STAR_PALETTE.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS },
   start: SUN_START, vehicle: 'starship', cloud, objects,
+  // the constellation figures as seen from Earth: polylines between the stars' centres (the viewer draws them, the sky switch)
+  figures: FIGURES.map(([id, name, en, lines]) => ({ id, name, en, lines })),
 };
 if (import.meta.url === new URL(process.argv[1], 'file:').href) {
   const json = JSON.stringify(scene);
