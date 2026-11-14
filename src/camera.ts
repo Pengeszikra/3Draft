@@ -44,12 +44,18 @@ export const makeCamera = (view: ViewName | ViewSpec, mesh: Mesh, size: number, 
  * with a fixed camera, but the mesh stays where it is. Picks and marks are then
  * in object space.
  */
-export const orbit = ({ yaw = 0, pitch = 0, ortho = false, name = 'orbit' }: { yaw?: number; pitch?: number; ortho?: boolean; name?: string } = {}): ViewSpec => {
+export const orbit = ({ yaw = 0, pitch = 0, roll = 0, ortho = false, name = 'orbit' }: { yaw?: number; pitch?: number; roll?: number; ortho?: boolean; name?: string } = {}): ViewSpec => {
   const cy = Math.cos(yaw);
   const sy = Math.sin(yaw);
   const cp = Math.cos(pitch);
   const sp = Math.sin(pitch);
-  return { name, ortho, dir: [-sy * cp, sp, cy * cp], up: [sy * sp, cp, -cy * sp] };
+  const dir: Vec3 = [-sy * cp, sp, cy * cp];
+  const up: Vec3 = [sy * sp, cp, -cy * sp];
+  if (!roll) return { name, ortho, dir, up };
+  // roll: the up vector turns round the view axis towards the right (positive: the camera banks right, the picture turns left)
+  const right = cross(scale(dir, -1), up);
+  const c = Math.cos(roll), s = Math.sin(roll);
+  return { name, ortho, dir, up: [up[0] * c + right[0] * s, up[1] * c + right[1] * s, up[2] * c + right[2] * s] };
 };
 
 /** Ray through panel pixel (x, y), the inverse of project(): { origin, dir } in world space, dir is a unit vector. */

@@ -10,9 +10,10 @@ export declare const makeCamera: (view: ViewName | ViewSpec, mesh: Mesh, size: n
  * with a fixed camera, but the mesh stays where it is. Picks and marks are then
  * in object space.
  */
-export declare const orbit: ({ yaw, pitch, ortho, name }?: {
+export declare const orbit: ({ yaw, pitch, roll, ortho, name }?: {
     yaw?: number;
     pitch?: number;
+    roll?: number;
     ortho?: boolean;
     name?: string;
 }) => ViewSpec;

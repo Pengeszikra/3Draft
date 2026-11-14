@@ -1,6 +1,6 @@
 {
   "name": "3draft",
-  "version": "26.11.14001",
+  "version": "26.11.14002",
   "description": "Minimalist AI first 3D engine: palette-texture, WASM core, WebGPU/WebGL2 renderer.",
   "type": "module",
   "main": "./dist/index.js",
