@@ -30,6 +30,16 @@ test('the constellation figures: 89 (Serpens in two), every figure star is a sta
   assert.ok(orion.lines.some((l) => l.join() === 'Alnitak,Alnilam,Mintaka'));
 });
 
+test('the cosmic dawn: the five farthest confirmed galaxies, at ~32-34 billion light years, drawn with the H recipe', () => {
+  const dawn = scene.objects.filter((o) => o.galaxy?.kind === 'H');
+  assert.equal(dawn.length, 5);
+  for (const g of dawn) {
+    const d = Math.hypot(...g.at);
+    assert.ok(d > 31e9 && d < 35e9, `${g.name} ${d}`);
+  }
+  assert.ok(dawn.find((g) => g.name.startsWith('GN-z11')).galaxy.agn);
+});
+
 test('the saved scene file matches the builder', () => {
   assert.equal(readFileSync(new URL('./deepsky.scene.json', import.meta.url), 'utf8'), JSON.stringify(scene));
 });

@@ -66,3 +66,22 @@ test('an interacting pair: the same seed gives the same moment, another seed ano
   const m = galaxyPoints({ ...rec, merge: 3, time: 10, peri: 0.4 });
   assert.ok(m.n > 700);
 });
+
+test('a galaxy of the cosmic dawn: compact, blue, its points in the unit ball; agn lights the middle', () => {
+  const a = galaxyPoints({ kind: 'H', seed: 31 }), b = galaxyPoints({ kind: 'H', seed: 31 });
+  assert.equal(a.n, 900);
+  assert.deepEqual(Array.from(a.p), Array.from(b.p));
+  let inner = 0, blue = 0;
+  for (let i = 0; i < a.n; i++) {
+    const d = Math.hypot(a.p[3 * i]!, a.p[3 * i + 1]!, a.p[3 * i + 2]!);
+    assert.ok(d <= 1.0001);
+    if (d < 0.3) inner++;
+    if ((a.c[i]! & 0xff) > ((a.c[i]! >> 16) & 0xff)) blue++;
+  }
+  assert.ok(inner / a.n > 0.6, 'compact');
+  assert.ok(blue / a.n > 0.6, 'blue');
+  const g = galaxyPoints({ kind: 'H', seed: 32, agn: true });
+  let brightest = 0;
+  for (let i = 0; i < g.n; i++) brightest = Math.max(brightest, g.l[i]!);
+  assert.equal(brightest, 6);
+});

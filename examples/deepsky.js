@@ -116,9 +116,25 @@ const extras = [
 // the Sagittarius dwarf's stream round the Milky Way: only the dwarf's particles, the frame on the Milky Way's middle
 const sgr = pairObject('Sagittarius stream', 17.76, -29.0, 0, 160, { ratio: 0.003, peri: 0.4, ecc: 0.6, size2: 0.08, kind2: 'E', first: false, time: 25, n: 1600 }, blackHole(centre).at);
 sgr.glow = 1; // (no big haze over the Milky Way: the stream shows by its points)
+// ---- the farthest known galaxies (JWST, spectroscopically confirmed): the cosmic dawn, a few hundred million years after the
+// Big Bang. At their real comoving distance (today's, ~32-34 billion light years: 1 unit = 1 ly), drawn with the 'H' recipe
+// (compact, puffy, blue, clumpy; GN-z11 with its accreting black hole). [name, RA h, Dec °, distance Mly, radius kly, recipe]
+const hms = (h, m, sec) => h + m / 60 + sec / 3600;
+const dms = (d, m, sec) => Math.sign(d || 1) * (Math.abs(d) + m / 60 + sec / 3600);
+const DAWN = [
+  ['MoM-z14 (z 14.44, 280 Myr after the Big Bang)', hms(10, 0, 22.4), dms(2, 16, 23.19), 33800, 0.7, { b: 0.8, clumps: 2 }],
+  ['JADES-GS-z14-0 (z 14.32)', hms(3, 32, 19.905), dms(-27, 51, 20.27), 33700, 3.3, { b: 0.55, clumps: 4, halo: 0.3 }],
+  ['JADES-GS-z14-1 (z 13.90)', hms(3, 32, 17.825), dms(-27, 53, 9.34), 33650, 0.5, { b: 0.9, clumps: 1, halo: 0.08 }],
+  ['JADES-GS-z13-0 (z 13.20)', hms(3, 32, 35.97), dms(-27, 46, 35.4), 33600, 0.5, { b: 0.85, clumps: 2, halo: 0.1 }],
+  ['GN-z11 (z 10.60, black hole)', hms(12, 36, 25.46), dms(62, 14, 31.4), 32000, 2, { b: 0.7, clumps: 3, agn: true }],
+];
+const dawn = DAWN.map(([name, ra, dec, mly, kly, rec]) => {
+  const radius = kly * 1000;
+  return { name, proto: 'ghost', at: LY(ra, dec, mly * 1e6), scale: round(radius), mats: { core: 'gal-ghost' }, glow: round(radius * 3), glowColor: '#b9c8ff', far: true, galaxy: { kind: 'H', seed: hash(name), ...rec }, rot: rotFor(ra, dec, null, null) };
+});
 const replaced = new Set([...PAIRS.flatMap((x) => x[6]), 'Sagittarius dSph']);
 const kept = curated.filter((g) => !replaced.has(g.name));
-const special = [...pairs, ...extras, sgr];
+const special = [...pairs, ...extras, sgr, ...dawn];
 const fromCatalogue = NGC.filter(([name]) => !name.split(' · ').some((x) => taken.has(x)))
   .map(([name, ra, dec, mly, kly, type, q, pa]) => galaxyObject(name, ra, dec, mly, kly, kindOf(type), type, q, pa))
   .filter((g) => !replaced.has(g.name))

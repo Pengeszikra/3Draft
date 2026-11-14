@@ -1,6 +1,6 @@
-export type GalaxyKind = 'S' | 'E' | 'I' | 'D' | 'P';
+export type GalaxyKind = 'S' | 'E' | 'I' | 'D' | 'P' | 'H';
 export interface GalaxyRecipe {
-    /** S spiral, E elliptical / lenticular, I irregular, D dwarf spheroidal, P an interacting pair (see below) */
+    /** S spiral, E elliptical / lenticular, I irregular, D dwarf spheroidal, P an interacting pair, H a galaxy of the cosmic dawn (see below) */
     kind: GalaxyKind;
     /** the sampling seed: the same seed always gives the same galaxy */
     seed: number;
@@ -40,6 +40,15 @@ export interface GalaxyRecipe {
     first?: boolean;
     /** P: a drag between the two masses near each other (dynamical friction; 0 none): with it they sink together and merge */
     merge?: number;
+    /**
+     * H, a galaxy of the cosmic dawn (z > 10, a few hundred million years after the Big Bang, as JWST sees MoM-z14, JADES-GS-z14-0,
+     * GN-z11): small, compact and puffy, not yet a settled disc; young, very blue-white stars round a bright middle (an exponential
+     * profile, Sérsic n ≈ 1, `b` the axis ratio, the thickness 0.55 of the length), a few starburst knots (`clumps`, default 3),
+     * glowing gas (pink Hα, teal [O III]) and a faint wider envelope (`halo`, its share of the points, default 0.15; JADES-GS-z14-0
+     * reaches out to 1 kpc); `agn`: an accreting black hole lights the very middle (GN-z11).
+     */
+    halo?: number;
+    agn?: boolean;
 }
 /** points in the unit frame: positions (3 per point), radii, colours 0xRRGGBB, brightness (1 = normal); in random order */
 export interface GalaxyPoints {
