@@ -790,8 +790,8 @@
         </span>
       </span>
       <span class="grp rows" data-label="sky" id="skyGrp" title="The star map's lines (vehicle: starship)">
-        <span class="row"><button id="skyMine" type="button" class="sw on" title="Your star lines: V on a star, then V on another one joins their centres with a light yellow glowing bar. This switch shows or hides all of them"><i></i>lines</button></span>
-        <span class="row"><button id="skyIau" type="button" class="sw on" title="The constellations as seen from Earth (88 IAU figures, lines between the stars' centres): show or hide all of them"><i></i>figures</button></span>
+        <span class="row"><button id="skyMine" type="button" class="sw" title="Your star lines: V on a star, then V on another one joins their centres with a light yellow glowing bar. This switch shows or hides all of them"><i></i>lines</button></span>
+        <span class="row"><button id="skyIau" type="button" class="sw" title="The constellations as seen from Earth (88 IAU figures, lines between the stars' centres): show or hide all of them"><i></i>figures</button></span>
       </span>
       <span class="grp rows" data-label="xr" id="xrGrp">
         <span class="row"><span id="xrNote">–</span></span>
@@ -957,7 +957,7 @@
     let mine = [];
     const allObjects = () => [...hostObjects, ...mine];
     // the star map's lines (sky group): 'mine' are the ones drawn with V, 'iau' the constellation figures; each switch hides its kind
-    const skyShow = { mine: true, iau: true };
+    const skyShow = { mine: false, iau: false }; // off at the start (a new V line turns its kind on)
     // objects are told apart by id: a db snapshot (also the echo of our own write) hands out new instances
     const live = (o) => allObjects().find((x) => x.id === o.id);
     const has = (o) => Boolean(live(o));
