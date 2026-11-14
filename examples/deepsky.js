@@ -14,6 +14,7 @@ import { STARS as NEAR } from './data/stars5000.js';
 import { FAR_STARS, NGC, AXES } from './data/deepsky-data.js';
 import { GALAXIES } from './data/galaxies.js';
 import { FIGURE_STARS, FIGURES } from './data/figures.js';
+import { solarSystem, ringProto } from './solar.js';
 import { starObject, STAR_PALETTE, PLAIN, GALAXY_PROTOS, GALAXY_PALETTE, LY, blackHole, SUN_START } from './stars.js';
 import { cloud, centre, start } from './milkyway.js';
 
@@ -167,10 +168,22 @@ const near = NEAR.slice(0, 1000).map((row) => starObject(row));
 const far = [...FAR_STARS, ...FIGURE_STARS].map((row) => starObject(row, { boost: true })); // (+ the constellation stars the list lacked)
 
 const objects = [...near, ...far, ...holes, ...galaxies];
+// ---- the Solar System at its true scale (solar.js): the planets where they are on 2026-11-14, with their orbits
+const solar = solarSystem(new Date('2026-11-14T00:00:00Z'));
+// the start: 60 AU from the Sun, 35° above the ecliptic, looking at the Sun: the orbits of all the planets in view
+const SOLAR_START = (() => {
+  const AU = 1.58125074e-5, eps = (23.43928 * Math.PI) / 180, el = (35 * Math.PI) / 180;
+  const n = [0, Math.cos(eps), Math.sin(eps)]; // the ecliptic's north in the scene
+  const eye = [0, 1, 2].map((i) => 60 * AU * (Math.cos(el) * [1, 0, 0][i] + Math.sin(el) * n[i]));
+  const deg = (v) => Math.round(((v * 180) / Math.PI) * 10) / 10;
+  return { eye: eye.map((v) => Number(v.toPrecision(6))), yaw: deg(Math.atan2(-eye[0], eye[2])), pitch: deg(Math.asin(eye[1] / Math.hypot(...eye))) };
+})();
 export const scene = {
   format: '3draft-scene', version: 2,
-  palette: [...STAR_PALETTE.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE], prototypes: { ...PLAIN, ...GALAXY_PROTOS },
-  start: SUN_START, vehicle: 'starship', cloud, objects,
+  palette: [...STAR_PALETTE.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE, ...solar.palette], prototypes: { ...PLAIN, planet: PLAIN.star, ...GALAXY_PROTOS, ring: { lods: [ringProto(96), ringProto(48), ringProto(24)] } },
+  start: SOLAR_START, vehicle: 'starship', cloud, objects: [...objects, ...solar.objects],
+  // the planets' orbits (and the Moon's), thin lines (the sky group's orbits switch)
+  paths: solar.paths,
   // the constellation figures as seen from Earth: polylines between the stars' centres (the viewer draws them, the sky switch)
   figures: FIGURES.map(([id, name, en, lines]) => ({ id, name, en, lines })),
 };

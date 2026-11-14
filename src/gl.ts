@@ -15,6 +15,8 @@ const GL_INSTANCE_FLOATS = 15; // at(3) ex(3) ey(3) ez(3) color(3)
 const GL_COMMON = /* glsl */ `#version 300 es
 precision highp float;
 uniform mat4 uVp;
+uniform float uLd;
+vec4 ld(vec4 p) { if (uLd > 0.0) p.z = log2(max(1e-6, uLd * p.w + 1.0)) / log2(uLd * 1e12 + 1.0) * p.w; return p; } // logarithmic depth (gpu.ts)
 out vec3 vN; out vec3 vC; out vec3 vW; out vec4 vM; out float vS;
 `;
 
@@ -22,7 +24,7 @@ const GL_VERT = `${GL_COMMON}
 layout(location = 0) in vec3 aPos; layout(location = 1) in vec3 aNrm; layout(location = 2) in vec3 aCol;
 layout(location = 3) in vec4 aMat; layout(location = 4) in float aSoft;
 void main() {
-  vec4 p = uVp * vec4(aPos, 1.0);
+  vec4 p = ld(uVp * vec4(aPos, 1.0));
   gl_Position = vec4(p.xy, p.z * 2.0 - p.w, p.w); // WebGPU depth is 0..1, GL wants -1..1
   vN = aNrm; vC = aCol; vW = aPos; vM = aMat; vS = aSoft;
 }`;
@@ -45,18 +47,21 @@ void main() {
       n += bone(k, vec4(aNrm, 0.0)) * w;
     }
   }
-  vec4 p = uVp * vec4(q, 1.0);
+  vec4 p = ld(uVp * vec4(q, 1.0));
   gl_Position = vec4(p.xy, p.z * 2.0 - p.w, p.w);
   vN = n; vC = aCol; vW = q; vM = aMat; vS = aSoft;
 }`;
 
 // a screen: a picture on a quad, as it is (a display does not take the scene's light)
 const GL_VERT_SCREEN = `#version 300 es
+precision highp float;
 uniform mat4 uVp;
+uniform float uLd;
+vec4 ld(vec4 p) { if (uLd > 0.0) p.z = log2(max(1e-6, uLd * p.w + 1.0)) / log2(uLd * 1e12 + 1.0) * p.w; return p; }
 layout(location = 0) in vec3 aPos; layout(location = 1) in vec2 aUv;
 out vec2 vUv;
 void main() {
-  vec4 p = uVp * vec4(aPos, 1.0);
+  vec4 p = ld(uVp * vec4(aPos, 1.0));
   gl_Position = vec4(p.xy, p.z * 2.0 - p.w, p.w);
   vUv = aUv;
 }`;
@@ -79,7 +84,7 @@ layout(location = 5) in vec3 aAt; layout(location = 6) in vec3 aEx; layout(locat
 layout(location = 9) in vec3 aCol;
 void main() {
   vec3 w = aAt + aEx * aPos.x + aEy * aPos.y + aEz * aPos.z;
-  vec4 p = uVp * vec4(w, 1.0);
+  vec4 p = ld(uVp * vec4(w, 1.0));
   gl_Position = vec4(p.xy, p.z * 2.0 - p.w, p.w);
   vN = normalize(aEx) * aNrm.x + normalize(aEy) * aNrm.y + normalize(aEz) * aNrm.z;
   vC = aCol; vW = w; vM = vec4(0.0, 0.7, 1.0, 0.0); vS = 0.0;
@@ -89,9 +94,11 @@ void main() {
 const GL_VERT_LINE = `#version 300 es
 precision highp float;
 uniform mat4 uVp;
+uniform float uLd;
+vec4 ld(vec4 p) { if (uLd > 0.0) p.z = log2(max(1e-6, uLd * p.w + 1.0)) / log2(uLd * 1e12 + 1.0) * p.w; return p; }
 layout(location = 0) in vec3 aPos;
 void main() {
-  vec4 p = uVp * vec4(aPos, 1.0);
+  vec4 p = ld(uVp * vec4(aPos, 1.0));
   gl_Position = vec4(p.xy, p.z * 2.0 - p.w - 0.0004 * p.w, p.w);
 }`;
 const GL_FRAG_LINE = `#version 300 es
@@ -103,13 +110,13 @@ void main() { outColor = uUnlit > 0.5 ? vec4(0.85, 0.85, 0.85, 0.55) : vec4(0.0,
 // the marks: thick round-capped segments expanded to screen-space quads, over everything (see the WGSL vsm/fsm)
 const GL_VERT_MARK = `#version 300 es
 precision highp float;
-uniform mat4 uVp; uniform vec3 uRes;
+uniform mat4 uVp; uniform vec3 uRes; uniform float uLd;
 layout(location = 0) in vec3 aA; layout(location = 1) in vec3 aB; layout(location = 2) in vec4 aCol; layout(location = 3) in float aW;
 out vec2 vQ; out vec4 vCol; out vec2 vH;
 void main() {
   vec4 ca = uVp * vec4(aA, 1.0);
   vec4 cb = uVp * vec4(aB, 1.0);
-  float e = 0.001;
+  float e = uLd > 0.0 ? 1e-13 : 0.001; // (with log depth anything just in front of the eye is drawn)
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   if (ca.w < e && cb.w < e) return;
   if (ca.w < e) ca = mix(ca, cb, (e - ca.w) / (cb.w - ca.w));
@@ -282,23 +289,27 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const skinBones = gl.getUniformLocation(skinProg, 'uBones');
   const uni = (p: WebGLProgram) => {
     const g = (n: string) => gl.getUniformLocation(p, n);
-    return { vp: g('uVp'), light: g('uLight'), sky: g('uSky'), ground: g('uGround'), eye: g('uEye'), mat: g('uMat'), fx: g('uFx'), fill: g('uFill'), rim: g('uRim'), lp: g('uLP'), lc: g('uLC'), ln: g('uLN') };
+    return { vp: g('uVp'), light: g('uLight'), sky: g('uSky'), ground: g('uGround'), eye: g('uEye'), mat: g('uMat'), fx: g('uFx'), fill: g('uFill'), rim: g('uRim'), lp: g('uLP'), lc: g('uLC'), ln: g('uLN'), ld: g('uLd') };
   };
   const lineProg = program(GL_VERT_LINE, GL_FRAG_LINE);
   const lineVp = gl.getUniformLocation(lineProg, 'uVp');
+  const lineLd = gl.getUniformLocation(lineProg, 'uLd');
   const lineUnlit = gl.getUniformLocation(lineProg, 'uUnlit');
   const markProg = program(GL_VERT_MARK, GL_FRAG_MARK);
   const markVp = gl.getUniformLocation(markProg, 'uVp');
+  const markLd = gl.getUniformLocation(markProg, 'uLd');
   const markRes = gl.getUniformLocation(markProg, 'uRes');
   const meshU = uni(meshProg);
   const instU = uni(instProg);
   const skinU = uni(skinProg);
   const screenProg = program(GL_VERT_SCREEN, GL_FRAG_SCREEN);
   const screenVp = gl.getUniformLocation(screenProg, 'uVp');
+  const screenLd = gl.getUniformLocation(screenProg, 'uLd');
   const screenTexU = gl.getUniformLocation(screenProg, 'uTex');
   const screenTex: (WebGLTexture | null)[] = [];
   const holeProg = program(GL_VERT_SCREEN, GL_FRAG_HOLE);
   const holeVp = gl.getUniformLocation(holeProg, 'uVp');
+  const holeLd = gl.getUniformLocation(holeProg, 'uLd');
 
   const stride = GL_FLOATS * 4;
   const buffer = (): WebGLBuffer => gl.createBuffer()!;
@@ -405,7 +416,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, xr }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, xr, logDepth = 0 }: GpuRenderOptions = {},
   ): void => {
     const L = { ...defaultLight, ...light };
     const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
@@ -518,6 +529,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     const rig = (f: number, r: number, up: number): Vec3 => norm([0, 1, 2].map((k) => -cam.f[k] * f + cam.r[k] * r + cam.u[k] * up) as Vec3);
     const S = studio ? { fill: 0.4, rim: 1, ...(studio === true ? {} : studio) } : null;
     const vp = xr ? mul4(xr.projection, xr.view) : viewProjection(cam, nearPlane(cam, mesh));
+    const ld = logDepth > 0 && !cam.ortho ? logDepth : 0; // logarithmic depth (GpuRenderOptions.logDepth)
     const key = S ? rig(0.7, -0.5, 0.6) : norm(L.direction);
     const fill = rig(0.6, 0.8, 0.1);
     const rim = rig(-0.8, 0.3, 0.5);
@@ -531,6 +543,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     }
     const setU = (u: ReturnType<typeof uni>) => {
       gl.uniformMatrix4fv(u.vp, false, vp);
+      gl.uniform1f(u.ld, ld);
       gl.uniform4f(u.light, key[0], key[1], key[2], unlit ? 1 : 0);
       gl.uniform4f(u.sky, L.sky[0], L.sky[1], L.sky[2], 0);
       gl.uniform4f(u.ground, L.ground[0], L.ground[1], L.ground[2], 0);
@@ -594,6 +607,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
       upload(screenBuf, buildScreenQuads(screens!));
       gl.useProgram(holeProg);
       gl.uniformMatrix4fv(holeVp, false, vp);
+      gl.uniform1f(holeLd, ld);
       gl.bindVertexArray(screenVao);
       for (const { i } of holes) gl.drawArrays(gl.TRIANGLES, i * 6, 6);
     }
@@ -601,6 +615,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
       upload(screenBuf, buildScreenQuads(screens!));
       gl.useProgram(screenProg);
       gl.uniformMatrix4fv(screenVp, false, vp);
+      gl.uniform1f(screenLd, ld);
       gl.uniform1i(screenTexU, 0);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindVertexArray(screenVao);
@@ -624,6 +639,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     if (edgeCount) {
       gl.useProgram(lineProg);
       gl.uniformMatrix4fv(lineVp, false, vp);
+      gl.uniform1f(lineLd, ld);
       gl.uniform1f(lineUnlit, unlit ? 1 : 0);
       gl.enable(gl.BLEND);
       gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -662,6 +678,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
       gl.bufferData(gl.ARRAY_BUFFER, markData, gl.DYNAMIC_DRAW);
       gl.useProgram(markProg);
       gl.uniformMatrix4fv(markVp, false, vp);
+      gl.uniform1f(markLd, ld);
       gl.uniform3f(markRes, px, px, px / size);
       gl.disable(gl.DEPTH_TEST);
       gl.depthMask(false);

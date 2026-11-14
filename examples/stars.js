@@ -1,8 +1,8 @@
 // The 500 nearest stars as plain spheres (no shaders yet). 1 unit = 1 light-year, the Sun sits at the origin, y is up
 // (equatorial z), so you can fly from star to star. Data: examples/data/stars500.js (HYG v4.1, nearest 500, out to ~38 ly).
-// Every star is ONE object: a solid core sphere sized by its real radius and a faint emissive halo that grows with the
-// luminosity, so even a far star stays visible as a glow. Real radii are ~1e-8 ly, so they are scaled by one constant
-// (SUN = displayed Sun radius) and clamped to a visible floor; the ratios between stars stay true above the floor.
+// Every star is ONE object: a solid core sphere of its REAL radius (the Sun: 696 000 km = 7.36e-8 ly; R from L and T) and a
+// glow that grows with the luminosity, so even a far star stays visible: from afar a star is its glow, as in the real sky,
+// and the planets fit round the Sun at their true distances (solar.js). (Until 2026-11 the radii were 680 000 times too big.)
 // `node examples/stars.js` writes examples/stars.scene.json (500 stars, with glow) and stars-plain.scene.json (the nearest 5000, no glow).
 
 import { writeFileSync } from 'node:fs';
@@ -13,8 +13,8 @@ import { GALAXIES } from './data/galaxies.js';
 import { cloudFor, CLOUD_PROTOS } from './galaxy-clouds.js';
 
 const LY_PER_PC = 3.26156;
-const SUN = 0.05; // displayed radius of a 1 R_sun star, in ly
-const FLOOR = 0.012; // smallest displayed core radius (white dwarfs)
+const SUN = 696340 / 9.4607304725808e12; // the Sun's radius, in ly
+const FLOOR = SUN * 0.008; // the smallest core radius (white dwarfs)
 
 // class -> [core colour, halo colour, emit, roughness]; colours are the usual blackbody tints
 const CLASSES = {
@@ -85,6 +85,7 @@ export const PLAIN = { star: { halo: false, // no halo mesh: the viewer draws a 
     lods: [coreOnly(64, 32), coreOnly(32, 16), coreOnly(16, 8), coreOnly(8, 4), coreOnly(4, 2)].map(r4m) } };
 
 const round = (v) => Math.round(v * 1e4) / 1e4;
+const sig = (v) => Number(v.toPrecision(5)); // (a real star radius is ~1e-8 ly: significant digits, not decimals)
 
 // ---- galaxies and the black hole of the Milky Way (the point-glow scene) ----
 const ellipsoid = (r, y, seg, rings, mat) => { const m = sphere(0, 0, 0, r, seg, rings, mat); return { ...m, positions: m.positions.map(([a, b, c]) => [a, b * y, c]) }; };
@@ -151,7 +152,7 @@ export const starObject = ([name, x, y, z, absmag, spect, ci, lumField], { plain
     proto: 'star',
     at: [round(x * LY_PER_PC), round(z * LY_PER_PC), round(-y * LY_PER_PC)], // equatorial z is up; flip y so it is not mirrored
     ...(plain ? { glow: round(halo) } : {}),
-    scale: plain ? round(r) : { core: round(r), halo: round(halo) },
+    scale: plain ? sig(r) : { core: sig(r), halo: round(halo) },
     mats: plain ? { core: `star-${k}` } : { core: `star-${k}`, halo: `halo-${k}` },
     color: tint(ci, k),
   };

@@ -89,6 +89,13 @@ export interface GpuRenderOptions {
     xr?: GpuXrEye;
     /** Thick lines and points on top of everything (selections, the cursor, handles): world-space polylines drawn by the GPU with round caps. */
     marks?: Mark[];
+    /**
+     * Logarithmic depth for a scene of every scale at once (a planet's surface and galaxies billions of light years away): the
+     * depth is log2(1 + logDepth · distance) / log2(1 + logDepth · 1e12) instead of the near / far projection, so the near plane no
+     * longer cuts what is close and every distance keeps about the same relative precision. The value is one over the smallest
+     * distance that still needs depth (1e12 for light years: ~10 km). 0 / absent: the usual depth.
+     */
+    logDepth?: number;
 }
 /** See GpuRenderOptions.screens. */
 export interface GpuScreen {
