@@ -413,7 +413,7 @@ export const createScene = () => {
     },
     {
       name: 'view_camera',
-      description: 'Put the open viewer\'s eye at a point, looking along yaw / pitch (degrees; yaw 0 looks towards -z, pitch > 0 up). In a star map the units are light years (the Sun at the origin). `roll` (degrees) banks the starship.',
+      description: 'Put the open viewer\'s eye at a point, looking along yaw / pitch (degrees; yaw 0 looks towards -z, positive yaw turns towards +x, positive pitch looks down, as in the Spider Build format). In a star map the units are light years (the Sun at the origin). `roll` (degrees) banks the starship.',
       inputSchema: { type: 'object', properties: { eye: vec3Schema, yaw: { type: 'number' }, pitch: { type: 'number' }, roll: { type: 'number' } }, required: ['eye'] },
       live: true,
       run: (a) => sendView({ cmd: 'camera', eye: vec3(a.eye, 'eye'), yaw: number(a.yaw, 'yaw', { fallback: 0 }), pitch: number(a.pitch, 'pitch', { min: -90, max: 90, fallback: 0 }), roll: number(a.roll, 'roll', { fallback: 0 }) }),

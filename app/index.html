@@ -1937,7 +1937,7 @@
       if (o.figure) {
         letGo();
         const e = eyeNow(), d = vsub(o.figure.centre, e);
-        return lookFrom(e, (Math.atan2(d[0], -d[2]) * 180) / Math.PI, (Math.asin(d[1] / Math.hypot(...d)) * 180) / Math.PI);
+        return lookFrom(e, (Math.atan2(d[0], -d[2]) * 180) / Math.PI, (-Math.asin(d[1] / Math.hypot(...d)) * 180) / Math.PI); // (pitch > 0 looks down)
       }
       locked = o.id;
       tabRound = null;
