@@ -57,6 +57,7 @@ FN 0
   DLOC 37  ; qz
   DLOC 38  ; v
   DLOC 39  ; t
+  DLOC 40  ; ee    |e1|^2 |e2|^2 (the triangle's own scale, for the parallel test)
 
   CONST 0
   SET 10
@@ -183,10 +184,39 @@ FN 0
         DADD
         SET 29
 
+        ; parallel, relative to the triangle's size: det^2 <= 1e-24 |e1|^2 |e2|^2 (a real-scale planet 40 ly away has
+        ; edges of 1e-10 ly, so an absolute epsilon would reject every face)
+        GET 20
+        GET 20
+        DMUL
+        GET 21
+        GET 21
+        DMUL
+        DADD
+        GET 22
+        GET 22
+        DMUL
+        DADD
+        GET 23
+        GET 23
+        DMUL
+        GET 24
+        GET 24
+        DMUL
+        DADD
+        GET 25
+        GET 25
+        DMUL
+        DADD
+        DMUL
+        SET 40
         GET 29
-        DABS
-        DCONST 1e-9
-        DLT
+        GET 29
+        DMUL
+        DCONST 1e-24
+        GET 40
+        DMUL
+        DLE
         BRIF 0          ; parallel to the triangle
 
         GET 9
@@ -307,7 +337,7 @@ FN 0
         DMUL
         SET 39
         GET 39
-        DCONST 1e-9
+        DCONST 0
         DLE
         BRIF 0          ; behind the ray origin
 

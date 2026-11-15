@@ -91,3 +91,20 @@ test('the kernel bytes are what the HEXAW source assembles to', { skip: findCore
   const text = render(await assembleKernel());
   assert.equal(text.includes(KERNEL_BYTES), true, 'run `node scripts/build-kernel.mjs`');
 });
+
+test('a real-scale planet 40 light years out is picked (no absolute epsilon), by pick() and the kernel alike', async () => {
+  // an Earth-sized box (radius ~6e-10 ly) where TRAPPIST-1 e is, seen from ~5e-9 ly away
+  const at: Vec3 = [39.414999549877, -3.5739998937087, 9.3737000035238];
+  const r = 6e-10;
+  const mesh = box({ size: [2 * r, 2 * r, 2 * r], at });
+  const c = bounds(mesh).center;
+  const cam = makeCamera(orbit({ yaw: 0.4, pitch: 0.2 }), mesh, 400, { center: c, radius: r, dist: 5e-9 });
+  const js = pick(mesh, cam, 200, 200);
+  assert.ok(js, 'pick() hits it');
+  assert.ok(Math.abs(js.distance - (5e-9 - r)) < 3e-10, `distance ${js.distance}`);
+  const k = await initKernel();
+  const kh = k.pick(mesh, cam, 200, 200);
+  assert.ok(kh);
+  assert.equal(kh.face, js.face);
+  assert.ok(Math.abs(kh.distance - js.distance) < 1e-18);
+});

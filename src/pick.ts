@@ -8,7 +8,9 @@ import { triangulate } from './triangulate.js';
 import { ray } from './camera.js';
 import type { Camera, Hit, Mesh, Vec3 } from './types.js';
 
-const EPS = 1e-9;
+// Parallel means relative to the triangle's own size: a star 40 ly away has 1e-10 ly edges (det ~ 1e-20), so an absolute
+// epsilon would call every face of a real-scale planet parallel. det^2 < PAR^2 |e1|^2 |e2|^2 (d is a unit vector).
+const PAR2 = 1e-24;
 
 // Moller-Trumbore ray/triangle test. Distance along the ray, or null.
 const hitTriangle = (o: Vec3, d: Vec3, a: Vec3, b: Vec3, c: Vec3): number | null => {
@@ -16,7 +18,7 @@ const hitTriangle = (o: Vec3, d: Vec3, a: Vec3, b: Vec3, c: Vec3): number | null
   const e2 = c |> minus(a);
   const h = cross(d, e2);
   const det = dot(e1, h);
-  if (Math.abs(det) < EPS) return null;
+  if (det * det <= PAR2 * dot(e1, e1) * dot(e2, e2)) return null;
   const inv = 1 / det;
   const s = o |> minus(a);
   const u = inv * dot(s, h);
@@ -25,7 +27,7 @@ const hitTriangle = (o: Vec3, d: Vec3, a: Vec3, b: Vec3, c: Vec3): number | null
   const v = inv * dot(d, q);
   if (v < 0 || u + v > 1) return null;
   const t = inv * dot(e2, q);
-  return t > EPS ? t : null;
+  return t > 0 ? t : null; // (in front of the eye at any scale)
 };
 
 /**
