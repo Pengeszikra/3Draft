@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { normalizeBuildDocument, constructionAt, constructionIndexAtTime, cameraAt, narrationAt, FORMAT } from '../app/story.js';
+import { normalizeBuildDocument, constructionAt, constructionIndexAtTime, cameraAt, narrationAt, animationAt, animationSkin, sceneAt, FORMAT } from '../app/story.js';
 
 // the viewer's story mode (app/story.js, Spider Build v2) with the small example in the + scene list
 const doc = normalizeBuildDocument(JSON.parse(readFileSync(new URL('./spider-build-example.build.json', import.meta.url), 'utf8')));
@@ -24,4 +24,37 @@ test('a story file: the camera and the narration of a moment', () => {
   assert.ok(Number.isFinite(c.yaw) && Number.isFinite(c.pitch));
   assert.ok(narrationAt(doc, 1000).length >= 1);
   assert.throws(() => normalizeBuildDocument({ format: FORMAT, version: 3 }));
+});
+
+const animated = () => {
+  const d=structuredClone(doc),name=d.tracks.construction.steps[0].changes[0].object.name;
+  d.tracks.animation={timesMs:[0,9000],channels:[{id:'body',matrices:[[1,0,0,0,0,1,0,0,0,0,1,0],[1,0,0,9,0,1,0,0,0,0,1,0]]}],bindings:[{object:name,channel:'body'}]};
+  return d;
+};
+test('animation interpolates independently of construction, holds endpoints, and seeks deterministically',()=>{
+  const d=normalizeBuildDocument(animated()),a=animationAt(d,1000);
+  assert.equal(a[3],1);assert.equal(animationAt(d,-100)[3],0);assert.equal(animationAt(d,10000)[3],9);
+  assert.equal(animationAt(d,4500)[3],4.5);assert.deepEqual(animationAt(d,1000),a);
+  const base=constructionAt(d,1000),moved=sceneAt(d,1000);
+  assert.equal(moved[0].mesh.positions[0][0],base[0].mesh.positions[0][0]+1);
+  const skin=animationSkin(d,base);assert.equal(skin.meshes[0],base[0].mesh);assert.deepEqual(skin.weights[0][0],[[0,1]]);
+  d.tracks.camera.keyframes=[];d.tracks.narration.cues=[];assert.deepEqual(animationAt(d,1000),a);
+});
+test('animation validates references, finite matrices, timeline ordering and skin influences',()=>{
+  for(const mutate of [
+    d=>{d.tracks.animation.channels[0].matrices[0][0]=NaN},
+    d=>{d.tracks.animation.timesMs=[9000,0]},
+    d=>{d.tracks.animation.bindings[0].channel='missing'},
+    d=>{d.tracks.animation.bindings[0].object='missing'},
+    d=>{d.tracks.animation.channels[0].matrices.pop()},
+    d=>{d.tracks.animation.bindings.push(d.tracks.animation.bindings[0])},
+    d=>{delete d.tracks.animation.bindings[0].channel;d.tracks.animation.bindings[0].weights=[]}
+  ]){const d=animated();mutate(d);assert.throws(()=>normalizeBuildDocument(d));}
+});
+test('recorded camera lenses and bank interpolate and remain optional in existing stories',()=>{
+  const d=structuredClone(doc),c=d.tracks.camera;
+  c.initialPose={eye:[0,0,0],yaw:0,pitch:0,roll:0,fov:40};
+  c.keyframes=[{id:'lens',timeMs:2000,transition:'linear',pose:{eye:[1,0,0],yaw:10,pitch:5,roll:20,fov:80}}];
+  normalizeBuildDocument(d);assert.equal(cameraAt(d,1000).fov,60);assert.equal(cameraAt(d,1000).roll,10);
+  c.keyframes[0].pose.fov=180;assert.throws(()=>normalizeBuildDocument(d),/fov/);
 });

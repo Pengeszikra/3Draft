@@ -424,7 +424,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, xr, logDepth = 0, planets }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], transparent = false, light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, xr, logDepth = 0, planets }: GpuRenderOptions = {},
   ): void => {
     const L = { ...defaultLight, ...light };
     const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
@@ -579,7 +579,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
       gl.disable(gl.SCISSOR_TEST);
       gl.viewport(0, 0, px, px);
     }
-    gl.clearColor(background[0], background[1], background[2], 1);
+    gl.clearColor(transparent ? 0 : background[0], transparent ? 0 : background[1], transparent ? 0 : background[2], transparent ? 0 : 1);
     gl.clearDepth(1);
     gl.depthMask(true);
     gl.disable(gl.BLEND);
@@ -737,7 +737,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
     gl.readPixels(0, 0, px, px, gl.RGBA, gl.UNSIGNED_BYTE, raw); // read in the same task as the draw, before the buffer is presented
     const data = new Uint8ClampedArray(px * px * 4);
     for (let y = 0; y < px; y++) data.set(raw.subarray((px - 1 - y) * px * 4, (px - y) * px * 4), y * px * 4); // GL rows go bottom up
-    for (let i = 3; i < data.length; i += 4) data[i] = 255;
+    if (!options?.transparent) for (let i = 3; i < data.length; i += 4) data[i] = 255;
     return Promise.resolve({ width: px, height: px, data });
   };
   const destroy = (): void => {

@@ -34,6 +34,8 @@ export interface GpuRenderOptions {
   fit?: Fit;
   /** Clear color, rgb 0..1. */
   background?: Vec3;
+  /** Clear to transparent black so another canvas can supply a background behind opaque scene geometry. */
+  transparent?: boolean;
   light?: GpuLight;
   material?: GpuMaterial;
   /** Named materials the faces point at (`face.mat`); pass a new object when an entry changes. */
@@ -1015,7 +1017,7 @@ export const createGpu = async (
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, logDepth = 0, planets }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], transparent = false, light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, logDepth = 0, planets }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
@@ -1242,7 +1244,7 @@ export const createGpu = async (
         {
           view: color ? color.createView() : target,
           resolveTarget: color ? target : undefined,
-          clearValue: { r: background[0], g: background[1], b: background[2], a: 1 },
+          clearValue: transparent ? { r: 0, g: 0, b: 0, a: 0 } : { r: background[0], g: background[1], b: background[2], a: 1 },
           loadOp: 'clear',
           storeOp: color ? 'discard' : 'store',
         },
@@ -1334,7 +1336,7 @@ export const createGpu = async (
           data[o] = raw[i + (swap ? 2 : 0)];
           data[o + 1] = raw[i + 1];
           data[o + 2] = raw[i + (swap ? 0 : 2)];
-          data[o + 3] = 255;
+          data[o + 3] = transparent ? raw[i + 3] : 255;
         }
       }
       out.unmap();

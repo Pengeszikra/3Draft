@@ -21,6 +21,8 @@ export interface GpuRenderOptions {
     fit?: Fit;
     /** Clear color, rgb 0..1. */
     background?: Vec3;
+    /** Clear to transparent black so another canvas can supply a background behind opaque scene geometry. */
+    transparent?: boolean;
     light?: GpuLight;
     material?: GpuMaterial;
     /** Named materials the faces point at (`face.mat`); pass a new object when an entry changes. */
