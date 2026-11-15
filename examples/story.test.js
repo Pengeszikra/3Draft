@@ -58,3 +58,12 @@ test('recorded camera lenses and bank interpolate and remain optional in existin
   normalizeBuildDocument(d);assert.equal(cameraAt(d,1000).fov,60);assert.equal(cameraAt(d,1000).roll,10);
   c.keyframes[0].pose.fov=180;assert.throws(()=>normalizeBuildDocument(d),/fov/);
 });
+
+test('emission samples interpolate independently, reset omitted channels, and validate their clock',()=>{
+  const raw=animated();raw.tracks.animation.channels[0].emission=[0,2];
+  const d=normalizeBuildDocument(raw),emission=new Float32Array(64).fill(99);
+  animationAt(d,4500,undefined,emission);assert.equal(emission[0],1);assert.equal(emission[1],1);
+  animationAt(d,9000,undefined,emission);assert.equal(emission[0],2);
+  animationAt(d,0,undefined,emission);assert.equal(emission[0],0);
+  for(const values of [[1],[-1,1],[NaN,1]]){const invalid=structuredClone(raw);invalid.tracks.animation.channels[0].emission=values;assert.throws(()=>normalizeBuildDocument(invalid));}
+});

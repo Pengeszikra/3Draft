@@ -71,7 +71,7 @@ export interface GpuRenderOptions {
      * A skinned figure, bent on the GPU: `meshes` in their bind pose (built and uploaded once while they stay the same Mesh
      * objects), `weights[m][i]` the joints of vertex i of mesh m (a rig's `skin`; the four strongest are used) and `bones`
      * the joint moves of this frame (boneMatrices(): 12 floats per joint, at most MAX_BONES joints). Only `bones` changes
-     * from frame to frame. Drawn after `mesh`; it takes no part in the edges, the glow lights or the camera's fit.
+     * from frame to frame. Its emissive faces contribute moving glow lights; it takes no part in edges or the camera's fit.
      */
     skin?: GpuSkin;
     /**
@@ -118,6 +118,8 @@ export interface GpuSkin {
     meshes: Mesh[];
     weights: [joint: number, weight: number][][][];
     bones: Float32Array;
+    /** Per-joint emission multiplier, default 1. Changes brightness without rebuilding vertex buffers. */
+    emission?: Float32Array;
 }
 /** The most joints a GPU skin can have. */
 export declare const MAX_BONES = 64;
@@ -169,7 +171,7 @@ export declare const MAX_LIGHTS = 16;
  * one light at their weighted centre; the brightest MAX_LIGHTS stay. Each light has a reach that grows with the emitting area.
  * Float32Array, LIGHT_FLOATS per light.
  */
-export declare const sceneLights: (mesh: Mesh, parts?: Mesh[], palette?: Palette) => Float32Array;
+export declare const sceneLights: (mesh: Mesh, parts?: Mesh[], palette?: Palette, skin?: GpuSkin) => Float32Array;
 /**
  * Column-major 4x4 matrix (for WebGPU, z in 0..1) that maps world points exactly
  * like camera.project(): the same pixels, plus a depth between near and far.

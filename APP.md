@@ -55,6 +55,14 @@ Playwright Chromium with software GL works: launch with `--use-gl=swiftshader --
 
 ### Conventions
 
+Animated story lighting: `tracks.animation.channels[].emission` optionally stores one
+nonnegative gain per `timesMs` sample. `animationAt` fills a reusable fourth emission
+argument; `GpuSkin.emission` defaults to 1 per joint. Both GPU backends apply gains in
+the skin shader, and `sceneLights(..., skin)` gathers transformed emitting faces for
+moving local lights. Native `view.material` saves global ambient/diffuse/specular/shininess
+strengths. `viewOf` and `applyView` preserve them, so the same native Story file restores
+dramatic lighting. Spider's LARK–4C accident uses these capabilities.
+
 - No new runtime dependencies. The engine is dependency-free.
 - Prefer exact, small, tested geometry functions in `src/` over logic in the viewer; the viewer only wires UI.
 - Do not start roadmap items (play mode, store/assets, physics, walk/drive, extra views, double-sided faces, real-time AI modelling) without the owner confirming.

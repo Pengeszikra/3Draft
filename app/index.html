@@ -2985,6 +2985,7 @@
             unlit: !lightOn,
             marks: gpuMarks,
             skin: skinNow(),
+            material: sceneMaterial,
             light: { direction: sunLight ?? [Math.sin(a) * 0.6, 0.8, Math.cos(a) * 0.6] },
           } }).opts);
         if (vr) {
@@ -3097,6 +3098,7 @@
     let lightAngle = 0.8;
     let smooth = true; // N: smooth shading on the WebGPU view (faces within 40 degrees share normals)
     let studio = true; // K: studio light (key, fill, rim) that follows the camera
+    let sceneMaterial = {}; // saved scene lighting strengths, independent of surface materials
     // the installed app (or ?pwa) has no keyboard and is meant for small screens: no filmic look there
     const EMBED = /[?&]store\b/.test(location.search); // ?store: this page is the store pane of another one (its own engine, its own scene)
     if (EMBED) document.body.classList.add('embed');
@@ -4405,9 +4407,12 @@
       glow: filmic,
       smooth,
       studio,
+      material: { ...sceneMaterial },
       cam: { center: [...fit.center], radius: fit.radius, ...(fit.dist !== undefined ? { dist: fit.dist } : {}), yaw, pitch },
     });
     const applyView = (v) => {
+      sceneMaterial = {};
+      for (const k of ['ambient', 'diffuse', 'specular', 'shininess']) if (Number.isFinite(v.material?.[k]) && v.material[k] >= 0) sceneMaterial[k] = v.material[k];
       // the renderer: a GPU view falls back to WebGL2 (or SVG) where the asked one is missing; the installed app stays on the GPU
       const want = { svg: 'svg', webgl2: 'gl', webgpu: 'gpu' }[v.render];
       const now = mode === 'gpu' ? (activeKind === 'webgl2' ? 'gl' : 'gpu') : 'svg';
@@ -8367,7 +8372,7 @@
         story.count = objects.length;
       }
       story.index = index;
-      if (storySkin) storyFormat.animationAt(doc, story.t, storySkin.bones);
+      if (storySkin) storyFormat.animationAt(doc, story.t, storySkin.bones, storySkin.emission);
       if (stOn('stCam') && !story.cutaway && !story.focus) {
         const c = storyFormat.cameraAt(doc, story.t);
         lookFrom(c.eye, c.yaw, c.pitch);
