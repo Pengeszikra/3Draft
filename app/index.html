@@ -7879,7 +7879,7 @@
       } catch (e) {
         return sceneNote(`story: ${e.message}`);
       }
-      if (story) closeStory(false);
+      if (story) await closeStory(false);
       setVehicle(null);
       await loadScene({ palette: doc.scene.palette ?? [], objects: [] }, true);
       story = { doc, base, t: 0, index: -1, playing: false, last: 0, loadedKey: '', cutaway: false, focus: null, raf: 0, count: 0 };
@@ -7897,17 +7897,24 @@
       );
       stShow(0, true);
     };
-    const closeStory = (clear = true) => {
+    // leaving: the model of the moment (the whole of it, not the cutaway) stays in the scene as ordinary objects; the eye stays
+    const closeStory = async (keep = true) => {
       if (!story) return;
       stPause();
       stAudioStop();
       stAudio.clear();
+      const model = keep ? storyFormat.constructionAt(story.doc, story.t) : [];
       story = null;
       document.body.classList.remove('story');
       stEl('storyCaption').hidden = true;
       storyPanelEl.hidden = true;
       stEl('stInfo').classList.remove('on');
-      if (clear) applyScene({ objects: [] });
+      applyScene({ objects: [] });
+      if (model.length) {
+        const eye = eyeNow(), y = (yaw * 180) / Math.PI, p = (pitch * 180) / Math.PI;
+        await loadScene({ objects: model }, true);
+        lookFrom(eye, y, p);
+      }
     };
     stEl('stPlay').addEventListener('click', (e) => (stPlay(), e.currentTarget.blur()));
     stEl('stPrev').addEventListener('click', (e) => (stStep(-1), e.currentTarget.blur()));
@@ -7937,12 +7944,12 @@
         e.currentTarget.blur();
         if (story) stShow(story.t, id === 'stText');
       });
-    // the player's keys come first while a story is open (not while typing)
+    // the player's keys come first while a story is open (not while typing); Space stays the speed stop
     window.addEventListener(
       'keydown',
       (e) => {
         if (!story || e.ctrlKey || e.metaKey || e.altKey || ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
-        const act = { ' ': () => stPlay(), ArrowLeft: () => stStep(-1), ArrowRight: () => stStep(1), Home: () => stSeek(0), End: () => stSeek(story.doc.timeline.durationMs) }[e.key];
+        const act = { ArrowLeft: () => stStep(-1), ArrowRight: () => stStep(1), Home: () => stSeek(0), End: () => stSeek(story.doc.timeline.durationMs) }[e.key];
         if (!act) return;
         e.preventDefault();
         e.stopImmediatePropagation();
