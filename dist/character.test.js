@@ -32,7 +32,7 @@ test('both bases at the ends of the ranges stay valid, and the parts ride on the
             valid(c, walkPose(0.7));
             const head = c.rig.joints.findIndex((j) => j.name === 'head'), wrist = c.rig.joints.findIndex((j) => j.name === 'wristR');
             const on = (id) => c.rig.skin[c.parts.findIndex((p) => p.id === id)];
-            for (const id of ['head', 'hair'])
+            for (const id of ['head', 'face', 'hair'])
                 if (c.parts.some((p) => p.id === id))
                     assert.ok(on(id).every((w) => w.length === 1 && w[0][0] === head), `${id} rides on the head`);
             assert.ok(on('prop').every((w) => w[0][0] === wrist), 'the prop rides on the right hand');
@@ -56,7 +56,7 @@ test('bad input is cleaned up', () => {
     assert.equal(s.body.height, CHARACTER_RANGES.height[1]);
     assert.equal(s.face.shape, 'oval');
     assert.equal(s.prop, 'none');
-    assert.equal(s.version, 2);
+    assert.equal(s.version, 3);
 });
 test('few meshes: the body is one closed piece, the arms two, every face names a material', () => {
     for (const spec of Object.values(CHARACTER_PRESETS)) {
@@ -82,9 +82,11 @@ test('few meshes: the body is one closed piece, the arms two, every face names a
     }
 });
 test('a version 1 spec (colours) opens as materials; any palette name may be chosen', () => {
-    const s = normalizeCharacter({ version: 1, face: { skin: '#e8b896' }, hair: { color: '#1d1a1a' }, outfit: { kind: 'overall', color: '#3d5a8a', color2: '#2b2b2b' } });
+    const s = normalizeCharacter({ version: 1, face: { skin: '#e8b896' }, hair: { style: 'curly', color: '#1d1a1a' }, outfit: { kind: 'overall', color: '#3d5a8a', color2: '#2b2b2b' }, prop: 'tomato' });
     assert.equal(s.face.skin, 'skin-2');
     assert.equal(s.hair.mat, 'hair-black');
+    assert.equal(s.hair.style, 'long');
+    assert.equal(s.prop, 'none');
     assert.equal(s.outfit.main, 'denim');
     const t = normalizeCharacter({ outfit: { kind: 'coat', main: 'my gold', second: 'brick' } });
     assert.equal(t.outfit.main, 'my gold');
@@ -99,4 +101,13 @@ test('the astronaut wears a helmet over the head (no hair), a collar and a small
     assert.ok(Math.min(...z) > -0.2 * c.height, 'the pack stays small');
     const bare = buildCharacter({ ...CHARACTER_PRESETS.astronaut, outfit: { ...CHARACTER_PRESETS.astronaut.outfit, helmet: false } });
     assert.ok(bare.parts.some((p) => p.id === 'hair'));
+});
+test('the crew tunic: the left sleeve is the department colour, the right the tunic; a belt in the gear', () => {
+    const c = buildCharacter(CHARACTER_PRESETS.crew);
+    const arms = c.parts.find((p) => p.id === 'arms').mesh;
+    const left = arms.faces.filter((f) => arms.positions[f.v[0]][0] > 0.05 && f.mat === 'rust');
+    const right = arms.faces.filter((f) => arms.positions[f.v[0]][0] < -0.05 && f.mat === 'rust');
+    assert.ok(left.length > 20 && right.length === 0);
+    assert.ok(c.parts.find((p) => p.id === 'gear').mesh.faces.some((f) => f.mat === 'brass'));
+    assert.ok(!('farmer' in CHARACTER_PRESETS));
 });

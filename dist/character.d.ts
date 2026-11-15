@@ -1,13 +1,13 @@
 import type { Rig } from './rig.js';
 import type { Material, Palette } from './material.js';
 import type { Mesh } from './types.js';
-export declare const CHARACTER_VERSION = 2;
+export declare const CHARACTER_VERSION = 3;
 export type CharacterBase = 'female' | 'male';
 export type FaceShape = 'oval' | 'round' | 'square' | 'long';
-export type HairStyle = 'short' | 'curly' | 'bun' | 'bald';
+export type HairStyle = 'short' | 'long' | 'bun' | 'bald';
 export type BeardStyle = 'none' | 'full' | 'goatee';
-export type OutfitKind = 'coat' | 'overall' | 'workwear' | 'astronaut';
-export type PropKind = 'none' | 'tablet' | 'wrench' | 'tomato';
+export type OutfitKind = 'coat' | 'overall' | 'workwear' | 'crew' | 'astronaut';
+export type PropKind = 'none' | 'tablet' | 'wrench' | 'commlock';
 export interface CharacterSpec {
     version: number;
     base: CharacterBase;
@@ -31,7 +31,7 @@ export interface CharacterSpec {
     };
     glasses: boolean;
     beard: BeardStyle;
-    /** main / second: palette materials (main: the coat, jacket, overall or suit; second: trousers, the shirt, the suit's joints); helmet: an astronaut's */
+    /** main / second: palette materials (main: the coat, jacket, overall, tunic or suit; second: trousers, the shirt, a crew tunic's left sleeve, a suit's joints); helmet: an astronaut's */
     outfit: {
         kind: OutfitKind;
         main: string;
@@ -39,7 +39,7 @@ export interface CharacterSpec {
         helmet: boolean;
     };
     prop: PropKind;
-    /** the generation seed (curly hair, Variate) */
+    /** the generation seed (Variate) */
     seed: number;
     /** the preset it came from, if any */
     role?: string;
@@ -69,14 +69,15 @@ export declare const BEARD_STYLES: BeardStyle[];
 export declare const OUTFITS: OutfitKind[];
 export declare const PROPS: PropKind[];
 /** the parts, in the order buildCharacter() returns them (missing ones are left out) */
-export declare const CHARACTER_PARTS: readonly ["body", "arms", "head", "hair", "gear", "prop"];
+export declare const CHARACTER_PARTS: readonly ["body", "arms", "head", "face", "hair", "gear", "prop"];
 export type CharacterPartId = (typeof CHARACTER_PARTS)[number];
 export declare const CHARACTER_PRESETS: Record<string, CharacterSpec>;
-/** A complete, valid spec from anything (missing or bad fields take the defaults; values are clamped; a version 1 spec's colours become materials). */
+/** A complete, valid spec from anything (missing or bad fields take the defaults; values are clamped; older specs are brought up: colours become materials, curly hair long, a tomato nothing). */
 export declare const normalizeCharacter: (s?: any) => CharacterSpec;
 /**
  * Another person in the same role: a different face, hair, build, skin and hair materials (from `seed`); the outfit's
- * kind and the prop stay, and so does the main cloth of a lab coat or a suit (a role's cloth may change otherwise).
+ * kind and the prop stay, and so does the main cloth of a uniform (a crew tunic, a lab coat, a suit; a crew member's
+ * sleeve, the department, may change).
  */
 export declare const variateCharacter: (spec: CharacterSpec, seed: number) => CharacterSpec;
 export interface CharacterPart {
