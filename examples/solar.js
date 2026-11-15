@@ -34,6 +34,8 @@ const SURFACES = {
   Pluto: { kind: 'rock', colors: ['#c9b39a', '#e8dccb', '#8a6a55'], pole: [132.99, -6.16] },
   Moon: { kind: 'rock', colors: ['#8f8a83', '#bdb8b0', '#55524d'], pole: [266.86, 65.64] },
 };
+// what each one is (the viewer's find box searches it too)
+const CATEGORY = { Mercury: 'rocky planet', Venus: 'rocky planet', Earth: 'rocky planet', Mars: 'rocky planet', Jupiter: 'gas giant planet', Saturn: 'gas giant planet', Uranus: 'ice giant planet', Neptune: 'ice giant planet', Pluto: 'dwarf planet', Moon: 'moon' };
 const seedOf = (name) => [...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 997, 7);
 
 const sig = (v) => Number(v.toPrecision(6));
@@ -86,7 +88,7 @@ export const solarSystem = (date = new Date('2026-11-14T00:00:00Z')) => {
     const mat = `planet-${name.toLowerCase()}`;
     palette.push({ name: mat, color, metal: 0, rough: 0.85, alpha: 1, emit: 0 });
     const r = km * KM;
-    objects.push({ name, proto: 'planet', at, scale: sig(r), mats: { core: mat }, color, glow: sig(Math.max(r * 600, a[0] * AU * 0.004)), glowColor, planet: planetOf(name) });
+    objects.push({ name, category: CATEGORY[name], proto: 'planet', at, scale: sig(r), mats: { core: mat }, color, glow: sig(Math.max(r * 600, a[0] * AU * 0.004)), glowColor, planet: planetOf(name) });
     if (name === 'Earth') earth = at;
     const pts = [];
     for (let k = 0; k <= 256; k++) pts.push(toScene(orbitPoint(el, T, (k / 256) * 2 * Math.PI)).map((v) => sig(v * AU)));
@@ -102,7 +104,7 @@ export const solarSystem = (date = new Date('2026-11-14T00:00:00Z')) => {
     return toScene([x * rr, y * rr, z * rr]).map((v, i) => sig(v + earth[i]));
   };
   palette.push({ name: 'planet-moon', color: '#b9b5ad', metal: 0, rough: 0.95, alpha: 1, emit: 0 });
-  objects.push({ name: 'Moon', proto: 'planet', at: moonAt(moonL - node), scale: sig(1737.4 * KM), mats: { core: 'planet-moon' }, color: '#b9b5ad', glow: sig(1737.4 * KM * 600), glowColor: '#e8e4dc', planet: planetOf('Moon') });
+  objects.push({ name: 'Moon', category: CATEGORY.Moon, proto: 'planet', at: moonAt(moonL - node), scale: sig(1737.4 * KM), mats: { core: 'planet-moon' }, color: '#b9b5ad', glow: sig(1737.4 * KM * 600), glowColor: '#e8e4dc', planet: planetOf('Moon') });
   paths.push({ name: 'Moon orbit', kind: 'orbit', color: '#e8e4dc', pts: Array.from({ length: 129 }, (_, k) => moonAt((k / 128) * 2 * Math.PI)) });
   return { objects, palette, paths };
 };
