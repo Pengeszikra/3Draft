@@ -58,4 +58,6 @@ export interface Mark {
     width?: number;
     /** 0..1, default 1. */
     opacity?: number;
+    /** dashed: the length of a dash (and of the gap after it) in CSS pixels; 0 or missing: a solid line */
+    dash?: number;
 }

@@ -155,10 +155,17 @@ export interface Gpu {
     /** the WebGL2 context (the WebGL2 renderer only): what a WebXR layer is made from */
     context?: unknown;
 }
-/** Floats of one mark segment: a (xyz), b (xyz), colour (rgba), width in CSS pixels, one spare. */
-export declare const MARK_FLOATS = 12;
-/** One instance per segment of every polyline of every mark (a zero-length segment is a round point). */
-export declare const buildMarks: (marks: Mark[]) => Float32Array;
+/**
+ * Floats of one mark segment: a (xyz), b (xyz), colour (rgba), width in CSS pixels, dash length in CSS pixels (0: solid), and
+ * the distance along its polyline at a and at b (from the polyline's point nearest to the eye).
+ */
+export declare const MARK_FLOATS = 14;
+/**
+ * One instance per segment of every polyline of every mark (a zero-length segment is a round point). With `eye` the points are
+ * made relative to it here, in doubles, and the renderer draws them with the eye-centred matrix: a float32 world position far
+ * from the origin (an orbit 30 AU out, seen from a few thousand km) would snap from frame to frame.
+ */
+export declare const buildMarks: (marks: Mark[], eye?: Vec3) => Float32Array;
 /** Line-list endpoints (x y z, x y z) of every edge of every face, each pair of vertices once. */
 export declare const buildEdges: (mesh: Mesh) => Float32Array;
 /** The edge lines of a scene: of its parts (kept while a part stays the same Mesh) or of the whole mesh. Empty when the scene is huge. */

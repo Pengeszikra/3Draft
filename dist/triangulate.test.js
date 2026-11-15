@@ -80,3 +80,21 @@ test('buildMarks: one instance per segment, a lone point is a zero-length segmen
     assert.deepEqual([...last.subarray(0, 6)], [3, 3, 3, 3, 3, 3]);
     assert.equal(last[10], 2);
 });
+test('buildMarks: relative to the eye in doubles (an orbit 30 AU out stays exact near the camera), dashes carry the distance along the line', async () => {
+    const { buildMarks, MARK_FLOATS } = await import('./gpu.js');
+    // a polyline ~4.7e-4 ly (30 AU) from the origin with points 1e-9 ly (~9500 km) apart, the eye right next to it
+    const P = 4.7e-4;
+    const line = [0, 1, 2, 3].map((i) => [P + i * 1e-9, 0, 0]);
+    const eye = [P + 1.4e-9, 2e-10, 0];
+    const out = buildMarks([{ dash: 6, lines: [line] }], eye);
+    assert.equal(out.length, 3 * MARK_FLOATS);
+    // the first point: -1.4e-9 from the eye in x, kept to float32's relative precision (a world float32 at 4.7e-4 would be ~2.9e-11 off)
+    assert.ok(Math.abs(out[0] - -1.4e-9) < 1e-16, `${out[0]}`);
+    assert.ok(Math.abs(out[1] - -2e-10) < 1e-17);
+    assert.equal(out[11], 6); // the dash length
+    // the distance along the line from its point nearest to the eye (point 1 or 2): continuous across segments
+    assert.ok(Math.abs(out[13] - out[MARK_FLOATS + 12]) < 1e-20);
+    assert.ok(Math.abs(Math.abs(out[12]) - 1e-9) < 1e-15);
+    // solid lines carry no dash
+    assert.equal(buildMarks([{ lines: [line] }], eye)[11], 0);
+});
