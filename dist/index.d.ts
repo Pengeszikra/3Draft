@@ -1,5 +1,5 @@
 export declare const name: "3draft";
-export declare const version = "26.11.15010";
+export declare const version = "26.11.15011";
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export type { BoxOptions } from './mesh.js';
@@ -55,5 +55,5 @@ export type { Tri } from './triangulate.js';
 export type { Wire } from './wire.js';
 export { humanoidRig, posed, posedJoints, boneMatrices, poseLift, walkPose, HUMANOID_POSES, HUMANOID_JOINTS } from './rig.js';
 export type { Joint, Weights, Rig, Pose, PoseOptions } from './rig.js';
-export { buildCharacter, normalizeCharacter, variateCharacter, CHARACTER_VERSION, CHARACTER_PRESETS, CHARACTER_RANGES, CHARACTER_PARTS, FACE_SHAPES, HAIR_STYLES, BEARD_STYLES, OUTFITS, PROPS, SKIN_TONES, HAIR_COLORS } from './character.js';
+export { buildCharacter, normalizeCharacter, variateCharacter, CHARACTER_VERSION, CHARACTER_PRESETS, CHARACTER_RANGES, CHARACTER_PARTS, FACE_SHAPES, HAIR_STYLES, BEARD_STYLES, OUTFITS, PROPS, CHARACTER_MATERIALS, CHARACTER_SKINS, CHARACTER_HAIRS, CHARACTER_CLOTHS, characterPalette } from './character.js';
 export type { CharacterSpec, Character, CharacterPart, CharacterPartId, CharacterBase, FaceShape, HairStyle, BeardStyle, OutfitKind, PropKind } from './character.js';
