@@ -5,7 +5,7 @@
 // shading yet.
 
 export const name = '3draft' as const;
-export const version = '26.11.15006';
+export const version = '26.11.15007';
 
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
@@ -66,6 +66,8 @@ export { triangulate } from './triangulate.js';
 export { galaxyPoints } from './galaxy.js';
 export { planetInstances, inv4, PLANET_FLOATS } from './planet.js';
 export type { Planet, PlanetKind } from './planet.js';
+export { skyScene, skyPrototypes, skyAt, starClass, starTint, exoClass, exoRecipe, EXO_RECIPES, SKY_PALETTE, SKY_TYPES, STAR_CLASSES, LY_PER_PC, LY_PER_AU, LY_PER_KM, SUN_RADIUS_LY, EARTH_RADIUS_LY } from './sky.js';
+export type { SkyResult } from './sky.js';
 export type { GalaxyRecipe, GalaxyKind, GalaxyPoints } from './galaxy.js';
 export { buildEdges, buildMarks, MARK_FLOATS, sceneEdges } from './gpu.js';
 export type { Tri } from './triangulate.js';

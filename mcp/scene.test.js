@@ -235,3 +235,30 @@ test('boolean: subtract a box from a box, replace or keep the inputs, refuse ope
   assert.equal(bad.isError, true);
   assert.match(bad.text, /closed solids/);
 });
+
+test('view_sky: a sky catalogue becomes a scene; it is sent to the viewer and can be saved', () => {
+  const scene = createScene();
+  const sent = [];
+  scene.info.live = { command: (c) => (sent.push(c), 1) };
+  const dir = mkdtempSync(join(tmpdir(), 'sky-'));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    const out = json(ok(scene, 'view_sky', {
+      sky: { objects: [{ type: 'star', name: 'Sun', at: [0, 0, 0], spect: 'G2V', lum: 1 }, { type: 'planet', name: 'Earth', around: 'Sun', a: 1, radius_km: 6371, orbit: true }, { type: 'comet', name: 'X', at: [1, 0, 0] }] },
+      save: 'sky.json',
+    }));
+    assert.deepEqual(out.counts, { star: 1, planet: 1 });
+    assert.equal(out.notes.length, 1);
+    assert.equal(sent[0].cmd, 'scene');
+    assert.equal(sent[0].replace, true);
+    assert.equal(sent[0].scene.objects.length, 2);
+    assert.equal(sent[0].scene.paths.length, 1);
+    assert.ok(existsSync(join(dir, 'sky.json')));
+    assert.ok(scene.call('view_sky', {}).isError);
+    assert.ok(scene.call('view_sky', { sky: { objects: [] } }).isError);
+  } finally {
+    process.chdir(cwd);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

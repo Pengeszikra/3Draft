@@ -4,61 +4,15 @@
 // class by its name. The orbit's plane and the planet's place on it come from its name (the catalogue's inclinations and
 // phases are mostly unknown); the distance from its star is the real semi-major axis.
 import { EXO_HOSTS, EXOPLANETS } from './data/exoplanets.js';
+import { EXO_RECIPES, exoClass, exoRecipe } from '../dist/index.js';
 
 const AU = 1.58125074e-5; // light years
 const R_EARTH = 6371 / 9.4607304725808e12; // light years
 const PC = 3.26156; // light years per parsec
 
-const ring = { inner: 1.3, outer: 2.3, color: '#cdbb98' };
-// the 30 recipes: [class, recipe]
-export const EXO_RECIPES = [
-  ['rock-lava', { kind: 'lava', colors: ['#2a201c', '#4a3a30', '#ff6a1a'] }],
-  ['rock-lava', { kind: 'lava', colors: ['#3a2a22', '#5c4637', '#ffd25a'] }],
-  ['rock-hot', { kind: 'rock', colors: ['#6e6258', '#9a8a7a', '#3e3530'] }],
-  ['rock-hot', { kind: 'cloud', colors: ['#e3c67c', '#f3e2b0', '#b8913c'], atmosphere: { color: '#f2d08a', size: 0.03 } }],
-  ['rock-hot', { kind: 'cloud', colors: ['#d8925a', '#f0c08a', '#9c5a30'], atmosphere: { color: '#f0a86a', size: 0.03 } }],
-  ['rock-warm', { kind: 'rock', colors: ['#b08a5c', '#d6b88a', '#7a5a3a'], atmosphere: { color: '#e8c89a', size: 0.012 } }],
-  ['rock-warm', { kind: 'cloud', colors: ['#e9dcc0', '#f7f0de', '#c8b48c'], atmosphere: { color: '#f5e8c8', size: 0.025 } }],
-  ['rock-temp', { kind: 'earth', colors: ['#1f528f', '#4f7f3a', '#b79a66'], detail: 0.53, atmosphere: { color: '#7fb2ff', size: 0.02 } }],
-  ['rock-temp', { kind: 'earth', colors: ['#174a86', '#3e7a46', '#9a8a5a'], detail: 0.7, atmosphere: { color: '#8fc0ff', size: 0.022 } }],
-  ['rock-temp', { kind: 'earth', colors: ['#2d5a7a', '#8a7a4a', '#c8a066'], detail: 0.38, atmosphere: { color: '#c0c8ff', size: 0.018 } }],
-  ['rock-cold', { kind: 'rock', colors: ['#a5502e', '#c88060', '#6e3420'], detail: 0.1, atmosphere: { color: '#e8a07a', size: 0.01 } }],
-  ['rock-cold', { kind: 'rock', colors: ['#8a8c90', '#b8bcc2', '#5c5e62'], detail: 0.18 }],
-  ['rock-froz', { kind: 'rock', colors: ['#c8d4e0', '#eef4fa', '#8a9cb0'], detail: 0.3 }],
-  ['sub-hot', { kind: 'cloud', colors: ['#a8683a', '#d29a62', '#6a3a20'], atmosphere: { color: '#e09a60', size: 0.04 } }],
-  ['sub-hot', { kind: 'cloud', colors: ['#b8b4ac', '#e2ded6', '#8a8680'], atmosphere: { color: '#d8d4cc', size: 0.04 } }],
-  ['sub-warm', { kind: 'cloud', colors: ['#cdb894', '#ece0c4', '#9a8664'], atmosphere: { color: '#e8dcc0', size: 0.035 } }],
-  ['sub-warm', { kind: 'earth', colors: ['#2e6a9a', '#7a9aa8', '#a8b8c0'], detail: 0.88, atmosphere: { color: '#a8d0ff', size: 0.03 } }],
-  ['sub-temp', { kind: 'earth', colors: ['#1e7a8a', '#3a8a7a', '#6aa89a'], detail: 0.94, atmosphere: { color: '#9ae8ff', size: 0.035 } }],
-  ['sub-cold', { kind: 'ice', colors: ['#b8dce8', '#d8eef4', '#90bccc'], detail: 4, atmosphere: { color: '#d0f0ff', size: 0.03 } }],
-  ['nep-hot', { kind: 'gas', colors: ['#3e5a5a', '#6a8a7a', '#2a3a3a'], detail: 7, atmosphere: { color: '#8ab8a8', size: 0.025 } }],
-  ['nep-warm', { kind: 'ice', colors: ['#62b8c8', '#90d8e2', '#3a8a9a'], detail: 5, atmosphere: { color: '#a8eef8', size: 0.025 } }],
-  ['nep-cold', { kind: 'ice', colors: ['#3f63d0', '#6f92ee', '#22409c'], detail: 5, atmosphere: { color: '#9fb8ff', size: 0.02 } }],
-  ['jup-lava', { kind: 'gas', colors: ['#2a1a16', '#5a2a1e', '#ff5a20'], detail: 9, spot: true, atmosphere: { color: '#ff7a3a', size: 0.02 } }],
-  ['jup-lava', { kind: 'gas', colors: ['#3a1e14', '#7a3a22', '#d0402a'], detail: 12, atmosphere: { color: '#e06a3a', size: 0.02 } }],
-  ['jup-hot', { kind: 'gas', colors: ['#5a3e2a', '#8a6a4a', '#3a261a'], detail: 11, atmosphere: { color: '#b88a5a', size: 0.015 } }],
-  ['jup-warm', { kind: 'gas', colors: ['#b98d62', '#efe2c8', '#c0603a'], detail: 14, spot: true }],
-  ['jup-temp', { kind: 'gas', colors: ['#e2dccc', '#f8f4ea', '#b8ae98'], detail: 12, atmosphere: { color: '#f0f0ff', size: 0.012 } }],
-  ['jup-temp', { kind: 'gas', colors: ['#bccad8', '#e6eef6', '#8a9cb0'], detail: 10 }],
-  ['jup-cold', { kind: 'gas', colors: ['#cfb27a', '#efe0b5', '#b8975c'], detail: 10, ring }],
-  ['jup-cold', { kind: 'gas', colors: ['#a8b8cc', '#d8e2ee', '#7a8ca8'], detail: 8, atmosphere: { color: '#c8d8ff', size: 0.012 } }],
-];
-// a class that has no recipe of its own borrows the nearest one
-const FALLBACK = { 'rock-froz': 'rock-froz', 'sub-lava': 'sub-hot', 'sub-froz': 'sub-cold', 'nep-lava': 'nep-hot', 'nep-temp': 'nep-warm', 'nep-froz': 'nep-cold', 'jup-froz': 'jup-cold' };
-
+// the 30 recipes, the classes and the choice live in the engine (src/sky.ts), shared with sky catalogues
+export { EXO_RECIPES, exoClass, exoRecipe };
 const hash = (s) => [...s].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 2166136261);
-export const exoClass = (rE, teq) => {
-  const size = rE < 1.6 ? 'rock' : rE < 4 ? 'sub' : rE < 8 ? 'nep' : 'jup';
-  const heat = teq > 1200 ? 'lava' : teq > 700 ? 'hot' : teq > 350 ? 'warm' : teq > 200 ? 'temp' : teq > 100 ? 'cold' : 'froz';
-  return `${size}-${heat}`;
-};
-export const exoRecipe = (name, rE, teq) => {
-  const c = exoClass(rE, teq);
-  let pool = EXO_RECIPES.filter(([k]) => k === c);
-  if (!pool.length) pool = EXO_RECIPES.filter(([k]) => k === FALLBACK[c]);
-  if (!pool.length) pool = EXO_RECIPES.filter(([k]) => k.startsWith(c.split('-')[0]));
-  return pool[hash(name) % pool.length][1];
-};
 
 const sig = (v) => Number(v.toPrecision(6));
 const toScene = (x, y, z) => [x * PC, z * PC, -y * PC]; // equatorial parsec -> scene light years
