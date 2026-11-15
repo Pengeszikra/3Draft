@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { EXO_HOSTS } from './data/exoplanets.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { galaxyPoints } from '../dist/index.js';
@@ -8,7 +9,7 @@ test('deep sky: 1000 galaxies as recipes, 400 black holes, 3000 stars, the Milky
   const by = (p) => scene.objects.filter(p).length;
   assert.equal(by((o) => o.galaxy), 1000);
   assert.equal(by((o) => o.mats.core === 'bh-core'), 400);
-  assert.equal(by((o) => o.proto === 'star'), 3020); // 3000 + the constellation stars the list lacked
+  assert.equal(by((o) => o.proto === 'star'), 3000 + 20 + EXO_HOSTS.length); // + the constellation stars and the exoplanet hosts the list lacked
   assert.equal(scene.cloud.n, 29650);
   assert.equal(scene.vehicle, 'starship');
   const AU = 1.58125074e-5;
@@ -57,6 +58,19 @@ test('the Solar System at its true scale: the Sun 696 000 km, the planets at the
   assert.ok(at('Saturn').planet.ring.outer > 2.2 && at('Earth').planet.atmosphere);
   assert.equal(scene.paths.length, 10);
   assert.ok(scene.prototypes.planet);
+});
+
+test('500 exoplanets round their stars, each with one of the 30 recipes, lit by its star', () => {
+  const exo = scene.objects.filter((o) => o.exo);
+  assert.equal(exo.length, 500);
+  const recipes = new Set(exo.map((o) => JSON.stringify({ ...o.planet, seed: 0, pole: 0, light: 0 })));
+  assert.ok(recipes.size <= 30 && recipes.size >= 15, String(recipes.size));
+  const b = exo.find((o) => o.name === 'Proxima Centauri b');
+  const star = scene.objects.find((o) => o.name === 'Proxima Centauri');
+  const AU = 1.58125074e-5;
+  assert.ok(Math.abs(Math.hypot(...b.at.map((v, i) => v - star.at[i])) / AU - 0.0486) < 0.002);
+  assert.deepEqual(b.planet.light, star.at);
+  assert.ok(exo.some((o) => o.planet.kind === 'lava') && exo.some((o) => o.planet.ring));
 });
 
 test('the saved scene file matches the builder', () => {

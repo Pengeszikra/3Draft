@@ -6,6 +6,7 @@
 //                   biggest galaxies of the list (every big galaxy has one)
 //   3000 stars      the nearest 1000 (HYG) and 2000 notable ones farther out (named first, then by brightness, out to ~3000 ly),
 //                   + the few constellation stars the list lacked (figures.js)
+//   500 exoplanets the best known ones round their stars (exoplanets.js: 30 shader surface recipes; +219 host stars)
 //   89 figures      the constellations as seen from Earth (d3-celestial's lines matched to HYG stars: build-figures.mjs)
 // Lengths are light years, the Sun at the origin, equatorial x y z -> [x, z, -y] like the other star scenes.
 // Data: examples/data/deepsky-data.js (build-deepsky.mjs), stars5000.js, galaxies.js.
@@ -15,6 +16,7 @@ import { FAR_STARS, NGC, AXES } from './data/deepsky-data.js';
 import { GALAXIES } from './data/galaxies.js';
 import { FIGURE_STARS, FIGURES } from './data/figures.js';
 import { solarSystem } from './solar.js';
+import { exoplanetObjects } from './exoplanets.js';
 import { starObject, STAR_PALETTE, PLAIN, GALAXY_PROTOS, GALAXY_PALETTE, LY, blackHole, SUN_START } from './stars.js';
 import { cloud, centre, start } from './milkyway.js';
 
@@ -165,7 +167,8 @@ for (const g of big) {
 
 // ---- stars
 const near = NEAR.slice(0, 1000).map((row) => starObject(row));
-const far = [...FAR_STARS, ...FIGURE_STARS].map((row) => starObject(row, { boost: true })); // (+ the constellation stars the list lacked)
+const exo = exoplanetObjects();
+const far = [...FAR_STARS, ...FIGURE_STARS, ...exo.hosts].map((row) => starObject(row, { boost: true })); // (+ the constellation stars and the exoplanet hosts the list lacked)
 
 const objects = [...near, ...far, ...holes, ...galaxies];
 // ---- the Solar System at its true scale (solar.js): the planets where they are on 2026-11-14, with their orbits
@@ -182,8 +185,8 @@ const SOLAR_START = (() => {
 })();
 export const scene = {
   format: '3draft-scene', version: 2,
-  palette: [...STAR_PALETTE.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE, ...solar.palette], prototypes: { ...PLAIN, planet: PLANET_BALL, ...GALAXY_PROTOS },
-  start: SOLAR_START, vehicle: 'starship', cloud, objects: [...objects, ...solar.objects],
+  palette: [...STAR_PALETTE.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE, ...solar.palette, ...exo.palette], prototypes: { ...PLAIN, planet: PLANET_BALL, ...GALAXY_PROTOS },
+  start: SOLAR_START, vehicle: 'starship', cloud, objects: [...objects, ...solar.objects, ...exo.place([...near, ...far])],
   // the planets' orbits (and the Moon's), thin lines (the sky group's orbits switch)
   paths: solar.paths,
   // the constellation figures as seen from Earth: polylines between the stars' centres (the viewer draws them, the sky switch)
