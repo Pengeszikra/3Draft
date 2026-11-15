@@ -113,6 +113,21 @@ Click a swatch to select it. The sliders change **metal**, **rough**, **alpha**,
 
 The store pane (and G G from it) is not recorded.
 
+## Characters (the char button)
+
+**char** (scene group) opens the **character builder**: quick, animatable extras for a scene. The figure at the top turns with a drag, and **stand / sit / walk** show it in that pose; every change shows at once.
+
+- **Presets**: **Scientist** (lab coat, tablet), **Mechanic** (bun, overall, wrench), **Farmer** (broad, beard, tomato). After a preset everything stays editable. **variate** makes another person in the same role: a new face, hair, build and colours, while the outfit and the prop stay.
+- **Body**: female or male base, height, build, shoulders, head size (the sliders stop where the poses and the clothes still fit).
+- **Face**: shape (oval, round, square, long), jaw, nose, skin tone.
+- **Hair**: short, curly, bun or bald, its colour, glasses, a beard (full or goatee).
+- **Outfit**: coat, overall or workwear with two colours; one **prop** in the right hand.
+- **save** keeps the settings under a name in this browser; the list next to it opens them again.
+- **place** puts the figure down at the cross, facing you: one object, one **U** step. Place the same preset as often as you like; every copy is its own.
+- **edit selected** takes the character under the cross (or the target) back into the builder; **apply** changes only that one (one U step).
+
+A placed character moves with **G**, turns with **R** and sizes with **S** like any object, and is saved in the scene. A **walking** character walks to and fro along its heading (3 m each way); **freeze** stops it, and while it walks the cross does not pick it (freeze, then edit). Hair and glasses follow the head, the prop the hand, and the clothes the limbs in every pose.
+
 ## Two views: build and store
 
 **7** or the **store** switch (VIEW group, second row) opens the store as a second 3D view on the left, a third of the width (the build keeps two thirds); 7 again closes it. They are two separate engines, each with its own objects, undo steps and camera. The keys go to the view the pointer is over (a teal frame marks it). The *store* holds loose objects (timber stock: lath, board, plank, beam, plywood). In the store, **target** an object (**T**) and press **M**: it becomes the model of **M** in the build. Move the pointer over the build and **M** puts a copy of that model down at the cross, every time (the brush chip names it; click the chip to go back to the plain prism). Or press **G G** on an object in the store: a copy of it floats in the build under the pointer, a click sticks it to a surface (place mode, see G G above), Enter keeps it.

@@ -74,3 +74,5 @@ export type { Tri } from './triangulate.js';
 export type { Wire } from './wire.js';
 export { humanoidRig, posed, posedJoints, boneMatrices, poseLift, walkPose, HUMANOID_POSES, HUMANOID_JOINTS } from './rig.js';
 export type { Joint, Weights, Rig, Pose, PoseOptions } from './rig.js';
+export { buildCharacter, normalizeCharacter, variateCharacter, CHARACTER_VERSION, CHARACTER_PRESETS, CHARACTER_RANGES, CHARACTER_PARTS, FACE_SHAPES, HAIR_STYLES, BEARD_STYLES, OUTFITS, PROPS, SKIN_TONES, HAIR_COLORS } from './character.js';
+export type { CharacterSpec, Character, CharacterPart, CharacterPartId, CharacterBase, FaceShape, HairStyle, BeardStyle, OutfitKind, PropKind } from './character.js';
