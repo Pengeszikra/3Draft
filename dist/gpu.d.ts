@@ -1,5 +1,6 @@
 import type { Palette } from './material.js';
 import type { Axes, Camera, Fit, Mark, Mesh, Vec3, ViewName, ViewSpec } from './types.js';
+import type { Planet } from './planet.js';
 type Handle = any;
 export interface GpuLight {
     /** Direction towards the light, world space. */
@@ -96,6 +97,8 @@ export interface GpuRenderOptions {
      * distance that still needs depth (1e12 for light years: ~10 km). 0 / absent: the usual depth.
      */
     logDepth?: number;
+    /** Planets drawn by a shader over the scene (planet.ts): ray-traced spheres with a procedural surface, atmosphere and rings, lit from their light, writing their depth. Not in an orthographic view. */
+    planets?: Planet[];
 }
 /** See GpuRenderOptions.screens. */
 export interface GpuScreen {

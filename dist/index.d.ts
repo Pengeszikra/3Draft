@@ -1,5 +1,5 @@
 export declare const name: "3draft";
-export declare const version = "26.11.15003";
+export declare const version = "26.11.15004";
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
 export type { BoxOptions } from './mesh.js';
@@ -45,6 +45,8 @@ export type { Kernel } from './kernel.js';
 export { insertVertex, cutFace, moveVertex, fillLoop, addLine, findLoop, nearestSurface, wireFromSegments, moveVertexSet, reshape, outlineOf } from './wire.js';
 export { triangulate } from './triangulate.js';
 export { galaxyPoints } from './galaxy.js';
+export { planetInstances, inv4, PLANET_FLOATS } from './planet.js';
+export type { Planet, PlanetKind } from './planet.js';
 export type { GalaxyRecipe, GalaxyKind, GalaxyPoints } from './galaxy.js';
 export { buildEdges, buildMarks, MARK_FLOATS, sceneEdges } from './gpu.js';
 export type { Tri } from './triangulate.js';

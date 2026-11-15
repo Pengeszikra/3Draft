@@ -1,8 +1,8 @@
 // The Solar System at its true scale, in the deep sky's frame: 1 unit = 1 light year, the Sun at the origin, equatorial z up
 // (scene [x, z, -y]). The planets (and Pluto, the Moon) stand where they are on a given date, from the JPL approximate
 // Keplerian elements (E. M. Standish, "Keplerian Elements for Approximate Positions of the Major Planets", valid 1800-2050;
-// the Moon: a mean circular orbit tilted 5.1° with its regressing node), with their real radii (Saturn with its rings, tilted
-// with its pole). Every orbit is also a path: a closed polyline the viewer draws as a thin line (the sky group's orbits switch).
+// the Moon: a mean circular orbit tilted 5.1° with its regressing node), with their real radii, and a `planet` recipe each:
+// the engine draws them with its planet shader (surface, atmosphere, Saturn's rings), the plain sphere stays under it. Every orbit is also a path: a closed polyline the viewer draws as a thin line (the sky group's orbits switch).
 
 const AU = 1.58125074e-5; // light years
 const KM = 1 / 9.4607304725808e12; // light years
@@ -21,8 +21,20 @@ const PLANETS = [
   ['Neptune', [30.06992276, 0.00026291], [0.00859048, 0.00005105], [1.77004347, 0.00035372], [-55.12002969, 218.45945325], [44.96476227, -0.32241464], [131.78422574, -0.00508664], 24622, '#4b70dd', '#a8bcff'],
   ['Pluto', [39.48211675, -0.00031596], [0.2488273, 0.0000517], [17.14001206, 0.00004818], [238.92903833, 145.20780515], [224.06891629, -0.04062942], [110.30393684, -0.01183482], 1188.3, '#c9b39a', '#efe2d2'],
 ];
-// the north poles (RA, Dec in degrees, IAU): Saturn's tilts its rings
-const SATURN_POLE = [40.589, 83.537];
+// the shader surfaces (the engine's planet.ts: GpuRenderOptions.planets), with the north poles (RA, Dec in degrees, IAU)
+const SURFACES = {
+  Mercury: { kind: 'rock', colors: ['#8c857d', '#b7afa6', '#6b655f'], pole: [281.01, 61.41] },
+  Venus: { kind: 'cloud', colors: ['#e3cf9c', '#f6ebc8', '#c9b27a'], atmosphere: { color: '#f5e2b0', size: 0.03 }, pole: [272.76, 67.16] },
+  Earth: { kind: 'earth', colors: ['#1d4f91', '#4a7d3a', '#b59a6a'], detail: 0.53, spot: true, atmosphere: { color: '#7fb2ff', size: 0.02 }, pole: [0, 90] },
+  Mars: { kind: 'rock', colors: ['#b5532b', '#d0805a', '#7a3a22'], detail: 0.05, atmosphere: { color: '#e8a07a', size: 0.01 }, pole: [317.68, 52.89] },
+  Jupiter: { kind: 'gas', colors: ['#b98d62', '#efe2c8', '#c0603a'], detail: 14, spot: true, pole: [268.06, 64.5] },
+  Saturn: { kind: 'gas', colors: ['#cfb27a', '#efe0b5', '#b8975c'], detail: 10, ring: { inner: 74500 / 58232, outer: 136775 / 58232, color: '#d9c6a0' }, pole: [40.589, 83.537] },
+  Uranus: { kind: 'ice', colors: ['#a6d8e0', '#c4eef2', '#8cc6d0'], detail: 4, atmosphere: { color: '#c8f2ff', size: 0.02 }, pole: [257.31, -15.18] },
+  Neptune: { kind: 'ice', colors: ['#3f63d0', '#6f92ee', '#22409c'], detail: 5, atmosphere: { color: '#9fb8ff', size: 0.02 }, pole: [299.36, 43.46] },
+  Pluto: { kind: 'rock', colors: ['#c9b39a', '#e8dccb', '#8a6a55'], pole: [132.99, -6.16] },
+  Moon: { kind: 'rock', colors: ['#8f8a83', '#bdb8b0', '#55524d'], pole: [266.86, 65.64] },
+};
+const seedOf = (name) => [...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 997, 7);
 
 const sig = (v) => Number(v.toPrecision(6));
 // ecliptic (J2000) -> the scene: equatorial by the obliquity, then [x, z, -y]
@@ -49,8 +61,16 @@ const orbitPoint = (el, T, E) => {
     so * si * xp + co * si * yp,
   ];
 };
-// a scene `rot` ([tilt about x, turn about y]) that turns the local y axis onto the unit vector v
-const rotTo = ([x, y, z]) => [Math.acos(Math.max(-1, Math.min(1, y))), Math.atan2(x, z)];
+// a pole (RA, Dec) as a unit vector in the scene
+const poleOf = ([ra, dec]) => {
+  const a = ra * D, d = dec * D;
+  return [Math.cos(d) * Math.cos(a), Math.sin(d), -Math.cos(d) * Math.sin(a)].map(sig);
+};
+// the object's `planet` field: the shader recipe (the viewer adds the place, the size and the light)
+const planetOf = (name) => {
+  const { pole, ...rest } = SURFACES[name];
+  return { ...rest, seed: seedOf(name), pole: poleOf(pole) };
+};
 
 /** The Solar System on `date`: objects (proto 'planet' spheres: the plain star's sphere; Saturn's 'ring'), palette and paths (the orbits). */
 export const solarSystem = (date = new Date('2026-11-14T00:00:00Z')) => {
@@ -66,14 +86,8 @@ export const solarSystem = (date = new Date('2026-11-14T00:00:00Z')) => {
     const mat = `planet-${name.toLowerCase()}`;
     palette.push({ name: mat, color, metal: 0, rough: 0.85, alpha: 1, emit: 0 });
     const r = km * KM;
-    objects.push({ name, proto: 'planet', at, scale: sig(r), mats: { core: mat }, color, glow: sig(Math.max(r * 600, a[0] * AU * 0.004)), glowColor });
+    objects.push({ name, proto: 'planet', at, scale: sig(r), mats: { core: mat }, color, glow: sig(Math.max(r * 600, a[0] * AU * 0.004)), glowColor, planet: planetOf(name) });
     if (name === 'Earth') earth = at;
-    if (name === 'Saturn') {
-      const [ra, dec] = SATURN_POLE.map((v) => v * D);
-      const pole = [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)]; // equatorial
-      palette.push({ name: 'saturn-rings', color: '#d9c6a0', metal: 0, rough: 0.9, alpha: 0.75, emit: 0 });
-      objects.push({ name: "Saturn's rings", proto: 'ring', at, scale: sig(136775 * KM), mats: { ring: 'saturn-rings' }, rot: rotTo([pole[0], pole[2], -pole[1]]).map(sig), pickable: false });
-    }
     const pts = [];
     for (let k = 0; k <= 256; k++) pts.push(toScene(orbitPoint(el, T, (k / 256) * 2 * Math.PI)).map((v) => sig(v * AU)));
     paths.push({ name: `${name} orbit`, kind: 'orbit', color: glowColor, pts });
@@ -88,7 +102,7 @@ export const solarSystem = (date = new Date('2026-11-14T00:00:00Z')) => {
     return toScene([x * rr, y * rr, z * rr]).map((v, i) => sig(v + earth[i]));
   };
   palette.push({ name: 'planet-moon', color: '#b9b5ad', metal: 0, rough: 0.95, alpha: 1, emit: 0 });
-  objects.push({ name: 'Moon', proto: 'planet', at: moonAt(moonL - node), scale: sig(1737.4 * KM), mats: { core: 'planet-moon' }, color: '#b9b5ad', glow: sig(1737.4 * KM * 600), glowColor: '#e8e4dc' });
+  objects.push({ name: 'Moon', proto: 'planet', at: moonAt(moonL - node), scale: sig(1737.4 * KM), mats: { core: 'planet-moon' }, color: '#b9b5ad', glow: sig(1737.4 * KM * 600), glowColor: '#e8e4dc', planet: planetOf('Moon') });
   paths.push({ name: 'Moon orbit', kind: 'orbit', color: '#e8e4dc', pts: Array.from({ length: 129 }, (_, k) => moonAt((k / 128) * 2 * Math.PI)) });
   return { objects, palette, paths };
 };

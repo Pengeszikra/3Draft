@@ -6,6 +6,7 @@ import { norm } from './vec.js';
 import { makeCamera } from './camera.js';
 import { buildVertices, buildMarks, skinCache, SKIN_FLOATS, MAX_BONES, buildScreenQuads, SCREEN_FLOATS, MARK_FLOATS, sceneEdges, sceneLights, LIGHT_FLOATS, MAX_LIGHTS, viewProjection, nearPlane, defaultLight, defaultMaterial, mul4 } from './gpu.js';
 import type { Gpu, GpuRenderOptions, Pixels } from './gpu.js';
+import { planetInstances, PLANET_GLSL_VS, PLANET_GLSL_FS, PLANET_FLOATS, inv4 } from './planet.js';
 import type { Palette } from './material.js';
 import type { Mesh, Vec3, ViewName, ViewSpec } from './types.js';
 
@@ -295,6 +296,8 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const lineVp = gl.getUniformLocation(lineProg, 'uVp');
   const lineLd = gl.getUniformLocation(lineProg, 'uLd');
   const lineUnlit = gl.getUniformLocation(lineProg, 'uUnlit');
+  const planetProg = program(PLANET_GLSL_VS, PLANET_GLSL_FS.replace('uniform vec4 uRes;', 'uniform vec4 uRes; uniform vec4 uOff;').replace('gl_FragCoord.x / uRes.x', '(gl_FragCoord.x - uOff.x) / uRes.x').replace('gl_FragCoord.y / uRes.y', '(gl_FragCoord.y - uOff.y) / uRes.y'));
+  const planetU = { inv: gl.getUniformLocation(planetProg, 'uInv'), vp: gl.getUniformLocation(planetProg, 'uVpR'), res: gl.getUniformLocation(planetProg, 'uRes'), off: gl.getUniformLocation(planetProg, 'uOff') };
   const markProg = program(GL_VERT_MARK, GL_FRAG_MARK);
   const markVp = gl.getUniformLocation(markProg, 'uVp');
   const markLd = gl.getUniformLocation(markProg, 'uLd');
@@ -333,6 +336,11 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const edgeVao = vaoWith(() => {
     gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf);
     attr(0, 3, 12, 0);
+  });
+  const planetBuf = buffer();
+  const planetVao = vaoWith(() => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, planetBuf);
+    for (let k = 0; k < 9; k++) attr(k, 4, PLANET_FLOATS * 4, k * 16, 1);
   });
   const markBuf = buffer();
   const markVao = vaoWith(() => {
@@ -416,7 +424,7 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, xr, logDepth = 0 }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, xr, logDepth = 0, planets }: GpuRenderOptions = {},
   ): void => {
     const L = { ...defaultLight, ...light };
     const filmic = tonemap ? { exposure: 1, emit: 2, ...(tonemap === true ? {} : tonemap) } : null;
@@ -634,6 +642,34 @@ export const createGl = async (canvas: HTMLCanvasElement, { onError }: { onError
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sc.source);
           gl.drawArrays(gl.TRIANGLES, i * 6, 6);
         } catch {}
+      }
+    }
+    // the shader planets (planet.ts): ray-traced over the scene, writing their depth
+    if (planets?.length && !cam.ortho) {
+      let vpRot: Float32Array;
+      let eye: Vec3 = cam.eye;
+      if (xr) {
+        const v = Float32Array.from(xr.view);
+        v[12] = v[13] = v[14] = 0;
+        vpRot = mul4(xr.projection, v);
+        eye = xr.eye;
+      } else vpRot = viewProjection({ ...cam, eye: [0, 0, 0] }, nearPlane(cam, mesh));
+      const inv = inv4(vpRot);
+      const pi = inv ? planetInstances(planets, eye, vpRot) : null;
+      if (pi?.count && inv) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, planetBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, pi.data, gl.DYNAMIC_DRAW);
+        gl.useProgram(planetProg);
+        gl.uniformMatrix4fv(planetU.inv, false, inv);
+        gl.uniformMatrix4fv(planetU.vp, false, vpRot);
+        const [vx, vy, vw, vh] = xr ? xr.viewport : [0, 0, px, px];
+        gl.uniform4f(planetU.res, vw, vh, ld, 0);
+        gl.uniform4f(planetU.off, vx, vy, 0, 0);
+        gl.enable(gl.BLEND);
+        gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        gl.bindVertexArray(planetVao);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, pi.count);
+        gl.disable(gl.BLEND);
       }
     }
     if (edgeCount) {

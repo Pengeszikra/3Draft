@@ -10,6 +10,8 @@ import { makeCamera } from './camera.js';
 import { surfaceOf } from './material.js';
 import type { Palette } from './material.js';
 import type { Axes, Camera, Fit, Mark, Mesh, Vec3, ViewName, ViewSpec } from './types.js';
+import { planetInstances, PLANET_WGSL, PLANET_FLOATS, inv4 } from './planet.js';
+import type { Planet } from './planet.js';
 
 type Handle = any; // a GPU object: buffers, textures and pipelines are used through duck typing
 
@@ -99,6 +101,8 @@ export interface GpuRenderOptions {
    * distance that still needs depth (1e12 for light years: ~10 km). 0 / absent: the usual depth.
    */
   logDepth?: number;
+  /** Planets drawn by a shader over the scene (planet.ts): ray-traced spheres with a procedural surface, atmosphere and rings, lit from their light, writing their depth. Not in an orthographic view. */
+  planets?: Planet[];
 }
 /** See GpuRenderOptions.screens. */
 export interface GpuScreen {
@@ -964,6 +968,22 @@ export const createGpu = async (
   let capacity = 0;
   let markBuffer: Handle = null;
   let markCapacity = 0;
+  // the shader planets (planet.ts): their own module, uniforms (the ray matrix, the depth matrix, the size) and instance buffer
+  const planetModule = device.createShaderModule({ code: PLANET_WGSL });
+  const planetUniforms = device.createBuffer({ size: 144, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const planetLayout = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: 3, buffer: {} }] });
+  const planetBind = device.createBindGroup({ layout: planetLayout, entries: [{ binding: 0, resource: { buffer: planetUniforms } }] });
+  const planetPipeline = device.createRenderPipeline({
+    layout: device.createPipelineLayout({ bindGroupLayouts: [planetLayout] }),
+    vertex: { module: planetModule, entryPoint: 'vsp', buffers: [{ arrayStride: PLANET_FLOATS * 4, stepMode: 'instance', attributes: Array.from({ length: 9 }, (_, k) => ({ shaderLocation: k, offset: k * 16, format: 'float32x4' })) }] },
+    fragment: { module: planetModule, entryPoint: 'fsp', targets: [{ format, blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }] },
+    primitive: { topology: 'triangle-list', cullMode: 'none' },
+    depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
+    multisample: { count: sampleCount },
+  });
+  let planetBuffer: Handle = null;
+  let planetCap = 0;
+  let planetCount = 0;
   let markCount = 0;
   let edgeBuffer: Handle = null;
   let edgeCapacity = 0;
@@ -995,7 +1015,7 @@ export const createGpu = async (
   const draw = (
     mesh: Mesh,
     view: ViewName | ViewSpec,
-    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, logDepth = 0 }: GpuRenderOptions = {},
+    { size = 400, fit, background = [0.98, 0.98, 0.97], light = {}, material = {}, palette, dpr = globalThis.devicePixelRatio || 1, instances, parts, tonemap = false, smooth = false, studio = false, edges = false, marks, unlit = false, glow = false, skin, screens, logDepth = 0, planets }: GpuRenderOptions = {},
     readback = false,
   ): Promise<Pixels> | null => {
     const L = { ...defaultLight, ...light };
@@ -1147,6 +1167,26 @@ export const createGpu = async (
       u.set([...lights.subarray(k * LIGHT_FLOATS + 4, k * LIGHT_FLOATS + 7), 0], 52 + MAX_LIGHTS * 4 + k * 4);
     }
     device.queue.writeBuffer(uniforms, 0, u);
+    planetCount = 0;
+    if (planets?.length && !cam.ortho) {
+      const vpRot = viewProjection({ ...cam, eye: [0, 0, 0] }, nearPlane(cam, mesh));
+      const inv = inv4(vpRot);
+      const pi = inv ? planetInstances(planets, cam.eye, vpRot) : null;
+      if (pi?.count && inv) {
+        if (pi.data.byteLength > planetCap) {
+          planetBuffer?.destroy();
+          planetCap = Math.max(pi.data.byteLength, PLANET_FLOATS * 4 * 16);
+          planetBuffer = device.createBuffer({ size: planetCap, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+        }
+        device.queue.writeBuffer(planetBuffer, 0, pi.data);
+        const pu = new Float32Array(36);
+        pu.set(inv, 0);
+        pu.set(vpRot, 16);
+        pu.set([px, px, logDepth > 0 ? logDepth : 0, 0], 32);
+        device.queue.writeBuffer(planetUniforms, 0, pu);
+        planetCount = pi.count;
+      }
+    }
     const markData = marks?.length ? buildMarks(marks) : null;
     markCount = markData ? markData.length / MARK_FLOATS : 0;
     if (markData && markData.byteLength) {
@@ -1242,6 +1282,12 @@ export const createGpu = async (
       pass.setBindGroup(0, bind);
       pass.setVertexBuffer(0, skinSolid);
       pass.draw(skinSolidCount);
+    }
+    if (planetCount) {
+      pass.setPipeline(planetPipeline);
+      pass.setBindGroup(0, planetBind);
+      pass.setVertexBuffer(0, planetBuffer);
+      pass.draw(6, planetCount);
     }
     if (edgeCount) {
       pass.setPipeline(linePipeline);

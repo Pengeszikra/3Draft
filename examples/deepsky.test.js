@@ -53,9 +53,10 @@ test('the Solar System at its true scale: the Sun 696 000 km, the planets at the
   assert.ok(Math.abs(at('Earth').scale / KM - 6371) < 1);
   const moon = Math.hypot(...at('Moon').at.map((v, i) => v - at('Earth').at[i])) / KM;
   assert.ok(Math.abs(moon - 384400) < 2000, String(moon));
-  assert.equal(at("Saturn's rings").proto, 'ring');
+  assert.equal(at('Saturn').planet.kind, 'gas');
+  assert.ok(at('Saturn').planet.ring.outer > 2.2 && at('Earth').planet.atmosphere);
   assert.equal(scene.paths.length, 10);
-  assert.ok(scene.prototypes.planet && scene.prototypes.ring);
+  assert.ok(scene.prototypes.planet);
 });
 
 test('the saved scene file matches the builder', () => {

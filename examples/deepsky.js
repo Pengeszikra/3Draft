@@ -14,7 +14,7 @@ import { STARS as NEAR } from './data/stars5000.js';
 import { FAR_STARS, NGC, AXES } from './data/deepsky-data.js';
 import { GALAXIES } from './data/galaxies.js';
 import { FIGURE_STARS, FIGURES } from './data/figures.js';
-import { solarSystem, ringProto } from './solar.js';
+import { solarSystem } from './solar.js';
 import { starObject, STAR_PALETTE, PLAIN, GALAXY_PROTOS, GALAXY_PALETTE, LY, blackHole, SUN_START } from './stars.js';
 import { cloud, centre, start } from './milkyway.js';
 
@@ -170,6 +170,8 @@ const far = [...FAR_STARS, ...FIGURE_STARS].map((row) => starObject(row, { boost
 const objects = [...near, ...far, ...holes, ...galaxies];
 // ---- the Solar System at its true scale (solar.js): the planets where they are on 2026-11-14, with their orbits
 const solar = solarSystem(new Date('2026-11-14T00:00:00Z'));
+// the planets' plain sphere (positioning, picking, the SVG view) is 3 % smaller than the planet: the shader's true sphere covers it everywhere
+const PLANET_BALL = { ...PLAIN.star, lods: PLAIN.star.lods.map((m) => ({ ...m, positions: m.positions.map((q) => q.map((v) => Math.round(v * 0.97 * 1e5) / 1e5)) })) };
 // the start: 60 AU from the Sun, 35° above the ecliptic, looking at the Sun: the orbits of all the planets in view
 const SOLAR_START = (() => {
   const AU = 1.58125074e-5, eps = (23.43928 * Math.PI) / 180, el = (35 * Math.PI) / 180;
@@ -180,7 +182,7 @@ const SOLAR_START = (() => {
 })();
 export const scene = {
   format: '3draft-scene', version: 2,
-  palette: [...STAR_PALETTE.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE, ...solar.palette], prototypes: { ...PLAIN, planet: PLAIN.star, ...GALAXY_PROTOS, ring: { lods: [ringProto(96), ringProto(48), ringProto(24)] } },
+  palette: [...STAR_PALETTE.filter((p) => p.name.startsWith('star-')), ...GALAXY_PALETTE, ...solar.palette], prototypes: { ...PLAIN, planet: PLANET_BALL, ...GALAXY_PROTOS },
   start: SOLAR_START, vehicle: 'starship', cloud, objects: [...objects, ...solar.objects],
   // the planets' orbits (and the Moon's), thin lines (the sky group's orbits switch)
   paths: solar.paths,
