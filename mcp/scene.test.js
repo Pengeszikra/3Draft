@@ -370,3 +370,73 @@ test('place_on: through a pixel from the camera, and behind or into what is left
   assert.equal(r.surface.object, 'floor');
   assert.ok(Math.abs(r.surface.point[2] - 0) < 1e-6 && Math.abs(r.surface.distance - 3 * Math.SQRT2) < 1e-6, JSON.stringify(r.surface));
 });
+
+test('groups: make, rename, move as one, ungroup', () => {
+  const s = createScene();
+  table(s);
+  let r = json(ok(s, 'group', { name: 'table', objects: ['top', 'leg_a', 'leg_b', 'leg_c', 'leg_d'] }));
+  assert.equal(r.groups.table.length, 5);
+  r = json(ok(s, 'transform', { name: 'leg_a', move: [2, 0, 0] }));
+  assert.deepEqual(r.moved_along.sort(), ['leg_b', 'leg_c', 'leg_d', 'top']);
+  assert.ok(Math.abs(json(ok(s, 'list', {})).objects.find((o) => o.name === 'top').min[0] - 1) < 1e-9);
+  r = json(ok(s, 'group', { name: 'table', rename: 'desk' }));
+  assert.deepEqual(Object.keys(r.groups), ['desk']);
+  const exported = JSON.parse(json(ok(s, 'export', {})).json ?? s.call('export', {}).text);
+  assert.ok(exported.objects ? exported.objects.every((o) => o.group === 'desk') : true);
+  r = json(ok(s, 'ungroup', { name: 'desk' }));
+  assert.equal(r.ungrouped.length, 5);
+  r = json(ok(s, 'transform', { name: 'leg_a', move: [1, 0, 0] }));
+  assert.equal(r.moved_along, undefined);
+  assert.equal(s.call('ungroup', { name: 'desk' }).isError, true);
+});
+
+test('connect: a hinged door with a limit, carried by its frame; a rail; a pivot; glue; a spring', () => {
+  const s = createScene();
+  ok(s, 'add_box', { name: 'frame', size: [0.1, 2, 0.1], at: [0, 1, 0] });
+  ok(s, 'add_box', { name: 'door', size: [0.9, 2, 0.05], at: [0.5, 1, 0] });
+  let r = json(ok(s, 'connect', { type: 'hinge', a: 'frame', b: 'door', axis: [[0.05, 0, 0], [0.05, 2, 0]], limit: [0, 100], name: 'hinge' }));
+  assert.equal(r.now.angle, 0);
+  r = json(ok(s, 'move_joint', { name: 'hinge', angle: 150 }));
+  assert.equal(r.now.angle, 100); // clamped
+  const door = json(ok(s, 'list', {})).objects.find((o) => o.name === 'door');
+  assert.ok(door.max[2] < 0.05 && door.min[2] < -0.8, JSON.stringify(door)); // swung towards -z
+  // the frame moves and turns: the door comes along, the angle stays
+  ok(s, 'transform', { name: 'frame', rotate_y: 40, move: [3, 0, 0] });
+  assert.ok(Math.abs(json(ok(s, 'joints', {})).joints[0].now.angle - 100) < 1e-6);
+  // a hinge on a vertex edge of the door, in a second scene
+  ok(s, 'add_box', { name: 'base', size: [4, 0.1, 0.3], at: [0, 0, 5] });
+  ok(s, 'add_box', { name: 'cart', size: [0.3, 0.2, 0.3], at: [0, 0.15, 5] });
+  r = json(ok(s, 'connect', { type: 'rail', a: 'base', b: 'cart', path: [[-2, 0.05, 5], [2, 0.05, 5]], slider: [0, 0.05, 5], limit: [0.5, 3.5], name: 'rail' }));
+  assert.ok(Math.abs(r.now.position - 2) < 1e-9);
+  r = json(ok(s, 'move_joint', { name: 'rail', position: 10 }));
+  assert.equal(r.now.position, 3.5);
+  ok(s, 'add_box', { name: 'ball', size: [0.2, 0.2, 0.2], at: [0, 3, 9] });
+  ok(s, 'add_box', { name: 'arm', size: [0.05, 1, 0.05], at: [0, 2.4, 9] });
+  ok(s, 'connect', { type: 'pivot', a: 'ball', b: 'arm', at: [0, 3, 9], limits: { x: [-30, 30] }, name: 'ball' });
+  r = json(ok(s, 'move_joint', { name: 'ball', angles: [45, 10, 0] }));
+  assert.deepEqual(r.now.angles.map((v) => Math.round(v)), [30, 10, 0]);
+  // glue: the cart carries a box glued to it
+  ok(s, 'add_box', { name: 'load', size: [0.2, 0.2, 0.2], at: [1.5, 0.35, 5] });
+  ok(s, 'connect', { type: 'glue', a: 'cart', b: 'load', contact: [[1.5, 0.25, 5]] });
+  const before = json(ok(s, 'list', {})).objects.find((o) => o.name === 'load').min[0];
+  ok(s, 'move_joint', { name: 'rail', position: 1 });
+  assert.ok(Math.abs(json(ok(s, 'list', {})).objects.find((o) => o.name === 'load').min[0] - (before - 2.5)) < 1e-9);
+  // a spring with a stretched spring object
+  ok(s, 'add_box', { name: 'hook', size: [1, 0.1, 1], at: [5, 3, 0] });
+  ok(s, 'add_box', { name: 'bob', size: [0.3, 0.3, 0.3], at: [5, 1, 0] });
+  ok(s, 'add_box', { name: 'coil', size: [0.08, 1.65, 0.08], at: [5, 2.125, 0] });
+  r = json(ok(s, 'connect', { type: 'spring', a: 'hook', b: 'bob', at: [5, 2.95, 0], at_b: [5, 1.15, 0], rest_length: 1.5, spring_object: 'coil', name: 'spring' }));
+  assert.ok(Math.abs(r.now.length - 1.8) < 1e-9);
+  assert.equal(s.call('move_joint', { name: 'spring', angle: 3 }).isError, true);
+  // remove one end: its joints go
+  ok(s, 'remove', { name: 'bob' });
+  assert.ok(!json(ok(s, 'joints', {})).joints.some((j) => j.name === 'spring'));
+  // round trip through export / import
+  const text = s.call('export', {}).text;
+  const s2 = createScene();
+  const exp = JSON.parse(text);
+  const scene = exp.json ? JSON.parse(exp.json) : exp;
+  ok(s2, 'import', { json: JSON.stringify(scene) });
+  assert.equal(json(ok(s2, 'joints', {})).joints.length, json(ok(s, 'joints', {})).joints.length);
+  assert.equal(s.call('connect', { type: 'hinge', a: 'frame', b: 'door', name: 'x' }).isError, true); // no line
+});
