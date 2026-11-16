@@ -509,10 +509,12 @@
     #stClock { font: 500 10px/1 var(--font-mono); color: var(--cream); min-width: 78px; white-space: nowrap; }
     #stSpeed { max-width: 58px; }
     #stExit { padding: 6px 9px; }
-    #storyCaption { position: fixed; left: 50%; bottom: 128px; transform: translateX(-50%); z-index: 5; max-width: min(1600px, calc(100vw - 32px)); display: grid; gap: 10px; justify-items: center; text-align: center; pointer-events: none; font: 500 min(39px, 6.5vw)/1.3 var(--font-mono); color: var(--cream); text-shadow: 0 1px 4px #000, 0 0 12px #000; }
+    #storyCaption { position: fixed; left: 0; right: 0; margin-inline: auto; width: fit-content; bottom: 128px; z-index: 5; max-width: min(1600px, calc(100vw - 32px)); display: grid; gap: 10px; justify-items: center; text-align: center; pointer-events: none; font: 500 min(39px, 6.5vw)/1.3 var(--font-mono); color: var(--cream); text-shadow: 0 1px 4px #000, 0 0 12px #000; }
     #storyCaption[hidden] { display: none; }
     /* story text three times the console size, so it reads from across the room (smaller on a phone) */
-    #storyCaption b { font: 600 min(30px, 5vw)/1.15 var(--font-display); letter-spacing: 0.18em; text-transform: uppercase; color: #e8a45c; }
+    /* the chapter title under the text: the box grows upward from the bottom, so the title stays put whether the text runs to
+       one, two or three lines */
+    #storyCaption b { order: 2; font: 600 min(30px, 5vw)/1.15 var(--font-display); letter-spacing: 0.18em; text-transform: uppercase; color: #e8a45c; }
     .st-title { font: 600 15px/1.25 var(--font-display); letter-spacing: 0.06em; color: var(--cream); }
     .st-meta { font: 500 10px/1.5 var(--font-mono); color: #8a8d80; }
     .st-chapter { font: 500 12px/1.6 var(--font-mono); color: #c9cbbf; white-space: pre-line; }
