@@ -318,3 +318,55 @@ test('add_character: a figure of the character builder, posed, turned, stood on 
   assert.equal(s.call('add_character', { name: 'ann' }).isError, true); // exists
   assert.equal(s.call('add_character', { name: 'zed', preset: 'pirate' }).isError, true);
 });
+
+test('sense: the cursor\'s ray from the camera, every hit behind with distances, and the sensing set', () => {
+  const s = createScene();
+  ok(s, 'add_box', { name: 'floor', size: [6, 0.1, 6], at: [0, -0.05, 0] });
+  ok(s, 'add_box', { name: 'wall', size: [4, 2, 0.2], at: [0, 1, 0] });
+  ok(s, 'add_box', { name: 'crate', size: [0.6, 0.6, 0.6], at: [0, 0.3, -1.5] });
+  // a ray along -z at y 0.3: the wall (in and out), then the crate (in and out)
+  let r = json(ok(s, 'sense', { from: [0, 0.3, 5], dir: [0, 0, -1] }));
+  assert.equal(r.first.object, 'wall');
+  assert.ok(Math.abs(r.first.distance - 4.9) < 1e-6);
+  assert.deepEqual(r.hits.map((h) => [h.object, h.outside, +h.distance.toFixed(3)]), [['wall', true, 4.9], ['wall', false, 5.1], ['crate', true, 6.2], ['crate', false, 6.8]]);
+  // leave the wall out for this call: the crate is first
+  r = json(ok(s, 'sense', { from: [0, 0.3, 5], dir: [0, 0, -1], exclude: 'wall' }));
+  assert.equal(r.first.object, 'crate');
+  // the sensing set: ignore the wall for good, then put it back
+  assert.deepEqual(json(ok(s, 'sensing', { ignore: 'wall' })).ignored, ['wall']);
+  r = json(ok(s, 'sense', { from: [0, 0.3, 5], dir: [0, 0, -1] }));
+  assert.equal(r.first.object, 'crate');
+  assert.equal(json(ok(s, 'sense', { from: [0, 0.3, 5], dir: [0, 0, -1], include: 'wall' })).first.object, 'wall');
+  assert.deepEqual(json(ok(s, 'sensing', { sense: 'wall' })).ignored, []);
+  assert.deepEqual(json(ok(s, 'sensing', { only: ['floor'] })).sensed, ['floor']);
+  assert.deepEqual(json(ok(s, 'sensing', { reset: true })).ignored, []);
+  // through a pixel of a render: the middle of the front view looks at the wall
+  r = json(ok(s, 'sense', { view: 'front', x: 160, y: 160 }));
+  assert.equal(r.first.object, 'wall');
+  assert.deepEqual(r.first.normal, [0, 0, 1]);
+  assert.ok(r.first.distance > 0);
+  // pick follows the sensing set too
+  ok(s, 'sensing', { ignore: 'wall' });
+  assert.equal(json(ok(s, 'pick', { view: 'front', x: 160, y: 160 })).hit, null); // (behind the wall at that height: nothing)
+  ok(s, 'sensing', { reset: true });
+});
+
+test('place_on: through a pixel from the camera, and behind or into what is left out of the sensing', () => {
+  const s = createScene();
+  ok(s, 'add_box', { name: 'floor', size: [6, 0.1, 6], at: [0, -0.05, 0] });
+  ok(s, 'add_box', { name: 'wall', size: [4, 2, 0.2], at: [0, 1, 0] });
+  ok(s, 'add_box', { name: 'vase', size: [0.2, 0.4, 0.2], at: [0, 2.6, 0] }); // (in the middle: the views frame every object)
+  // the camera's ray from the top view through the middle lands on the wall's top
+  let r = json(ok(s, 'place_on', { name: 'vase', view: 'top', x: 160, y: 160 }));
+  assert.equal(r.surface.object, 'wall');
+  assert.ok(Math.abs(r.min[1] - 2) < 1e-6 && r.surface.distance > 0, JSON.stringify(r));
+  // behind the wall: straight down at z -1 with the wall left out lands on the floor
+  r = json(ok(s, 'place_on', { name: 'vase', at: [0, 0], exclude: 'wall' }));
+  assert.equal(r.surface.object, 'floor');
+  assert.ok(Math.abs(r.min[1]) < 1e-6);
+  // a ray from the front through the wall onto the floor? no: front faces only, the wall is out, the ray hits nothing upright
+  ok(s, 'sensing', { ignore: 'wall' });
+  r = json(ok(s, 'place_on', { name: 'vase', from: [0, 3, 3], dir: [0, -1, -1] }));
+  assert.equal(r.surface.object, 'floor');
+  assert.ok(Math.abs(r.surface.point[2] - 0) < 1e-6 && Math.abs(r.surface.distance - 3 * Math.SQRT2) < 1e-6, JSON.stringify(r.surface));
+});
