@@ -262,3 +262,59 @@ test('view_sky: a sky catalogue becomes a scene; it is sent to the viewer and ca
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('place_on: drops an object onto a surface (up, normal, ray), like G G', () => {
+  const s = createScene();
+  table(s);
+  ok(s, 'add_box', { name: 'cup', size: [0.1, 0.12, 0.1], at: [5, 3, 5] });
+  // straight down at [x, z]: the cup's bottom lands on the table top (y 1.0)
+  let r = json(ok(s, 'place_on', { name: 'cup', onto: 'top', at: [0.3, 0.2] }));
+  assert.deepEqual(r.min.map((v) => +v.toFixed(6)), [0.25, 1, 0.15]);
+  assert.deepEqual(r.surface.normal, [0, 1, 0]);
+  // default spot: the middle of the single onto object
+  r = json(ok(s, 'place_on', { name: 'cup', onto: 'top' }));
+  assert.ok(Math.abs(r.min[1] - 1) < 1e-9 && Math.abs(r.min[0] + 0.05) < 1e-9);
+  // nothing below: an error, the object stays
+  assert.equal(s.call('place_on', { name: 'cup', onto: 'top', at: [9, 9] }).isError, true);
+  // a ray against the side of the top: align normal turns the cup's up to +x
+  r = json(ok(s, 'place_on', { name: 'cup', onto: 'top', from: [3, 0.925, 0], dir: [-1, 0, 0], align: 'normal' }));
+  assert.deepEqual(r.surface.normal, [1, 0, 0]);
+  assert.ok(Math.abs(r.min[0] - 1) < 1e-6 && Math.abs(r.max[0] - 1.12) < 1e-6, JSON.stringify(r));
+  // a slope: a wedge, the cup tilts with it
+  ok(s, 'add_mesh', { name: 'ramp', positions: [[-1, 0, 2], [1, 0, 2], [1, 0, 4], [-1, 0, 4], [-1, 1, 4], [1, 1, 4]], faces: [{ v: [0, 1, 2, 3] }, { v: [0, 4, 5, 1] }, { v: [3, 2, 5, 4] }, { v: [0, 3, 4] }, { v: [1, 5, 2] }] });
+  r = json(ok(s, 'place_on', { name: 'cup', onto: 'ramp', at: [0, 3], align: 'normal' }));
+  const n = 1 / Math.SQRT2;
+  assert.ok(Math.abs(r.surface.normal[1] - 0.894427) < 1e-5 || Math.abs(r.surface.normal[1] - n) < 1e-5, JSON.stringify(r.surface));
+  assert.ok(Math.abs(r.surface.point[1] - 0.5) < 1e-6);
+});
+
+test('transform: rotate_x / rotate_z (right-hand rule) and a pivot', () => {
+  const s = createScene();
+  ok(s, 'add_box', { name: 'stick', size: [0.1, 1, 0.1], at: [0, 0.5, 0] });
+  // tip it over round its foot towards +z
+  let r = json(ok(s, 'transform', { name: 'stick', rotate_x: 90, pivot: [0, 0, 0] }));
+  assert.ok(Math.abs(r.max[2] - 1) < 1e-6 && Math.abs(r.max[1] - 0.05) < 1e-6, JSON.stringify(r));
+  ok(s, 'add_box', { name: 'post', size: [0.1, 1, 0.1], at: [0, 0.5, 0] });
+  r = json(ok(s, 'transform', { name: 'post', rotate_z: 90, pivot: [0, 0, 0] }));
+  assert.ok(Math.abs(r.min[0] + 1) < 1e-6, JSON.stringify(r)); // +y turns to -x
+});
+
+test('add_character: a figure of the character builder, posed, turned, stood on a surface', () => {
+  const s = createScene();
+  let r = json(ok(s, 'add_character', { name: 'ann', preset: 'crew', spec: { base: 'female' }, at: [1, 0, 2], yaw: 90 }));
+  assert.equal(r.base, 'female');
+  assert.ok(r.max[1] > 1.4 && r.max[1] < 2.1 && Math.abs(r.min[1]) < 1e-6, JSON.stringify(r));
+  const depth = r.max[2] - r.min[2], width = r.max[0] - r.min[0];
+  assert.ok(Math.abs((r.min[0] + r.max[0]) / 2 - 1) < 0.35 && Math.abs((r.min[2] + r.max[2]) / 2 - 2) < 0.6, JSON.stringify(r));
+  assert.ok(width > 0 && depth > 0);
+  // seated, on a box, with a variation
+  ok(s, 'add_box', { name: 'dais', size: [2, 0.2, 2], at: [5, 0.1, 0] });
+  r = json(ok(s, 'add_character', { name: 'bob', preset: 'mechanic', seed: 3, pose: 'sit', at: [5, 0, 0], onto: 'dais' }));
+  assert.ok(Math.abs(r.min[1] - 0.2) < 1e-6 && r.max[1] < 1.6, JSON.stringify(r));
+  assert.equal(r.pose, 'sit');
+  // place_on works on it: its foot is the middle of where it stands
+  r = json(ok(s, 'place_on', { name: 'ann', onto: 'dais', at: [5.5, 0.5] }));
+  assert.ok(Math.abs(r.min[1] - 0.2) < 1e-6);
+  assert.equal(s.call('add_character', { name: 'ann' }).isError, true); // exists
+  assert.equal(s.call('add_character', { name: 'zed', preset: 'pirate' }).isError, true);
+});
