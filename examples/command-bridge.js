@@ -1,6 +1,7 @@
-// Command bridge: three crew (two at the helm, the commander behind them on a low dais) before a curved control desk under a
-// wide window, Space 1999 style: white desk segments, dark sloping instrument plates (buttons, knobs, sliders, small screens,
-// a radar scope), a display bank on top, a planet and stars outside. The crew face -z, y is up, the floor is y = 0.
+// Command bridge: two crew at the helm before a curved control desk under a wide open window, and an empty low dais behind
+// them where the player (the commander) stands, Space 1999 style: white desk segments, dark sloping instrument plates (buttons, knobs, sliders, small screens,
+// a radar scope), a display bank on top. Nothing outside: in a game (examples/fifth-percent.game.json) the universe is drawn first and the
+// bridge over it, so the window is an opening. The crew face -z, y is up, the floor is y = 0.
 // `node examples/command-bridge.js` writes command-bridge.scene.json.
 
 import { writeFileSync } from 'node:fs';
@@ -16,9 +17,8 @@ export const PALETTE = [
   glow('btnRed', '#ff4d3d'), glow('btnGreen', '#49e06a'), glow('btnAmber', '#ffc23d'), glow('btnBlue', '#3da2ff'), glow('btnWhite', '#f2eee0'),
   mat('deck', '#3a3d42', 0.6, 0.5), mat('deckLine', '#d9741a', 0.5, 0.3), mat('wallPanel', '#cfcabd', 0.7, 0.15), mat('wallDark', '#5d6166', 0.6, 0.4),
   mat('ceiling', '#bdb9b0', 0.8, 0.1), mat('ceilLight', '#fff3df', 0.4, 0, { emit: 0.35 }), mat('frame', '#25282c', 0.5, 0.7),
-  mat('glass', '#86b8d8', 0.05, 0.1, { alpha: 0.12 }), mat('seat', '#b9502a', 0.9, 0), mat('chairMetal', '#70767d', 0.4, 0.85),
-  mat('planet', '#5e86b6', 0.85, 0), mat('planetBand', '#c9a46a', 0.85, 0), glow('star', '#fdf8ee'),
-];
+  mat('seat', '#b9502a', 0.9, 0), mat('chairMetal', '#70767d', 0.4, 0.85),
+  ];
 
 // a seeded random, so the desk comes out the same every time
 let seed = 1999;
@@ -125,7 +125,6 @@ export const commandBridge = () => {
   put('room', box(10, 0.85, 0.3, 'wallPanel'), { at: [0, 0.425, FZ] });
   put('room', box(10, 0.5, 0.3, 'wallPanel'), { at: [0, 2.95, FZ] });
   for (let i = 0; i <= 6; i++) put('window', box(0.16, 1.9, 0.26, 'frame'), { at: [-4.5 + i * 1.5, 1.8, FZ] });
-  put('window', box(9.2, 1.9, 0.02, 'glass'), { at: [0, 1.8, FZ - 0.04] });
   for (const x of [-5, 5]) put('room', box(0.3, 3.2, 9, 'wallPanel'), { at: [x, 1.6, 0.4] });
   put('room', box(10, 3.2, 0.3, 'wallPanel'), { at: [0, 1.6, 4.9] });
   for (const x of [-4.84, 4.84]) for (let k = 0; k < 4; k++) put('room', box(0.02, 1.4, 1.6, 'wallDark'), { at: [x, 1.6, -1.6 + k * 2.1] });
@@ -139,14 +138,6 @@ export const commandBridge = () => {
     for (const p of chair()) put('chairs', p, { at: [x, 0, z], rot: [0, ry, 0] });
   }
 
-  // outside: a banded planet with a moon, and stars on a far screen
-  const sphere = (r, matName) => capsule(r, -r, r, 28, 10, matName);
-  put('outside', sphere(16, 'planet'), { at: [9, -9, -60] });
-  put('outside', sphere(2.2, 'planetBand'), { at: [-14, 9, -55] });
-  for (let i = 0; i < 220; i++) {
-    const s = 0.08 + rand() * 0.18;
-    put('outside', box(s, s, s, 'star'), { at: [(rand() - 0.5) * 160, -20 + rand() * 75, -90 - rand() * 10] });
-  }
 
   const { palette, objects } = M.scene();
   return { palette, objects, helm };
@@ -172,7 +163,8 @@ if (import.meta.url === new URL(process.argv[1], 'file:').href) {
   const crew = [
     charObject('pilot', crewSpec({ base: 'female', seed: 41, face: { shape: 'oval', skin: 'skin-1' }, hair: { style: 'long', mat: 'hair-chestnut' }, outfit: { main: 'crew-beige', second: 'teal' }, prop: 'none' }), 'sit', helm[0], face0(helm[0][0], helm[0][2])),
     charObject('navigator', crewSpec({ base: 'male', seed: 43, body: { height: 1.76 }, face: { shape: 'square', skin: 'skin-4' }, hair: { style: 'short', mat: 'hair-black' }, outfit: { main: 'crew-beige', second: 'mustard' }, prop: 'none' }), 'sit', helm[1], face0(helm[1][0], helm[1][2])),
-    charObject('commander', crewSpec({ base: 'male', seed: 47, body: { height: 1.82, shoulders: 0.2 }, face: { shape: 'long', jaw: 0.2, skin: 'skin-2' }, hair: { style: 'short', mat: 'hair-grey' }, outfit: { main: 'crew-beige', second: 'rust' }, prop: 'commlock' }), 'stand', [0, 0.2, 1.45], Math.PI),
+    // (no commander: that is the player)
+    // charObject('commander', crewSpec({ base: 'male', seed: 47, body: { height: 1.82, shoulders: 0.2 }, face: { shape: 'long', jaw: 0.2, skin: 'skin-2' }, hair: { style: 'short', mat: 'hair-grey' }, outfit: { main: 'crew-beige', second: 'rust' }, prop: 'commlock' }), 'stand', [0, 0.2, 1.45], Math.PI),
   ];
   const charPal = characterPalette().filter((m) => !palette.some((p) => p.name === m.name));
   const used = new Set(crew.flatMap((o) => o.mesh.faces.map((f) => f.mat)));
@@ -181,7 +173,7 @@ if (import.meta.url === new URL(process.argv[1], 'file:').href) {
     palette: [...palette, ...charPal.filter((m) => used.has(m.name))],
     objects: [...objects, ...crew],
     view: { render: 'webgpu', light: true, studio: true, smooth: true, edges: false, glow: false },
-    start: { eye: [-3.1, 1.8, 3.1], yaw: 45, pitch: 14 }, // behind the crew on the left, over the desk to the window
+    start: { eye: [0, 1.9, 1.45], yaw: 0, pitch: 4 }, // the commander's place on the dais, over the desk to the window
   };
   const faces = scene.objects.reduce((n, o) => n + o.mesh.faces.length, 0);
   console.log(scene.objects.map((o) => `${o.name}:${o.mesh.faces.length}`).join(' '), '|', faces, 'faces');
