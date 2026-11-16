@@ -9891,11 +9891,12 @@
         xrLog(`controllers: ${err?.message ?? err}`, true);
       }
       if (session !== xrState.session) return; // (X left VR)
-      const pressed = pads.map((p) => p.buttons.map((b, i) => (b ? `${p.hand[0] ?? '?'}${i}` : '')).filter(Boolean).join(' ')).filter(Boolean).join(' ');
-      if (pressed) xrState.flashUntil = now + 150;
+      // (only the real buttons 0..5: the Quest's thumb rest, button 6, reads 'pressed' all the time a thumb lies on it; the old
+      // green sky flash on a press is gone: with the thumb rest it turned the whole sky green)
+      const pressed = pads.map((p) => p.buttons.slice(0, 6).map((b, i) => (b ? `${p.hand[0] ?? '?'}${i}` : '')).filter(Boolean).join(' ')).filter(Boolean).join(' ');
       if (pressed !== xrState.pressed) {
         xrState.pressed = pressed;
-        if (pressed) console.log('[xr] pressed', pressed);
+        if (pressed) xrLog(`pressed ${pressed}`);
       }
       const r = pads.find((p) => p.hand === 'right');
       xrSay(`${pressed ? `▣ ${pressed}` : xrState.mono ? 'in EM' : 'in VR'}${r ? ` · R ${r.axes.map((v) => v.toFixed(2)).join(' ')}` : ''}`);
@@ -10024,7 +10025,7 @@
       xrGlErrors(gl, 'the session setup');
       xrState.session = session;
       session.addEventListener('end', endedXr);
-      session.addEventListener('selectstart', (e) => ((xrState.flashUntil = performance.now() + 250), console.log('[xr] select', e.inputSource?.handedness)));
+      session.addEventListener('selectstart', (e) => xrLog(`select (${e.inputSource?.handedness})`));
       xrButtons();
       xrSay(mono ? 'in EM' : 'in VR');
       session.requestAnimationFrame(xrFrame);
