@@ -34,6 +34,8 @@ export interface TshGestures {
   fist: boolean;
   pinch: boolean;
   point: boolean;
+  /** the index straight, whatever the other fingers do: the pointing ray can be aimed (pointing: the others curled too) */
+  aim: boolean;
   click: boolean;
   /** the palm's middle (smoothed), the normal out of the BACK of the hand, the way the fingers point */
   palm: V3;
@@ -64,7 +66,9 @@ export type TshEvent =
   | { type: 'choose'; side: Side; fn: TshFunction }
   | { type: 'fistClose'; side: Side }
   | { type: 'fistOpen'; side: Side; at: V3; heldFor: number }
-  | { type: 'clickDown'; side: Side };
+  | { type: 'clickDown'; side: Side }
+  /** the other three fingers curled while the index points: "this one" */
+  | { type: 'pointStart'; side: Side };
 
 export interface TshHandState {
   seen: boolean;
@@ -134,7 +138,7 @@ export const readHands = (session: { inputSources: Iterable<any> }, frame: any, 
 };
 
 interface Memory {
-  fist?: boolean; pinch?: boolean; point?: boolean; click?: boolean;
+  fist?: boolean; pinch?: boolean; point?: boolean; click?: boolean; aim?: boolean;
   palm?: V3; back?: V3; rayFrom?: V3; rayDir?: V3;
   fistSince?: number;
 }
@@ -154,6 +158,7 @@ export const handGestures = (side: Side, h: TshHand, mem: Memory, now: number): 
   const others = Math.max(curls[1], curls[2], curls[3]);
   // pointing: the index straight, the other three curled
   mem.point = mem.point ? curls[0] > 1.5 && others < 1.35 : curls[0] > 1.7 && others < 1.15;
+  mem.aim = mem.aim ? curls[0] > 1.5 : curls[0] > 1.7;
   mem.fist = !mem.point && (mem.fist ? curl < 1.35 : curl < 1.1);
   const pinchGap = len(sub(j['thumb-tip'], j['index-finger-tip']));
   mem.pinch = !mem.fist && !mem.point && (mem.pinch ? pinchGap < 0.035 : pinchGap < 0.018);
@@ -174,7 +179,7 @@ export const handGestures = (side: Side, h: TshHand, mem: Memory, now: number): 
   if (mem.fist) mem.fistSince ??= now;
   else mem.fistSince = undefined;
   return {
-    fist: mem.fist, pinch: mem.pinch, point: mem.point, click: mem.click,
+    fist: mem.fist, pinch: mem.pinch, point: mem.point, click: mem.click, aim: mem.aim,
     palm: mem.palm, back: mem.back, forward,
     rayFrom: mem.rayFrom ?? null, rayDir: mem.rayDir ?? null,
     fistFor: mem.fistSince !== undefined ? (now - mem.fistSince) / 1000 : 0,
@@ -208,6 +213,7 @@ export const createTsh = (opts: TshOptions = {}) => {
   const poking: Record<Side, string | null> = { left: null, right: null };
   const wasFist: Record<Side, number> = { left: 0, right: 0 };
   const wasClick: Record<Side, boolean> = { left: false, right: false };
+  const wasPoint: Record<Side, boolean> = { left: false, right: false };
   const columns = opts.columns ?? 4, cell = opts.cell ?? 0.024, lift = opts.lift ?? 0.018;
   const bigSize = opts.bigSize ?? 0.05, bigAhead = opts.bigAhead ?? 0.1, bigOut = opts.bigOut ?? 0.045, reach = opts.reach ?? 0.013;
 
@@ -266,6 +272,8 @@ export const createTsh = (opts: TshOptions = {}) => {
       wasFist[side] = g.fist ? Math.max(g.fistFor, 1e-3) : 0;
       if (g.click && !wasClick[side]) events.push({ type: 'clickDown', side });
       wasClick[side] = g.click;
+      if (g.point && !wasPoint[side]) events.push({ type: 'pointStart', side });
+      wasPoint[side] = g.point;
     }
     // choosing: the other hand's index fingertip on an icon (once, until it leaves)
     for (const side of ['left', 'right'] as Side[]) {

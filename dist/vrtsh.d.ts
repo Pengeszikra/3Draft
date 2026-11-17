@@ -23,6 +23,8 @@ export interface TshGestures {
     fist: boolean;
     pinch: boolean;
     point: boolean;
+    /** the index straight, whatever the other fingers do: the pointing ray can be aimed (pointing: the others curled too) */
+    aim: boolean;
     click: boolean;
     /** the palm's middle (smoothed), the normal out of the BACK of the hand, the way the fingers point */
     palm: V3;
@@ -62,6 +64,11 @@ export type TshEvent = {
 } | {
     type: 'clickDown';
     side: Side;
+}
+/** the other three fingers curled while the index points: "this one" */
+ | {
+    type: 'pointStart';
+    side: Side;
 };
 export interface TshHandState {
     seen: boolean;
@@ -86,6 +93,7 @@ interface Memory {
     pinch?: boolean;
     point?: boolean;
     click?: boolean;
+    aim?: boolean;
     palm?: V3;
     back?: V3;
     rayFrom?: V3;

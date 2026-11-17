@@ -21,9 +21,9 @@ The **right hand** (the left index fingertip chooses on the back of it):
 | Function | What the right hand does with it |
 |---|---|
 | **grab** | the same as the left's |
-| **build walls** | 2 × 2 m panels, a finger thick (2 cm), on a grid of 2 × 2 × 2 m cells; you stand in the middle of one. **Point** (the index out of a fist): **down** = a floor where the ray meets the floor, **up** = a ceiling where it meets the ceiling, **sideways** = a wall on the near side of the cell it points into (tip the finger a little down or up to reach farther). Not on the sides of your own cell. **Click** (the thumb tucked to the middle finger) lays it, in the material chosen last. The slot shows as a square: green free, red taken or too close; the floor grid shows round you. The first panel fixes the grid; until then it goes with you |
-| **erase walls** | point at a panel (it shows red) and click |
-| **move** | a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). A **flat hand, palm down, fingers straight**: you turn toward where the middle finger points (the farther off, the faster; straight ahead: still) |
+| **build walls** | 2 × 2 m panels, a finger thick (2 cm), on a grid of 2 × 2 × 2 m cells; you stand in the middle of one. **Aim** with the index straight: **down** = a floor where the ray meets the floor, **up** = a ceiling where it meets the ceiling, **sideways** = a wall of the cell it points into (tip the finger a little down or up to reach farther). Of that cell's sides, the **side walls along the way you face** (a corridor's walls) come first; the wall across your way only when you point nearly straight along it (within 27°). Not on the sides of your own cell. **Curl the other three fingers** (the index still pointing): it is laid there, in the material chosen last. The slot shows as a square: green free, red taken or too close; the floor grid shows round you. The grid's floor is where your feet are (the eyes' height less 1.68 m, for 180 cm); the first panel fixes the grid, until then it goes with you. Up and down a level, the floor and ceiling are the level you are on |
+| **erase walls** | aim at a panel (it shows red) and curl the other three fingers |
+| **move** | a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). A **fist moved nearly straight down** lifts you, **straight up** lowers you, as fast as the hand goes (× 1.5). A **flat hand, palm down, fingers straight**: you turn toward where the middle finger points (the farther off, the faster; straight ahead: still) |
 | **exit** (a door, in the far corner) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
 
 Every step is one undo (a cube, a move, a paint). When VR ends (and a moment after every change) the scene is saved here as
@@ -51,5 +51,7 @@ The hands are drawn as their bones: cream open, teal for a fist or a pinch, oran
   panel's middle in grid units and the axis it is thin along. Erasing tests the ray against the panels (convex boxes).
 - **Walking:** the fist's places of the last 0.8 s in the upright plane of the way you face; their angle round their middle
   (rolling forward: it falls) over the time is the speed, 0.25 m per radian. **Turning:** the middle finger's flat direction
-  against the head's, a dead zone of 11°, 1.6 rad/s per radian beyond it, about the head.
+  against the head's, a dead zone of 11°, 1.6 rad/s per radian beyond it, about the head. **Up and down:** the fist's
+  speed (smoothed) when it is upright (across < half of it) and the hand is not circling (a circle must be round: its
+  spread one way at least 35 % of the other).
   Only loose objects up to 1.5 m across can be taken or painted (not the floor or the bench).

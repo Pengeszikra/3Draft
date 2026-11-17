@@ -82,3 +82,12 @@ test('the big sign of the chosen function sits over the fingers and does not rea
     assert.equal(f.events.length, 0);
     assert.equal(f.left.fn?.id, 'a');
 });
+test('aiming with the index, then curling the other fingers is "this one"', () => {
+    const tsh = createTsh({ right: [{ id: 'build' }] });
+    const open = tsh.update({ right: hand('right', [0.2, 1.1, -0.3]) }, null, 0);
+    assert.equal(open.right.g?.aim, true);
+    assert.equal(open.right.g?.point, false);
+    const p = tsh.update({ right: hand('right', [0.2, 1.1, -0.3], { point: true }) }, null, 16);
+    assert.deepEqual(p.events.map((e) => e.type), ['pointStart']);
+    assert.equal(tsh.update({ right: hand('right', [0.2, 1.1, -0.3], { point: true }) }, null, 32).events.length, 0);
+});
