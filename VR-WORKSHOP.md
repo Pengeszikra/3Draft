@@ -11,9 +11,10 @@ The bench puts you at it: its front edge is 25 cm in front of where you stand.
 |---|---|
 | **8 materials** (a little cube of each, all real materials: wood, brick, blue lacquer, steel, copper, gold, glass, ruby glass) | **poke** a block with the left index fingertip: the whole block takes that material |
 | **grab** (a fist) | a **fist or a pinch** on (or within 4 cm of) an object takes it: it moves and turns with the hand until you let go |
+| **block between the hands** (two-handed) | put the two open hands together, pull them apart: a block grows between them (the palms its opposite corners, in the frame you face); as soon as the hands nearly stop (both slower than 12 cm/s for a quarter second) it stays. Hands back together before that: it is gone |
 | **cube** | **close the fist and open it**: a 5 cm cube appears there, on the palm's side, in the last material chosen |
 
-**Two-handed skills** (build walls, erase walls, type): chosen on either hand, they take the other hand too; choosing anything
+**Two-handed skills** (build walls, erase walls, type, block): chosen on either hand, they take the other hand too; choosing anything
 else (or exit on the keyboard) gives the other hand back its own function.
 
 The right index fingertip on an icon of the left hand chooses it (and the left one on the right hand's). The icons hang on
@@ -27,8 +28,9 @@ The **right hand** (the left index fingertip chooses on the back of it):
 | **grab** | the same as the left's |
 | **build walls** (two-handed) | 2 × 2 m panels, a finger thick (2 cm), on a grid of 2 × 2 × 2 m cells; you stand in the middle of one. The **right hand aims** with the index straight, a **left pinch lays** the panel there, in the material chosen last. Which slot: the ray's part along each kind, weighted, the biggest wins, in this order: the **side walls along the way you face**, the **floor**, the **ceiling**, the **wall across your way**. A wall goes on the near side of the cell where the ray meets the floor or the ceiling (tip the finger to reach farther); not on the sides of your own cell. The slot shows as a square: green free, red taken or too close; the floor grid shows round you. The grid's floor is where your feet are (the eyes' height less 1.68 m, for 180 cm); the first panel fixes the grid |
 | **erase walls** (two-handed) | the right hand aims at a panel (it shows red), a left pinch erases it |
+| **saw** | a **fist**: its blade is the plane of the hand through the middle of the fist. Where it meets an object (the fist within 12 cm of it) the cut line shows red and it cuts there at once (the bigger piece stays); moving on it keeps cutting, taking away what the hand has come through. One fist = one undo step; a cut that would leave a broken solid is not made |
 | **type** (two-handed) | first a point on a surface: the right hand aims at it, a left pinch takes it. Then a **ring of keys** stands round you at hand height: the most used letters in front, the rarer ones farther round (alternately right and left), digits and signs after them, **esc** and **exit** at the back; **space**, **del** and **enter** near the front. A **fingertip on a key** types it; a **left pinch moved sideways** turns the ring. The words stand out of the surface at the point (8 cm letters, the material chosen last); what you have typed shows over the front of the ring. **enter** a new line, **del** the last letter, **esc** the words go (take a new point), **exit** the words stay and both hands get back their own functions |
-| **move** | on the ground: a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). A **flat hand, palm down, fingers straight**: you turn toward where the middle finger points (the farther off, the faster; straight ahead: still) |
+| **move** | on the ground: a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). An **upright hand** (in a wall's plane, fingers straight and together, like a blade): you turn toward where it points (the farther off, the faster; straight ahead: still) |
 | **fly** | the same as move, and up and down too: a **fist moved nearly straight down** lifts you, **straight up** lowers you, as fast as the hand goes (× 1.5) |
 | **record** (a red dot) | **hold a fist** for 0.7 s: recording starts (the label shows ● rec and the time); again: it stops and the recording is downloaded as a `.vr.json` file |
 | **exit** (a door, in the far corner) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
@@ -60,8 +62,6 @@ recorded head (a little behind and above it) and a ghost shows the hands, the he
 
 ## Set aside
 
-- **Carving with the fist** (cutting along the hand's plane with `saw()` while its line shows): some corner cuts left a
-  broken solid (a big red face). It is in the history of `app/index.html`.
 - **The floating panel, the palette on the hand, pointing and clicking to paint a face, two hands pulled apart into a
   block:** replaced by the VRTSH functions; in the history too.
 
