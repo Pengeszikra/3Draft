@@ -8,6 +8,9 @@ export interface TshFunction {
     kind?: string;
     /** anything else the program wants to keep with it (a material index, a colour) */
     data?: unknown;
+    /** its place in the grid on the back of the hand (row by row; −1 = the last cell of the last row, out of the way). Functions
+     * without one fill the free cells in order. */
+    slot?: number;
 }
 /** One hand as WebXR gives it: joint positions (room, metres) by their WebXR names, and the wrist's pose. */
 export interface TshHand {

@@ -51,9 +51,11 @@ st.events;      // { type: 'choose' | 'fistClose' | 'fistOpen' (at, heldFor) | '
 
 The icons sit in a grid over the back of the hand (4 columns of 2.4 cm cells, 1.8 cm over the skin). The chosen one is 5 cm,
 7 cm out from the back of the hand, turned 60 % of the way to the eyes. A fingertip within 1.3 cm of an icon's middle chooses
-it, once, until the finger moves 2.6 cm away.
+it, once, until the finger moves 2.6 cm away. A function can ask for its cell (`slot`, row by row; −1 = the last cell of
+the last row, a corner out of the way); the others fill the free cells in order.
 
 ## In Spider Paint (the VR workshop)
 
 The first use is a left-hand test in the VR workshop scene (`VR-WORKSHOP.md`): the left hand takes 8 materials (shown as
-little cubes of the material, so glass looks like glass), grab, cube and exit; the right hand has grab.
+little cubes of the material, so glass looks like glass), grab and cube; the right hand has grab, and exit in the far
+corner of its grid.

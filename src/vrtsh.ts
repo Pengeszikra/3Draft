@@ -17,6 +17,9 @@ export interface TshFunction {
   kind?: string;
   /** anything else the program wants to keep with it (a material index, a colour) */
   data?: unknown;
+  /** its place in the grid on the back of the hand (row by row; −1 = the last cell of the last row, out of the way). Functions
+   * without one fill the free cells in order. */
+  slot?: number;
 }
 
 /** One hand as WebXR gives it: joint positions (room, metres) by their WebXR names, and the wrist's pose. */
@@ -214,9 +217,22 @@ export const createTsh = (opts: TshOptions = {}) => {
     const y = unit(sub(g.forward, mul(z, dot(g.forward, z))));
     // x to the viewer's right when the back of the hand faces them (mirrored for the left hand's thumb side, which is fine)
     const x = cross(y, z);
-    const rows = Math.ceil(list.length / columns);
+    // the cells: fixed slots first, the rest in order (−1: the last cell of the last row, a corner, away from the middle)
+    let rows = Math.max(1, Math.ceil(list.length / columns));
+    for (const fn of list) if (fn.slot !== undefined && fn.slot >= 0) rows = Math.max(rows, Math.floor(fn.slot / columns) + 1);
+    const cells = new Map<TshFunction, number>();
+    for (const fn of list) if (fn.slot !== undefined) cells.set(fn, fn.slot < 0 ? rows * columns + fn.slot : fn.slot);
+    let next = 0;
+    const taken = new Set(cells.values());
+    for (const fn of list) {
+      if (cells.has(fn)) continue;
+      while (taken.has(next)) next++;
+      cells.set(fn, next);
+      taken.add(next);
+    }
     const centre = add(g.palm, mul(z, lift));
-    const icons: TshIcon[] = list.map((fn, i) => {
+    const icons: TshIcon[] = list.map((fn) => {
+      const i = cells.get(fn)!;
       const c = i % columns, r = Math.floor(i / columns);
       const at = add(centre, add(mul(x, (c - (columns - 1) / 2) * cell), mul(y, ((rows - 1) / 2 - r) * cell)));
       return { fn, at, x, y, z, size: cell * 0.85, chosen: fn === chosen[side], hover: poking[side] === fn.id };

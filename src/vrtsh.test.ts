@@ -66,3 +66,13 @@ test('the other hand chooses a function by poking its icon', () => {
   assert.equal(f2.events.length, 0);
   assert.equal(tsh.fn('left')?.id, 'cube');
 });
+
+test('a slot puts an icon in its cell; -1 is the last cell of the last row', () => {
+  const tsh = createTsh({ right: [{ id: 'grab' }, { id: 'exit', slot: -1 }] });
+  const f = tsh.update({ right: hand('right', [0.2, 1.1, -0.3]) }, null, 0);
+  const icons = f.right.icons.filter((i) => !i.big);
+  const grab = icons.find((i) => i.fn.id === 'grab')!, exit = icons.find((i) => i.fn.id === 'exit')!;
+  // 4 columns, 1 row: grab in the first cell, exit in the fourth, 3 cells (7.2 cm) apart
+  const d = Math.hypot(grab.at[0] - exit.at[0], grab.at[1] - exit.at[1], grab.at[2] - exit.at[2]);
+  assert.ok(Math.abs(d - 3 * 0.024) < 1e-9, String(d));
+});

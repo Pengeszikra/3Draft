@@ -5,17 +5,20 @@ each hand always has one function; its icons are on the back of the hand and the
 Pick **VR workshop** in the scene list (a floor and a workbench), press **VR**, put the controllers down and show your hands.
 The bench puts you at it: its front edge is 25 cm in front of where you stand.
 
-## The left hand (the first test)
+## The hands
 
 | Function (icon on the back of the left hand) | What the left hand does with it |
 |---|---|
 | **8 materials** (a little cube of each material) | **poke** a block with the left index fingertip: the whole block takes that material |
 | **grab** (a fist) | a **fist or a pinch** on (or within 4 cm of) an object takes it: it moves and turns with the hand until you let go |
 | **cube** | **close the fist and open it**: a 5 cm cube appears there, on the palm's side, in the last material chosen |
-| **exit** (a door) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
 
-The right index fingertip on an icon chooses it. The chosen function stands bigger in front of the back of the hand, tilted
-toward you, with its name and the last thing that happened. The **right hand** has one function: grab.
+The right index fingertip on an icon of the left hand chooses it (and the left one on the right hand's). The chosen function stands bigger in front of the back of the hand, tilted
+toward you, with its name and the last thing that happened.
+
+The **right hand** has two: **grab** (the same as the left's) and **exit** (a door), in the far corner of its grid, away from
+the middle: choose it with the left index fingertip, then **hold a right fist** for 0.7 s to leave VR (the icon fills up red
+while you hold).
 
 Every step is one undo (a cube, a move, a paint). When VR ends (and a moment after every change) the scene is saved here as
 **vr workshop** (+ scene list, saved scenes), and the view turns to the workpiece.
