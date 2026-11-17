@@ -11036,6 +11036,18 @@
         c.lineTo(88 * u, 50 * u);
         c.lineTo(78 * u, 60 * u);
         c.stroke();
+      } else if (kind === 'type') {
+        // a key cap with a letter on it, two keys beside it
+        c.beginPath();
+        c.roundRect(28 * u, 24 * u, 44 * u, 44 * u, 8 * u);
+        c.stroke();
+        c.font = `700 ${30 * u}px system-ui, sans-serif`;
+        c.textAlign = 'center';
+        c.fillText('A', 50 * u, 57 * u);
+        c.beginPath();
+        c.roundRect(14 * u, 74 * u, 30 * u, 12 * u, 4 * u);
+        c.roundRect(56 * u, 74 * u, 30 * u, 12 * u, 4 * u);
+        c.stroke();
       } else if (kind === 'rec') {
         // a red dot in a ring (recording: the ring red too)
         c.fillStyle = '#f1481c';
