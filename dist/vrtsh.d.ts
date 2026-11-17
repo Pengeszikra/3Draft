@@ -101,8 +101,10 @@ export interface TshOptions {
     columns?: number;
     cell?: number;
     lift?: number;
-    /** the big copy of the chosen function: its size (m) and how far in front of the back of the hand (m) */
+    /** the big copy of the chosen function (only a sign: it does not react to a touch): its size (m), how far out along the
+     * fingers from the palm's middle (m) and how high over them (m) */
     bigSize?: number;
+    bigAhead?: number;
     bigOut?: number;
     /** how close the other hand's fingertip must come to an icon's middle to choose it (m) */
     reach?: number;

@@ -10228,10 +10228,16 @@
     const workable = () => allObjects().filter((o) => o.mesh.faces.length && !o.inst && bounds(o.mesh).radius < 0.75 && !/^(floor|bench )/.test(o.name ?? ''));
     const wsNote = (ws, text) => ((ws.note = text), (ws.noteAt = performance.now()), xrLog(`workshop: ${text}`));
     const TSH_CUBE = 0.05; // the little cube's edge (m)
+    const TSH_MATERIALS = ['plaster', 'wood', 'brick', 'grass', 'steel', 'gold', 'glass', 'slate'];
     const TSH_EXIT_HOLD = 0.7; // s of fist on exit
     const tshFunctions = () => ({
       left: [
-        ...materials.slice(0, 8).map((mt, i) => ({ id: `mat${i}`, label: mt.name, kind: 'material', data: i })),
+        // 8 materials: plain ones, metal, gold and glass among them (by name; the palette's first ones fill in what is missing)
+        ...TSH_MATERIALS.map((n) => materials.findIndex((mt) => mt.name === n))
+          .concat(materials.map((_, i) => i))
+          .filter((i, k, all) => i >= 0 && all.indexOf(i) === k)
+          .slice(0, 8)
+          .map((i) => ({ id: `mat${i}`, label: materials[i].name, kind: 'material', data: i })),
         { id: 'grab', label: 'grab', kind: 'grab' },
         { id: 'cube', label: 'cube', kind: 'cube' },
       ],

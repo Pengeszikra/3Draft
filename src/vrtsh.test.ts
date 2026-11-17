@@ -76,3 +76,14 @@ test('a slot puts an icon in its cell; -1 is the last cell of the last row', () 
   const d = Math.hypot(grab.at[0] - exit.at[0], grab.at[1] - exit.at[1], grab.at[2] - exit.at[2]);
   assert.ok(Math.abs(d - 3 * 0.024) < 1e-9, String(d));
 });
+
+test('the big sign of the chosen function sits over the fingers and does not react to a touch', () => {
+  const tsh = createTsh({ left: [{ id: 'a' }, { id: 'b' }] });
+  const left = hand('left', [-0.2, 1.1, -0.3]);
+  const big = tsh.update({ left }, null, 0).left.icons.find((i) => i.big)!;
+  assert.ok(big.at[2] < -0.3 - 0.045 - 0.08, `ahead of the palm: ${big.at}`); // the palm's middle is 4.5 cm ahead of the wrist
+  const tipAt = (t: V3) => hand('right', [t[0] + 0.03, t[1], t[2] + 0.18]);
+  const f = tsh.update({ left, right: tipAt(big.at) }, null, 16);
+  assert.equal(f.events.length, 0);
+  assert.equal(f.left.fn?.id, 'a');
+});

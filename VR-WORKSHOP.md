@@ -9,12 +9,12 @@ The bench puts you at it: its front edge is 25 cm in front of where you stand.
 
 | Function (icon on the back of the left hand) | What the left hand does with it |
 |---|---|
-| **8 materials** (a little cube of each material) | **poke** a block with the left index fingertip: the whole block takes that material |
+| **8 materials** (a little cube of each: plaster, wood, brick, grass, steel, gold, glass, slate) | **poke** a block with the left index fingertip: the whole block takes that material |
 | **grab** (a fist) | a **fist or a pinch** on (or within 4 cm of) an object takes it: it moves and turns with the hand until you let go |
 | **cube** | **close the fist and open it**: a 5 cm cube appears there, on the palm's side, in the last material chosen |
 
-The right index fingertip on an icon of the left hand chooses it (and the left one on the right hand's). The chosen function stands bigger in front of the back of the hand, tilted
-toward you, with its name and the last thing that happened.
+The right index fingertip on an icon of the left hand chooses it (and the left one on the right hand's). The chosen function stands bigger over the fingers, tilted toward you (only a sign:
+touching it does nothing), with its name and the last thing that happened.
 
 The **right hand** has two: **grab** (the same as the left's) and **exit** (a door), in the far corner of its grid, away from
 the middle: choose it with the left index fingertip, then **hold a right fist** for 0.7 s to leave VR (the icon fills up red

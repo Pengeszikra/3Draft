@@ -9,7 +9,8 @@ program can use it.
   (a fist, a pinch, a poke, opening the fist) means that function.
 - **On the back of each hand** sit the icons of the functions it can take. **The other hand's index fingertip** pokes one to
   choose it.
-- **The chosen function** stands a little in front of the back of the hand, bigger, tilted toward the eyes, with its name.
+- **The chosen function** stands in front of the back of the hand, over the fingers, bigger, tilted toward the eyes, with
+  its name. It is only a sign: touching it does nothing.
 
 VRTSH reads the hands, keeps the choice, recognises the gestures and lays the icons out. What a function *does* is up to
 the program: VRTSH knows nothing of a scene or a renderer. Everything is in the room's reference space (metres, y up).
@@ -49,8 +50,9 @@ st.events;      // { type: 'choose' | 'fistClose' | 'fistOpen' (at, heldFor) | '
 
 ## Layout
 
-The icons sit in a grid over the back of the hand (4 columns of 2.4 cm cells, 1.8 cm over the skin). The chosen one is 5 cm,
-7 cm out from the back of the hand, turned 60 % of the way to the eyes. A fingertip within 1.3 cm of an icon's middle chooses
+The icons sit in a grid over the back of the hand (4 columns of 2.4 cm cells, 1.8 cm over the skin). The chosen one is 5 cm, 10 cm
+out along the fingers from the palm's middle and 4.5 cm over them, turned 60 % of the way to the eyes; the choosing never
+looks at it. A fingertip within 1.3 cm of an icon's middle chooses
 it, once, until the finger moves 2.6 cm away. A function can ask for its cell (`slot`, row by row; −1 = the last cell of
 the last row, a corner out of the way); the others fill the free cells in order.
 
