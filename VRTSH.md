@@ -31,7 +31,7 @@ const st = tsh.update(hands, viewerPose.transform.matrix, performance.now());
 st.left.fn;     // the left hand's function now
 st.left.g;      // its gestures: fist, pinch, point, aim, thumbOn, pair, click, palm, back, forward, rayFrom, rayDir, fistFor (s)
 st.left.icons;  // what to draw: { fn, at, x, y, z, size, chosen, hover, big? } (the frame faces the viewer)
-st.events;      // { type: 'choose' | 'fistClose' | 'fistOpen' (at, heldFor) | 'clickDown' | 'pointStart' | 'thumbDown' | 'pairStart', side, ... }
+st.events;      // { type: 'choose' | 'fistClose' | 'fistOpen' (at, heldFor) | 'clickDown' | 'pointStart' | 'thumbDown' | 'pairStart' | 'pinchStart', side, ... }
 ```
 
 `TSH_BONES` lists the joint chains to draw a hand with. `tsh.choose(side, id)`, `tsh.setFunctions(side, list)` and
@@ -62,7 +62,8 @@ depends on the head.
 The icons sit in a grid over the back of the hand (4 columns of 2.4 cm cells, 1.8 cm over the skin). The chosen one is 5 cm, 10 cm
 out along the fingers from the palm's middle and 4.5 cm over them, leaning back 40° toward the wrist (toward you when the
 hand is held up); the choosing never looks at it. A fingertip within 1.3 cm of an icon's middle chooses
-it, once, until the finger moves 2.6 cm away. A function can ask for its cell (`slot`, row by row; −1 = the last cell of
+it, once, until the finger moves 2.6 cm away. A function marked `both` is a **two-handed skill**: chosen on either hand it takes the other hand too, and choosing
+anything else gives that hand back its own function (`tsh.release()` ends it for both). A function can ask for its cell (`slot`, row by row; −1 = the last cell of
 the last row, a corner out of the way); the others fill the free cells in order.
 
 ## In Spider Paint (the VR workshop)

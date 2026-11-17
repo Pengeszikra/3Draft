@@ -138,3 +138,18 @@ test('aiming with the index alone, then the ring finger beside it: "lay it here"
   const t2 = createTsh({ right: [{ id: 'build' }] });
   assert.equal(t2.update({ right: hand('right', W) }, null, 0).events.length, 0);
 });
+
+test('a two-handed skill chosen on one hand takes the other too, and gives it back', () => {
+  const tsh = createTsh({ left: [{ id: 'paint' }, { id: 'grab' }], right: [{ id: 'move' }, { id: 'type', both: true }] });
+  tsh.choose('left', 'grab');
+  tsh.choose('right', 'type');
+  assert.equal(tsh.fn('left')?.id, 'type');
+  assert.equal(tsh.fn('right')?.id, 'type');
+  tsh.choose('right', 'move'); // anything else: the left hand gets its own back
+  assert.equal(tsh.fn('left')?.id, 'grab');
+  tsh.choose('left', 'type'); // (chosen from the other hand's list)
+  assert.equal(tsh.fn('right')?.id, 'type');
+  tsh.release();
+  assert.equal(tsh.fn('left')?.id, 'grab');
+  assert.equal(tsh.fn('right')?.id, 'move');
+});

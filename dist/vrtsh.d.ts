@@ -8,6 +8,9 @@ export interface TshFunction {
     kind?: string;
     /** anything else the program wants to keep with it (a material index, a colour) */
     data?: unknown;
+    /** a two-handed skill: chosen on either hand, it takes the other hand too (choosing anything else gives that hand back its
+     * own function) */
+    both?: boolean;
     /** its place in the grid on the back of the hand (row by row; −1 = the last cell of the last row, out of the way). Functions
      * without one fill the free cells in order. */
     slot?: number;
@@ -83,6 +86,11 @@ export type TshEvent = {
  | {
     type: 'pairStart';
     side: Side;
+}
+/** thumb and index tips come together */
+ | {
+    type: 'pinchStart';
+    side: Side;
 };
 export interface TshHandState {
     seen: boolean;
@@ -144,6 +152,8 @@ export declare const createTsh: (opts?: TshOptions) => {
     fn: (side: Side) => TshFunction | null;
     /** give a hand a function by id (or the first of its list) */
     choose: (side: Side, id: string) => TshFunction | null;
+    /** end a two-handed skill: both hands get back what they had before it */
+    release: () => void;
     /** change a hand's list (the choice stays if it is still there) */
     setFunctions: (side: Side, list: TshFunction[]) => void;
     functions: (side: Side) => TshFunction[];
