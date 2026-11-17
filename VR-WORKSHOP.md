@@ -26,12 +26,33 @@ The **right hand** (the left index fingertip chooses on the back of it):
 | **erase walls** | aim at a panel (it shows red) and straighten the ring finger beside the index |
 | **move** | on the ground: a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). A **flat hand, palm down, fingers straight**: you turn toward where the middle finger points (the farther off, the faster; straight ahead: still) |
 | **fly** | the same as move, and up and down too: a **fist moved nearly straight down** lifts you, **straight up** lowers you, as fast as the hand goes (× 1.5) |
+| **record** (a red dot) | **hold a fist** for 0.7 s: recording starts (the label shows ● rec and the time); again: it stops and the recording is downloaded as a `.vr.json` file |
 | **exit** (a door, in the far corner) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
 
 Every step is one undo (a cube, a move, a paint). When VR ends (and a moment after every change) the scene is saved here as
 **vr workshop** (+ scene list, saved scenes), and the view turns to the workpiece.
 
 The hands are drawn as their bones: cream open, teal for a fist or a pinch, orange while holding an object.
+
+## The VR tape: recording, playing, the live link
+
+What is recorded is exactly what the workshop gets each frame: the head's pose and the 25 joints of each hand (in the room,
+0.1 mm), with the start (the scene, where the room lies in the scene, each hand's function, the material). Playing feeds the
+same frames to the same workshop code, so the scene is built again as the hands did it; the desktop camera follows the
+recorded head (a little behind and above it) and a ghost shows the hands, the head and the icons.
+
+- **Record** in VR with the right hand's record function; the file is downloaded (`vr-<time>.vr.json`).
+- **Play**: the sys **play** button opens a `.vr.json` too (or `vrrec.play(recording)` in code).
+- **The live link** to your own computer, with `tools/vr-link.mjs` (in the 3Draft repo, no dependencies):
+  1. on the computer: `node tools/vr-link.mjs` (a WebSocket server on port 8787; sessions are saved to `vr-recordings/`
+     as `.jsonl` and, when a session ends, as `.vr.json`);
+  2. connect the Quest (USB, or wireless adb) and run `adb reverse tcp:8787 tcp:8787`, so the headset's `localhost:8787`
+     is the computer (an https page may open `ws://localhost`, not a plain `ws://` to another address);
+  3. in the headset open Spider Paint once with `?vrlink=ws://localhost:8787` (it is remembered; `?vrlink=` alone forgets
+     it): from then on every workshop session is sent;
+  4. on the computer open Spider Paint with `?vrwatch=ws://localhost:8787`: it plays what the headset does, live (a page that
+     comes late catches up from the session's start);
+  5. `node tools/vr-link.mjs play vr-recordings/<file>.vr.json` plays a saved session to the watching pages again.
 
 ## Set aside
 
