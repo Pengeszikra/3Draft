@@ -14,7 +14,7 @@ scene list (a floor and a workbench; you stand at the bench), press **VR**, put 
 | **Left pinch in the air** (not on an object) | turns the sculpture (the workpiece) round its middle: sideways = a turntable round the upright axis, up / down = tips it toward you; 10 cm of the hand = a half turn; pinch again to turn on |
 | **Right hand pointing** (index out, the others curled) | a ray from the index finger, a cross where it lands on an object |
 | Pointing + **thumb tucked** to the middle finger | **V**: a saw point where the ray lands. 2 points on one object: the cut along their line, square to the face; 3: their plane. V on two different objects: a bar between the two points |
-| **Right fist** in an object | carves, all the time it is in: along the plane of the hand through the middle of the fist, it takes away what the hand has come through (held still it waits; turning back out does not cut). The plane shows on the object: orange near it, red inside. With V points on the object the first touch cuts their plane at once. One fist = one undo step |
+| **Right fist** near an object | carves as soon as its cut line shows: the plane of the hand through the middle of the fist meets the object (with the fist within 12 cm of it). The first moment cuts there (the bigger piece stays); moving on, it keeps carving and takes away what the hand has come through (held still it waits; turning back out does not cut). With V points on the object the first touch cuts their plane. One fist = one undo step |
 | **UNDO** | takes back the last step (a cut, a move, a paint, a new block) |
 | **DELETE** | removes the workpiece (the last block made, held or cut) |
 
@@ -35,7 +35,8 @@ The hands are drawn as their bones: cream open, teal for a pinch or the left fis
   `Ry(10π·dx) · Rx(−10π·dy)`.
 - **Holding:** at the grab the object's points are taken into the room's frame; every frame they are carried by
   `wrist(now) · wrist(grab)⁻¹` and put back into the scene. One undo step per hold.
-- **Carving:** while the palm's centre is in an object and has moved 2 mm since the last cut (at most every 30 ms), the
+- **Carving:** while the hand's plane meets an object (its cut line is drawn) with the palm's centre within 12 cm of it,
+  the first frame cuts at once; after that, whenever the palm has moved 2 mm since the last cut (at most every 30 ms), the
   object is cut by the palm's plane through it (the normal from the middle metacarpal's frame, smoothed against the
   tracking's tremble, turned to face the way the hand moves). `saw()` splits the mesh into closed solids; the biggest stays,
   but only when it lies ahead of the hand (else nothing is cut, so pulling the fist back out leaves the work alone). Cutting a convex block by planes keeps it convex, so "inside" is "behind every face plane" and the
