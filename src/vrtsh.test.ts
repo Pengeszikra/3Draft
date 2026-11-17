@@ -123,3 +123,18 @@ test('the thumb laid on the straight index', () => {
   assert.equal(f.right.g?.pinch, false);
   assert.deepEqual(f.events.map((e) => e.type), ['thumbDown']);
 });
+
+test('aiming with the index alone, then the ring finger beside it: "lay it here"', () => {
+  const tsh = createTsh({ right: [{ id: 'build' }] });
+  const W: V3 = [0.2, 1.1, -0.3];
+  // the index alone: the others curled (the pointing pose)
+  const alone = tsh.update({ right: hand('right', W, { point: true }) }, null, 0);
+  assert.equal(alone.right.g?.pair, false);
+  // then the other fingers straight too: the ring beside the index
+  const pair = tsh.update({ right: hand('right', W) }, null, 300);
+  assert.equal(pair.right.g?.pair, true);
+  assert.deepEqual(pair.events.map((e) => e.type), ['pairStart']);
+  // an open hand that has not aimed alone lately: no event
+  const t2 = createTsh({ right: [{ id: 'build' }] });
+  assert.equal(t2.update({ right: hand('right', W) }, null, 0).events.length, 0);
+});

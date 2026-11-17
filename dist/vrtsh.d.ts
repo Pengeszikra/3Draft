@@ -27,6 +27,8 @@ export interface TshGestures {
     aim: boolean;
     /** while aiming, the thumb laid along the straight index (on its first two joints, not its tip) */
     thumbOn: boolean;
+    /** the index and the ring finger both straight and pointing the same way (within 20°) */
+    pair: boolean;
     click: boolean;
     /** the palm's middle (smoothed), the normal out of the BACK of the hand, the way the fingers point */
     palm: V3;
@@ -76,6 +78,11 @@ export type TshEvent = {
  | {
     type: 'thumbDown';
     side: Side;
+}
+/** aiming with the index alone (the ring finger bent), then the ring finger straightened beside it: "lay it here" */
+ | {
+    type: 'pairStart';
+    side: Side;
 };
 export interface TshHandState {
     seen: boolean;
@@ -102,6 +109,8 @@ interface Memory {
     click?: boolean;
     aim?: boolean;
     thumbOn?: boolean;
+    pair?: boolean;
+    aloneAt?: number;
     palm?: V3;
     back?: V3;
     rayFrom?: V3;

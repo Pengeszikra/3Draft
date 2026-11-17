@@ -9,7 +9,7 @@ The bench puts you at it: its front edge is 25 cm in front of where you stand.
 
 | Function (icon on the back of the left hand) | What the left hand does with it |
 |---|---|
-| **8 materials** (a little cube of each: plaster, wood, brick, grass, steel, gold, glass, slate) | **poke** a block with the left index fingertip: the whole block takes that material |
+| **8 materials** (a little cube of each, all real materials: wood, brick, blue lacquer, steel, copper, gold, glass, ruby glass) | **poke** a block with the left index fingertip: the whole block takes that material |
 | **grab** (a fist) | a **fist or a pinch** on (or within 4 cm of) an object takes it: it moves and turns with the hand until you let go |
 | **cube** | **close the fist and open it**: a 5 cm cube appears there, on the palm's side, in the last material chosen |
 
@@ -22,8 +22,8 @@ The **right hand** (the left index fingertip chooses on the back of it):
 | Function | What the right hand does with it |
 |---|---|
 | **grab** | the same as the left's |
-| **build walls** | 2 × 2 m panels, a finger thick (2 cm), on a grid of 2 × 2 × 2 m cells; you stand in the middle of one. **Aim** with the index straight: **down** = a floor where the ray meets the floor, **up** = a ceiling where it meets the ceiling, **sideways** = a wall of the cell it points into (tip the finger a little down or up to reach farther). Of that cell's sides, the **side walls along the way you face** (a corridor's walls) come first; the wall across your way only when you point nearly straight along it (within 27°). Not on the sides of your own cell. **Lay the thumb on the straight index** (on its first two joints, not its tip): it is laid there, in the material chosen last. The slot shows as a square: green free, red taken or too close; the floor grid shows round you. The grid's floor is where your feet are (the eyes' height less 1.68 m, for 180 cm); the first panel fixes the grid, until then it goes with you. Up and down a level, the floor and ceiling are the level you are on |
-| **erase walls** | aim at a panel (it shows red) and lay the thumb on the index |
+| **build walls** | 2 × 2 m panels, a finger thick (2 cm), on a grid of 2 × 2 × 2 m cells; you stand in the middle of one. **Aim** with the index alone (the ring finger bent); **straighten the ring finger beside the index** (the two pointing the same way): it is laid there, in the material chosen last. Which slot: the ray's part along each kind, weighted, the biggest wins, in this order: the **side walls along the way you face** (a corridor's walls), the **floor**, the **ceiling**, the **wall across your way**. A wall goes on the near side of the cell where the ray meets the floor or the ceiling (tip the finger to reach farther); not on the sides of your own cell. The slot shows as a square: green free, red taken or too close; the floor grid shows round you. The grid's floor is where your feet are (the eyes' height less 1.68 m, for 180 cm); the first panel fixes the grid, until then it goes with you. Up and down a level, the floor and ceiling are the level you are on |
+| **erase walls** | aim at a panel (it shows red) and straighten the ring finger beside the index |
 | **move** | on the ground: a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). A **flat hand, palm down, fingers straight**: you turn toward where the middle finger points (the farther off, the faster; straight ahead: still) |
 | **fly** | the same as move, and up and down too: a **fist moved nearly straight down** lifts you, **straight up** lowers you, as fast as the hand goes (× 1.5) |
 | **exit** (a door, in the far corner) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
