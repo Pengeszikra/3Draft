@@ -11032,7 +11032,7 @@
           const l = Math.hypot(...o.at);
           if (!l) continue;
           const [r, g, b] = o.color ? hex(o.color) : [1, 1, 1];
-          out.push(o.at[0] / l, o.at[1] / l, o.at[2] / l, r, g, b, o.proto === 'ghost' ? 0.7 : 1, o.proto === 'ghost' ? 9 : 5);
+          out.push(o.at[0] / l, o.at[1] / l, o.at[2] / l, r, g, b, o.proto === 'ghost' ? 0.55 : 1, o.proto === 'ghost' ? 4.5 : 2.6);
         }
         const c = d.cloud;
         if (c?.p) {
@@ -11040,7 +11040,7 @@
             const x = c.p[i * 3], y = c.p[i * 3 + 1], z = c.p[i * 3 + 2], l = Math.hypot(x, y, z);
             if (!l) continue;
             const col = c.c?.[i] ?? 0xffffff;
-            out.push(x / l, y / l, z / l, ((col >> 16) & 255) / 255, ((col >> 8) & 255) / 255, (col & 255) / 255, ((c.l?.[i] ?? 128) / 255) * 0.6, 3);
+            out.push(x / l, y / l, z / l, ((col >> 16) & 255) / 255, ((col >> 8) & 255) / 255, (col & 255) / 255, ((c.l?.[i] ?? 128) / 255) * 0.5, 1.6);
           }
         }
         backdropData.pts = new Float32Array(out);
