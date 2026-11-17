@@ -16,9 +16,15 @@ The bench puts you at it: its front edge is 25 cm in front of where you stand.
 The right index fingertip on an icon of the left hand chooses it (and the left one on the right hand's). The chosen function stands bigger over the fingers, tilted toward you (only a sign:
 touching it does nothing), with its name and the last thing that happened.
 
-The **right hand** has two: **grab** (the same as the left's) and **exit** (a door), in the far corner of its grid, away from
-the middle: choose it with the left index fingertip, then **hold a right fist** for 0.7 s to leave VR (the icon fills up red
-while you hold).
+The **right hand** (the left index fingertip chooses on the back of it):
+
+| Function | What the right hand does with it |
+|---|---|
+| **grab** | the same as the left's |
+| **build walls** | 2 × 2 m panels, a finger thick (2 cm), on a grid of 2 × 2 × 2 m cells; you stand in the middle of one. **Point** (the index out of a fist): **down** = a floor where the ray meets the floor, **up** = a ceiling where it meets the ceiling, **sideways** = a wall on the near side of the cell it points into (tip the finger a little down or up to reach farther). Not on the sides of your own cell. **Click** (the thumb tucked to the middle finger) lays it, in the material chosen last. The slot shows as a square: green free, red taken or too close; the floor grid shows round you. The first panel fixes the grid; until then it goes with you |
+| **erase walls** | point at a panel (it shows red) and click |
+| **move** | a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). A **flat hand, palm down, fingers straight**: you turn toward where the middle finger points (the farther off, the faster; straight ahead: still) |
+| **exit** (a door, in the far corner) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
 
 Every step is one undo (a cube, a move, a paint). When VR ends (and a moment after every change) the scene is saved here as
 **vr workshop** (+ scene list, saved scenes), and the view turns to the workpiece.
@@ -39,5 +45,11 @@ The hands are drawn as their bones: cream open, teal for a fist or a pinch, oran
   planes are convex, so "inside" is "behind every face plane"); a cube is the `fistOpen` event; exit is `fistFor`.
 - The material icons are real little meshes drawn with the scene that frame (one more part for the renderer), so their
   colour and transparency are the material's own; the other icons are canvas pictures on quads.
-- **The room and the scene:** on the ground the room's floor is the scene's floor (y = 0); a bench anchors the room to it.
+- **The room and the scene:** on the ground the room's floor is the scene's floor (y = 0); a bench anchors the room to it,
+  until you move: walking and turning keep the rig where they left you (`xrState.walk`, back to the start when VR ends).
+- **The grid:** an origin (a cell's middle on the floor) and its axes; found again from the first panel there is. A slot is a
+  panel's middle in grid units and the axis it is thin along. Erasing tests the ray against the panels (convex boxes).
+- **Walking:** the fist's places of the last 0.8 s in the upright plane of the way you face; their angle round their middle
+  (rolling forward: it falls) over the time is the speed, 0.25 m per radian. **Turning:** the middle finger's flat direction
+  against the head's, a dead zone of 11°, 1.6 rad/s per radian beyond it, about the head.
   Only loose objects up to 1.5 m across can be taken or painted (not the floor or the bench).
