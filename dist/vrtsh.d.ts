@@ -25,6 +25,8 @@ export interface TshGestures {
     point: boolean;
     /** the index straight, whatever the other fingers do: the pointing ray can be aimed (pointing: the others curled too) */
     aim: boolean;
+    /** while aiming, the thumb laid along the straight index (on its first two joints, not its tip) */
+    thumbOn: boolean;
     click: boolean;
     /** the palm's middle (smoothed), the normal out of the BACK of the hand, the way the fingers point */
     palm: V3;
@@ -69,6 +71,11 @@ export type TshEvent = {
  | {
     type: 'pointStart';
     side: Side;
+}
+/** the thumb laid on the straight index: "this one" (the workshop's trigger for laying and erasing) */
+ | {
+    type: 'thumbDown';
+    side: Side;
 };
 export interface TshHandState {
     seen: boolean;
@@ -94,6 +101,7 @@ interface Memory {
     point?: boolean;
     click?: boolean;
     aim?: boolean;
+    thumbOn?: boolean;
     palm?: V3;
     back?: V3;
     rayFrom?: V3;

@@ -29,9 +29,9 @@ const tsh = createTsh({
 const hands = readHands(session, frame, refSpace); // { left?, right? }: joints by WebXR name, the wrist's pose
 const st = tsh.update(hands, viewerPose.transform.matrix, performance.now());
 st.left.fn;     // the left hand's function now
-st.left.g;      // its gestures: fist, pinch, point, aim, click, palm, back, forward, rayFrom, rayDir, fistFor (s)
+st.left.g;      // its gestures: fist, pinch, point, aim, thumbOn, click, palm, back, forward, rayFrom, rayDir, fistFor (s)
 st.left.icons;  // what to draw: { fn, at, x, y, z, size, chosen, hover, big? } (the frame faces the viewer)
-st.events;      // { type: 'choose' | 'fistClose' | 'fistOpen' (at, heldFor) | 'clickDown' | 'pointStart', side, ... }
+st.events;      // { type: 'choose' | 'fistClose' | 'fistOpen' (at, heldFor) | 'clickDown' | 'pointStart' | 'thumbDown', side, ... }
 ```
 
 `TSH_BONES` lists the joint chains to draw a hand with. `tsh.choose(side, id)`, `tsh.setFunctions(side, list)` and
@@ -43,7 +43,8 @@ st.events;      // { type: 'choose' | 'fistClose' | 'fistOpen' (at, heldFor) | '
   above 1.35).
 - **Pinch:** thumb and index tips within 1.8 cm (let go at 3.5 cm).
 - **Aim:** the index straight (> 1.7), whatever the others do. **Pointing:** the index straight with the other three curled
-  (< 1.15); its start is the `pointStart` event ("this one"). **Click:** while pointing, the thumb's tip within 3 cm of the
+  (< 1.15); its start is the `pointStart` event ("this one"). **Thumb on:** while aiming, the thumb's tip within 2.5 cm of
+  the index between its knuckle and its last joint (let go at 4 cm); its start is `thumbDown`. **Click:** while pointing, the thumb's tip within 3 cm of the
   middle finger.
 - **The back of the hand:** (index metacarpal − wrist) × (pinky metacarpal − wrist), turned round for the right hand
   (the hands are mirrored). The palm's middle, the back and the pointing ray are smoothed against the tracking's tremble;

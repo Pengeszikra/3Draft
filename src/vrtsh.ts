@@ -36,6 +36,8 @@ export interface TshGestures {
   point: boolean;
   /** the index straight, whatever the other fingers do: the pointing ray can be aimed (pointing: the others curled too) */
   aim: boolean;
+  /** while aiming, the thumb laid along the straight index (on its first two joints, not its tip) */
+  thumbOn: boolean;
   click: boolean;
   /** the palm's middle (smoothed), the normal out of the BACK of the hand, the way the fingers point */
   palm: V3;
@@ -68,7 +70,9 @@ export type TshEvent =
   | { type: 'fistOpen'; side: Side; at: V3; heldFor: number }
   | { type: 'clickDown'; side: Side }
   /** the other three fingers curled while the index points: "this one" */
-  | { type: 'pointStart'; side: Side };
+  | { type: 'pointStart'; side: Side }
+  /** the thumb laid on the straight index: "this one" (the workshop's trigger for laying and erasing) */
+  | { type: 'thumbDown'; side: Side };
 
 export interface TshHandState {
   seen: boolean;
@@ -138,7 +142,7 @@ export const readHands = (session: { inputSources: Iterable<any> }, frame: any, 
 };
 
 interface Memory {
-  fist?: boolean; pinch?: boolean; point?: boolean; click?: boolean; aim?: boolean;
+  fist?: boolean; pinch?: boolean; point?: boolean; click?: boolean; aim?: boolean; thumbOn?: boolean;
   palm?: V3; back?: V3; rayFrom?: V3; rayDir?: V3;
   fistSince?: number;
 }
@@ -159,6 +163,17 @@ export const handGestures = (side: Side, h: TshHand, mem: Memory, now: number): 
   // pointing: the index straight, the other three curled
   mem.point = mem.point ? curls[0] > 1.5 && others < 1.35 : curls[0] > 1.7 && others < 1.15;
   mem.aim = mem.aim ? curls[0] > 1.5 : curls[0] > 1.7;
+  // the thumb on the index: its tip near the index between the knuckle and the last joint (the tip itself is a pinch)
+  {
+    const p0 = j['index-finger-phalanx-proximal'], p1 = j['index-finger-phalanx-distal'] ?? j['index-finger-phalanx-intermediate'];
+    let gap = 9;
+    if (p0 && p1) {
+      const seg = sub(p1, p0), l2 = Math.max(1e-9, dot(seg, seg));
+      const t = Math.max(0, Math.min(1, dot(sub(j['thumb-tip'], p0), seg) / l2));
+      gap = len(sub(j['thumb-tip'], add(p0, mul(seg, t))));
+    }
+    mem.thumbOn = mem.aim && (mem.thumbOn ? gap < 0.04 : gap < 0.025);
+  }
   mem.fist = !mem.point && (mem.fist ? curl < 1.35 : curl < 1.1);
   const pinchGap = len(sub(j['thumb-tip'], j['index-finger-tip']));
   mem.pinch = !mem.fist && !mem.point && (mem.pinch ? pinchGap < 0.035 : pinchGap < 0.018);
@@ -179,7 +194,7 @@ export const handGestures = (side: Side, h: TshHand, mem: Memory, now: number): 
   if (mem.fist) mem.fistSince ??= now;
   else mem.fistSince = undefined;
   return {
-    fist: mem.fist, pinch: mem.pinch, point: mem.point, click: mem.click, aim: mem.aim,
+    fist: mem.fist, pinch: mem.pinch, point: mem.point, click: mem.click, aim: mem.aim, thumbOn: mem.thumbOn,
     palm: mem.palm, back: mem.back, forward,
     rayFrom: mem.rayFrom ?? null, rayDir: mem.rayDir ?? null,
     fistFor: mem.fistSince !== undefined ? (now - mem.fistSince) / 1000 : 0,
@@ -214,6 +229,7 @@ export const createTsh = (opts: TshOptions = {}) => {
   const wasFist: Record<Side, number> = { left: 0, right: 0 };
   const wasClick: Record<Side, boolean> = { left: false, right: false };
   const wasPoint: Record<Side, boolean> = { left: false, right: false };
+  const wasThumb: Record<Side, boolean> = { left: false, right: false };
   const columns = opts.columns ?? 4, cell = opts.cell ?? 0.024, lift = opts.lift ?? 0.018;
   const bigSize = opts.bigSize ?? 0.05, bigAhead = opts.bigAhead ?? 0.1, bigOut = opts.bigOut ?? 0.045, reach = opts.reach ?? 0.013;
 
@@ -301,6 +317,8 @@ export const createTsh = (opts: TshOptions = {}) => {
       wasClick[side] = g.click;
       if (g.point && !wasPoint[side]) events.push({ type: 'pointStart', side });
       wasPoint[side] = g.point;
+      if (g.thumbOn && !wasThumb[side]) events.push({ type: 'thumbDown', side });
+      wasThumb[side] = g.thumbOn;
     }
     // choosing: the other hand's index fingertip on an icon (once, until it leaves)
     for (const side of ['left', 'right'] as Side[]) {

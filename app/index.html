@@ -10274,8 +10274,8 @@
     // Point (the index out of a fist): down = a floor panel where the ray meets the floor, up = a ceiling panel where it meets the
     // ceiling, sideways = a wall on the near side of the cell it points into (tip the finger a little down or up to reach
     // farther: where the ray meets the floor or the ceiling decides the cell; level: 8 m). Not on the sides of your own cell. A
-    // click (the thumb tucked to the middle finger) lays it, a finger thick (2 cm), in the material chosen last. Erasing: point
-    // at a panel and click.
+    // thumb laid on the straight index lays it, a finger thick (2 cm), in the material chosen last. Erasing: aim at a panel and
+    // lay the thumb on the index.
     const GRID = 2, PANEL_T = 0.02;
     const EYE_HEIGHT = 1.68; // m: the eyes of a 180 cm person, standing
     // the grid: an origin (a cell's middle on the floor) and its axes, in the scene
@@ -10370,10 +10370,10 @@
       const grid = xrGrid(ws, head, R2S);
       if (!grid) return;
       ws.build = { grid, kind, ray: null, slot: null, target: null };
-      // aim with the index straight (the other fingers as they like); curl the other three: lay it there (or erase it)
+      // aim with the index straight (the other fingers as they like); lay the thumb on the index: lay it there (or erase it)
       if (!(g.aim || g.point) || g.fist || !g.rayFrom) return;
       const from = R2S.p(g.rayFrom), dir = v3.unit(R2S.d(g.rayDir));
-      const clicked = st.events.some((e) => e.type === 'pointStart' && e.side === 'right');
+      const clicked = st.events.some((e) => e.type === 'thumbDown' && e.side === 'right');
       if (kind === 'build') {
         const headG = head ? toGrid(grid, R2S.p([head[12], head[13], head[14]])) : toGrid(grid, from);
         const headFw = head ? v3.unit(R2S.d(v3.unit([-head[8], 0, -head[10]]))) : grid.Z.map((x) => -x);
@@ -10773,7 +10773,7 @@
           if (ic.big) {
             // the chosen function's name under its big icon (and the last thing that happened)
             const note = ((ic.fn.kind === 'move' || ic.fn.kind === 'fly') && ws.moving) || (ws.note && now - (ws.noteAt ?? 0) < 3000 ? ws.note : '');
-            const label = { exit: 'exit VR · hold a fist', cube: 'cube · open the fist', grab: 'grab · fist or pinch', build: 'walls · aim, curl the fingers', erase: 'erase · aim, curl the fingers', move: 'move · fist circles, flat hand turns', fly: 'fly · circles, turns, fist up / down' }[ic.fn.kind] ?? `${ic.fn.label} · poke a block`;
+            const label = { exit: 'exit VR · hold a fist', cube: 'cube · open the fist', grab: 'grab · fist or pinch', build: 'walls · aim, thumb on the index', erase: 'erase · aim, thumb on the index', move: 'move · fist circles, flat hand turns', fly: 'fly · circles, turns, fist up / down' }[ic.fn.kind] ?? `${ic.fn.label} · poke a block`;
             const tex = xrPanelTex(gl, `label-${side}`, 640, 96, `${label}|${note}`, (c, W, H) => {
               c.fillStyle = 'rgba(14, 15, 12, 0.78)';
               c.beginPath();

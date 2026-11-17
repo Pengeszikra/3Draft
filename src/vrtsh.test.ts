@@ -111,3 +111,15 @@ test('the icons hang on the wrist: shaken finger joints do not move them', () =>
     assert.ok(d < 0.002, `${a[i].fn.id}${a[i].big ? ' (big)' : ''} moved ${d}`);
   }
 });
+
+test('the thumb laid on the straight index', () => {
+  const tsh = createTsh({ right: [{ id: 'build' }] });
+  const h = hand('right', [0.2, 1.1, -0.3]);
+  assert.equal(tsh.update({ right: h }, null, 0).right.g?.thumbOn, false);
+  // the thumb's tip on the index between its knuckle and its last joint, 1 cm off it
+  const on = { ...h, joints: { ...h.joints, 'thumb-tip': [h.joints['index-finger-phalanx-intermediate'][0] - 0.01, 1.11, h.joints['index-finger-phalanx-intermediate'][2]] as V3 } };
+  const f = tsh.update({ right: on }, null, 16);
+  assert.equal(f.right.g?.thumbOn, true);
+  assert.equal(f.right.g?.pinch, false);
+  assert.deepEqual(f.events.map((e) => e.type), ['thumbDown']);
+});
