@@ -218,11 +218,37 @@ export const createTsh = (opts: TshOptions = {}) => {
   const bigSize = opts.bigSize ?? 0.05, bigAhead = opts.bigAhead ?? 0.1, bigOut = opts.bigOut ?? 0.045, reach = opts.reach ?? 0.013;
 
   /** where the icons of a hand sit: a grid over the back of the hand, the chosen one big in front of it, tilted to the eyes */
-  const layout = (side: Side, g: TshGestures, head: V3 | null): TshIcon[] => {
+  // The icons hang on the WRIST's tracked pose only: the back of the hand, the way the fingers point and the palm's middle are
+  // kept in the wrist's own frame, averaged slowly (they are the hand's shape, they do not change), and carried by the wrist.
+  // So another hand coming near (which can shake the finger joints' tracking) does not turn or shift them.
+  const onHand: Record<Side, { back: V3; fwd: V3; palm: V3 } | null> = { left: null, right: null };
+  const inWrist = (m: M4, v: V3, point: boolean): V3 => {
+    const d: V3 = point ? [v[0] - m[12], v[1] - m[13], v[2] - m[14]] : v;
+    return [m[0] * d[0] + m[1] * d[1] + m[2] * d[2], m[4] * d[0] + m[5] * d[1] + m[6] * d[2], m[8] * d[0] + m[9] * d[1] + m[10] * d[2]];
+  };
+  const byWrist = (m: M4, v: V3, point: boolean): V3 => {
+    const r: V3 = [m[0] * v[0] + m[4] * v[1] + m[8] * v[2], m[1] * v[0] + m[5] * v[1] + m[9] * v[2], m[2] * v[0] + m[6] * v[1] + m[10] * v[2]];
+    return point ? [r[0] + m[12], r[1] + m[13], r[2] + m[14]] : r;
+  };
+  const learnHand = (side: Side, h: TshHand, g: TshGestures) => {
+    const now = { back: inWrist(h.wrist, g.back, false), fwd: inWrist(h.wrist, g.forward, false), palm: inWrist(h.wrist, g.palm, true) };
+    const was = onHand[side];
+    // (a fist folds the fingers: learn from an open hand only, after the first look)
+    if (was && (g.fist || g.point)) return;
+    const k = was ? 0.01 : 1;
+    onHand[side] = was
+      ? { back: unit(lerp(was.back, now.back, k)), fwd: unit(lerp(was.fwd, now.fwd, k)), palm: lerp(was.palm, now.palm, k) }
+      : now;
+  };
+
+  const layout = (side: Side, g: TshGestures, h: TshHand): TshIcon[] => {
     const list = fns[side];
     if (list.length < 2) return []; // (one function: nothing to choose)
-    const z = g.back;
-    const y = unit(sub(g.forward, mul(z, dot(g.forward, z))));
+    const local = onHand[side];
+    const z = local ? unit(byWrist(h.wrist, local.back, false)) : g.back;
+    const fwd = local ? byWrist(h.wrist, local.fwd, false) : g.forward;
+    const palm = local ? byWrist(h.wrist, local.palm, true) : g.palm;
+    const y = unit(sub(fwd, mul(z, dot(fwd, z))));
     // x to the viewer's right when the back of the hand faces them (mirrored for the left hand's thumb side, which is fine)
     const x = cross(y, z);
     // the cells: fixed slots first, the rest in order (−1: the last cell of the last row, a corner, away from the middle)
@@ -238,7 +264,7 @@ export const createTsh = (opts: TshOptions = {}) => {
       cells.set(fn, next);
       taken.add(next);
     }
-    const centre = add(g.palm, mul(z, lift));
+    const centre = add(palm, mul(z, lift));
     const icons: TshIcon[] = list.map((fn) => {
       const i = cells.get(fn)!;
       const c = i % columns, r = Math.floor(i / columns);
@@ -247,12 +273,12 @@ export const createTsh = (opts: TshOptions = {}) => {
     });
     const fn = chosen[side];
     if (fn) {
-      // the big one: in front of the back of the hand, over the fingers, turned most of the way to the eyes (a sign only: the
-      // choosing below never looks at it)
-      const at = add(g.palm, add(mul(y, bigAhead), mul(z, bigOut)));
-      const toEye = head ? unit(sub(head, at)) : z;
-      const bz = unit(lerp(z, toEye, 0.6));
-      const by = unit(sub(y, mul(bz, dot(y, bz))));
+      // the big one: in front of the back of the hand, over the fingers, leaning back toward the wrist by 40° (toward you when
+      // the hand is held up in front of you); fixed on the hand like the rest (a sign only: the choosing never looks at it)
+      const at = add(palm, add(mul(y, bigAhead), mul(z, bigOut)));
+      const lean = (40 * Math.PI) / 180;
+      const bz = unit(sub(mul(z, Math.cos(lean)), mul(y, Math.sin(lean))));
+      const by = unit(cross(bz, x));
       icons.push({ fn, at, x: cross(by, bz), y: by, z: bz, size: bigSize, chosen: true, hover: false, big: true });
     }
     return icons;
@@ -265,7 +291,8 @@ export const createTsh = (opts: TshOptions = {}) => {
     for (const side of ['left', 'right'] as Side[]) {
       const h = hands[side];
       const g = h ? handGestures(side, h, mem[side], now) : null;
-      state[side] = { seen: Boolean(h), fn: chosen[side], g, icons: g ? layout(side, g, hp) : [] };
+      if (h && g) learnHand(side, h, g);
+      state[side] = { seen: Boolean(h), fn: chosen[side], g, icons: h && g ? layout(side, g, h) : [] };
       if (!g) continue;
       if (g.fist && !wasFist[side]) events.push({ type: 'fistClose', side });
       if (!g.fist && wasFist[side]) events.push({ type: 'fistOpen', side, at: g.palm, heldFor: wasFist[side] });
@@ -295,7 +322,7 @@ export const createTsh = (opts: TshOptions = {}) => {
           if (chosen[side] !== near.fn) {
             chosen[side] = near.fn;
             events.push({ type: 'choose', side, fn: near.fn });
-            state[side] = { ...state[side], fn: near.fn, icons: layout(side, state[side].g!, hp) };
+            state[side] = { ...state[side], fn: near.fn, icons: layout(side, state[side].g!, hands[side]!) };
           }
         }
         for (const ic of state[side].icons) ic.hover = !ic.big && ic.fn.id === near.fn.id;

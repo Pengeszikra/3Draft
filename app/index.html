@@ -10265,6 +10265,7 @@
         { id: 'build', label: 'build walls', kind: 'build' },
         { id: 'erase', label: 'erase walls', kind: 'erase' },
         { id: 'move', label: 'move', kind: 'move' },
+        { id: 'fly', label: 'fly', kind: 'fly' },
         { id: 'exit', label: 'exit VR', kind: 'exit', slot: -1 },
       ],
     });
@@ -10415,7 +10416,7 @@
     const xrMove = (ws, st, hands, head, now, done) => {
       const R = st.right, g = R.g;
       ws.moving = null;
-      if (R.fn?.kind !== 'move' || !g || !head) {
+      if ((R.fn?.kind !== 'move' && R.fn?.kind !== 'fly') || !g || !head) {
         ws.circle = [];
         ws.walkV = 0;
         ws.upV = 0;
@@ -10460,7 +10461,7 @@
         const vel = v3.mul(v3.sub(g.palm, ws.lastFist), 1 / dt);
         ws.fistVel = ws.fistVel ? v3.add(ws.fistVel, v3.mul(v3.sub(vel, ws.fistVel), Math.min(1, dt * 10))) : vel;
         const fv = ws.fistVel, across = Math.hypot(fv[0], fv[2]);
-        if (!v && Math.abs(fv[1]) > 0.12 && across < 0.5 * Math.abs(fv[1])) up = -fv[1] * 1.5;
+        if (R.fn.kind === 'fly' && !v && Math.abs(fv[1]) > 0.12 && across < 0.5 * Math.abs(fv[1])) up = -fv[1] * 1.5;
       } else ws.fistVel = null;
       ws.lastFist = g.fist ? g.palm : null;
       ws.upV = (ws.upV ?? 0) + (up - (ws.upV ?? 0)) * Math.min(1, dt * 8);
@@ -10657,6 +10658,21 @@
           c.lineTo(20 * u, 80 * u);
           c.stroke();
         }
+      } else if (kind === 'fly') {
+        // a circle and arrows up and down
+        c.beginPath();
+        c.arc(36 * u, 50 * u, 18 * u, Math.PI * 0.25, Math.PI * 1.9);
+        c.stroke();
+        c.beginPath();
+        c.moveTo(74 * u, 22 * u);
+        c.lineTo(74 * u, 78 * u);
+        c.moveTo(64 * u, 32 * u);
+        c.lineTo(74 * u, 22 * u);
+        c.lineTo(84 * u, 32 * u);
+        c.moveTo(64 * u, 68 * u);
+        c.lineTo(74 * u, 78 * u);
+        c.lineTo(84 * u, 68 * u);
+        c.stroke();
       } else if (kind === 'move') {
         // a circle rolling forward, an arrow ahead
         c.beginPath();
@@ -10756,8 +10772,8 @@
           }
           if (ic.big) {
             // the chosen function's name under its big icon (and the last thing that happened)
-            const note = (ic.fn.kind === 'move' && ws.moving) || (ws.note && now - (ws.noteAt ?? 0) < 3000 ? ws.note : '');
-            const label = { exit: 'exit VR · hold a fist', cube: 'cube · open the fist', grab: 'grab · fist or pinch', build: 'walls · point, click', erase: 'erase · point, click', move: 'move · fist circles, flat hand turns' }[ic.fn.kind] ?? `${ic.fn.label} · poke a block`;
+            const note = ((ic.fn.kind === 'move' || ic.fn.kind === 'fly') && ws.moving) || (ws.note && now - (ws.noteAt ?? 0) < 3000 ? ws.note : '');
+            const label = { exit: 'exit VR · hold a fist', cube: 'cube · open the fist', grab: 'grab · fist or pinch', build: 'walls · aim, curl the fingers', erase: 'erase · aim, curl the fingers', move: 'move · fist circles, flat hand turns', fly: 'fly · circles, turns, fist up / down' }[ic.fn.kind] ?? `${ic.fn.label} · poke a block`;
             const tex = xrPanelTex(gl, `label-${side}`, 640, 96, `${label}|${note}`, (c, W, H) => {
               c.fillStyle = 'rgba(14, 15, 12, 0.78)';
               c.beginPath();

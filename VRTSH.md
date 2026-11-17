@@ -51,9 +51,14 @@ st.events;      // { type: 'choose' | 'fistClose' | 'fistOpen' (at, heldFor) | '
 
 ## Layout
 
+The icons hang on the **wrist's tracked pose only**: the back of the hand, the way the fingers point and the palm's middle
+are learnt in the wrist's own frame (from the open hand, averaged slowly: they are the hand's shape) and carried by the
+wrist. Another hand coming near, which can shake the finger joints' tracking, does not turn or shift them, and nothing
+depends on the head.
+
 The icons sit in a grid over the back of the hand (4 columns of 2.4 cm cells, 1.8 cm over the skin). The chosen one is 5 cm, 10 cm
-out along the fingers from the palm's middle and 4.5 cm over them, turned 60 % of the way to the eyes; the choosing never
-looks at it. A fingertip within 1.3 cm of an icon's middle chooses
+out along the fingers from the palm's middle and 4.5 cm over them, leaning back 40° toward the wrist (toward you when the
+hand is held up); the choosing never looks at it. A fingertip within 1.3 cm of an icon's middle chooses
 it, once, until the finger moves 2.6 cm away. A function can ask for its cell (`slot`, row by row; −1 = the last cell of
 the last row, a corner out of the way); the others fill the free cells in order.
 

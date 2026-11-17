@@ -13,7 +13,8 @@ The bench puts you at it: its front edge is 25 cm in front of where you stand.
 | **grab** (a fist) | a **fist or a pinch** on (or within 4 cm of) an object takes it: it moves and turns with the hand until you let go |
 | **cube** | **close the fist and open it**: a 5 cm cube appears there, on the palm's side, in the last material chosen |
 
-The right index fingertip on an icon of the left hand chooses it (and the left one on the right hand's). The chosen function stands bigger over the fingers, tilted toward you (only a sign:
+The right index fingertip on an icon of the left hand chooses it (and the left one on the right hand's). The icons hang on
+the wrist's tracked pose only, so the other hand coming near does not turn them. The chosen function stands bigger over the fingers, tilted toward you (only a sign:
 touching it does nothing), with its name and the last thing that happened.
 
 The **right hand** (the left index fingertip chooses on the back of it):
@@ -23,7 +24,8 @@ The **right hand** (the left index fingertip chooses on the back of it):
 | **grab** | the same as the left's |
 | **build walls** | 2 × 2 m panels, a finger thick (2 cm), on a grid of 2 × 2 × 2 m cells; you stand in the middle of one. **Aim** with the index straight: **down** = a floor where the ray meets the floor, **up** = a ceiling where it meets the ceiling, **sideways** = a wall of the cell it points into (tip the finger a little down or up to reach farther). Of that cell's sides, the **side walls along the way you face** (a corridor's walls) come first; the wall across your way only when you point nearly straight along it (within 27°). Not on the sides of your own cell. **Curl the other three fingers** (the index still pointing): it is laid there, in the material chosen last. The slot shows as a square: green free, red taken or too close; the floor grid shows round you. The grid's floor is where your feet are (the eyes' height less 1.68 m, for 180 cm); the first panel fixes the grid, until then it goes with you. Up and down a level, the floor and ceiling are the level you are on |
 | **erase walls** | aim at a panel (it shows red) and curl the other three fingers |
-| **move** | a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). A **fist moved nearly straight down** lifts you, **straight up** lowers you, as fast as the hand goes (× 1.5). A **flat hand, palm down, fingers straight**: you turn toward where the middle finger points (the farther off, the faster; straight ahead: still) |
+| **move** | on the ground: a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). A **flat hand, palm down, fingers straight**: you turn toward where the middle finger points (the farther off, the faster; straight ahead: still) |
+| **fly** | the same as move, and up and down too: a **fist moved nearly straight down** lifts you, **straight up** lowers you, as fast as the hand goes (× 1.5) |
 | **exit** (a door, in the far corner) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
 
 Every step is one undo (a cube, a move, a paint). When VR ends (and a moment after every change) the scene is saved here as

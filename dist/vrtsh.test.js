@@ -91,3 +91,18 @@ test('aiming with the index, then curling the other fingers is "this one"', () =
     assert.deepEqual(p.events.map((e) => e.type), ['pointStart']);
     assert.equal(tsh.update({ right: hand('right', [0.2, 1.1, -0.3], { point: true }) }, null, 32).events.length, 0);
 });
+test('the icons hang on the wrist: shaken finger joints do not move them', () => {
+    const tsh = createTsh({ left: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }] });
+    const left = hand('left', [-0.2, 1.1, -0.3]);
+    const a = tsh.update({ left }, null, 0).left.icons;
+    // another hand comes near: the metacarpals and knuckles jump 2 cm (the tracking shakes); the wrist stays
+    const shaken = { ...left, joints: { ...left.joints } };
+    for (const f of ['index-finger', 'pinky-finger'])
+        for (const k of ['metacarpal', 'phalanx-proximal'])
+            shaken.joints[`${f}-${k}`] = [shaken.joints[`${f}-${k}`][0], shaken.joints[`${f}-${k}`][1] + 0.02, shaken.joints[`${f}-${k}`][2]];
+    const b = tsh.update({ left: shaken }, null, 16).left.icons;
+    for (let i = 0; i < a.length; i++) {
+        const d = Math.hypot(a[i].at[0] - b[i].at[0], a[i].at[1] - b[i].at[1], a[i].at[2] - b[i].at[2]);
+        assert.ok(d < 0.002, `${a[i].fn.id}${a[i].big ? ' (big)' : ''} moved ${d}`);
+    }
+});
