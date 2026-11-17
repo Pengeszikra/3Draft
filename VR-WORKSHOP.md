@@ -2,14 +2,14 @@
 
 A modelling corner in VR, driven only by the hands (the Quest's hand tracking, no controllers), on **VRTSH** (`VRTSH.md`):
 each hand always has one function; its icons are on the back of the hand and the other hand's index fingertip chooses one.
-Pick **VR workshop** in the scene list (a floor and a workbench), press **VR**, put the controllers down and show your hands.
+Pick **VR workshop** in the scene list (a floor, a workbench, the LARK-4C lander 10 m ahead, the deep sky far behind it all), press **VR**, put the controllers down and show your hands.
 The bench puts you at it: its front edge is 25 cm in front of where you stand.
 
 ## The hands
 
 | Function (icon on the back of the left hand) | What the left hand does with it |
 |---|---|
-| **8 materials** (a little cube of each, all real materials: wood, brick, blue lacquer, steel, copper, gold, glass, ruby glass) | **poke** a block with the left index fingertip: the whole block takes that material |
+| **8 materials** (a little cube of each, all real materials: wood, brick, blue lacquer, steel, copper, gold, glass, ruby glass) | **poke** an object with the left index fingertip: the whole of it takes that material (blocks, walls, letters, the Lark's parts) |
 | **grab** (a fist) | a **fist or a pinch** on (or within 4 cm of) an object takes it: it moves and turns with the hand until you let go |
 | **block between the hands** (two-handed) | put the two open hands together, pull them apart: a block grows between them (the palms its opposite corners, in the frame you face); as soon as the hands nearly stop (both slower than 12 cm/s for a quarter second) it stays. Hands back together before that: it is gone |
 | **cube** | **close the fist and open it**: a 5 cm cube appears there, on the palm's side, in the last material chosen |
@@ -29,7 +29,7 @@ The **right hand** (the left index fingertip chooses on the back of it):
 | **build walls** (two-handed) | 2 × 2 m panels, a finger thick (2 cm), on a grid of 2 × 2 × 2 m cells; you stand in the middle of one. The **right hand aims** with the index straight, a **left pinch lays** the panel there, in the material chosen last. Which slot: the ray's part along each kind, weighted, the biggest wins, in this order: the **side walls along the way you face**, the **floor**, the **ceiling**, the **wall across your way**. A wall goes on the near side of the cell where the ray meets the floor or the ceiling (tip the finger to reach farther); not on the sides of your own cell. The slot shows as a square: green free, red taken or too close; the floor grid shows round you. The grid's floor is where your feet are (the eyes' height less 1.68 m, for 180 cm); the first panel fixes the grid |
 | **erase walls** (two-handed) | the right hand aims at a panel (it shows red), a left pinch erases it |
 | **saw** | a **fist**: its blade is the plane of the hand through the middle of the fist. Where it meets an object (the fist within 12 cm of it) the cut line shows red and it cuts there at once (the bigger piece stays); moving on it keeps cutting, taking away what the hand has come through. One fist = one undo step; a cut that would leave a broken solid is not made |
-| **type** (two-handed) | first a point on a surface: the right hand aims at it, a left pinch takes it. Then a **ring of keys** stands round you at hand height: the most used letters in front, the rarer ones farther round (alternately right and left), digits and signs after them, **esc** and **exit** at the back; **space**, **del** and **enter** near the front. A **fingertip on a key** types it; a **left pinch moved sideways** turns the ring. The words stand out of the surface at the point (8 cm letters, the material chosen last); what you have typed shows over the front of the ring. **enter** a new line, **del** the last letter, **esc** the words go (take a new point), **exit** the words stay and both hands get back their own functions |
+| **type** (two-handed) | first a point on a surface: the right hand aims at it, a left pinch takes it. Then a **plain keyboard** (QWERTZ, as in Hungary: digits and del, Q–P and +, A–L and enter, Y–M and , . - /, then esc, ? !, a wide space, : ' _ and exit) lies in front of you at hand height, tilted toward you. A **fingertip on a key** types it. The words stand out of the surface at the point (8 cm letters, the material chosen last); what you have typed shows over the keyboard. **enter** a new line, **del** the last letter, **esc** the words go (take a new point), **exit** the words stay and both hands get back their own functions |
 | **move** | on the ground: a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). An **upright hand** (in a wall's plane, fingers straight and together, like a blade): you turn toward where it points (the farther off, the faster; straight ahead: still) |
 | **fly** | the same as move, and up and down too: a **fist moved nearly straight down** lifts you, **straight up** lowers you, as fast as the hand goes (× 1.5) |
 | **record** (a red dot) | **hold a fist** for 0.7 s: recording starts (the label shows ● rec and the time); again: it stops and the recording is downloaded as a `.vr.json` file |
@@ -72,6 +72,12 @@ recorded head (a little behind and above it) and a ghost shows the hands, the he
   planes are convex, so "inside" is "behind every face plane"); a cube is the `fistOpen` event; exit is `fistFor`.
 - The material icons are real little meshes drawn with the scene that frame (one more part for the renderer), so their
   colour and transparency are the material's own; the other icons are canvas pictures on quads.
+- **The sky behind:** a scene's `backdrop: 'deepsky'` puts the deep sky's stars, galaxies and glowing cloud 400 m out round
+  you in the headset, fixed in the scene's directions (they turn with the near scene when you turn); only to look at: no
+  objects, no targets. Drawn after the scene with the depth test on.
+- **What a hand may take, paint or cut:** every loose object of any size, the Lark's parts too (not the floor or the bench).
+  A point is on an object by its box (kept per mesh), and for a simple solid (up to 14 faces: blocks, panels, carved blocks)
+  behind every face plane; a complex one (letters, a ship's part) counts by its box.
 - **The room and the scene:** on the ground the room's floor is the scene's floor (y = 0); a bench anchors the room to it,
   until you move: walking and turning keep the rig where they left you (`xrState.walk`, back to the start when VR ends).
 - **The grid:** an origin (a cell's middle on the floor) and its axes; found again from the first panel there is. A slot is a
