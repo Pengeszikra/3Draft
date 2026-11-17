@@ -11,9 +11,10 @@ scene list (a floor and a workbench; you stand at the bench), press **VR**, put 
 | **CUBE** | a 15 cm block appears in front of you, in the selected material |
 | A **colour** of the palette | paints the workpiece; new blocks and new cut faces take it too |
 | **Left fist or pinch** on (or within 4 cm of) an object | takes it: it moves and turns with your hand until you let go |
+| **Left pinch in the air** (not on an object) | turns the sculpture (the workpiece) round its middle: sideways = a turntable round the upright axis, up / down = tips it toward you; 10 cm of the hand = a half turn; pinch again to turn on |
 | **Right hand pointing** (index out, the others curled) | a ray from the index finger, a cross where it lands on an object |
 | Pointing + **thumb tucked** to the middle finger | **V**: a saw point where the ray lands. 2 points on one object: the cut along their line, square to the face; 3: their plane. V on two different objects: a bar between the two points |
-| **Right fist** pulled through an object | the saw. The cut line is shown on the object before you cut (orange while aiming, red once it is fixed): the V points' plane, or else your hand's plane at the moment the fist goes in. Out on the other side it cuts there; the smaller piece is gone |
+| **Right fist** in an object | carves, all the time it is in: along the plane of the hand through the middle of the fist, it takes away what the hand has come through (held still it waits; turning back out does not cut). The plane shows on the object: orange near it, red inside. With V points on the object the first touch cuts their plane at once. One fist = one undo step |
 | **UNDO** | takes back the last step (a cut, a move, a paint, a new block) |
 | **DELETE** | removes the workpiece (the last block made, held or cut) |
 
@@ -30,12 +31,14 @@ The hands are drawn as their bones: cream open, teal for a pinch or the left fis
   in the room's reference space (metres).
 - **Fist:** the fingertips' mean distance to the wrist, against the knuckles' (open ≈ 1.9, fist < 1.1, let go above 1.35).
   **Pinch:** thumb and index tips closer than 1.8 cm (let go at 3.5 cm).
+- **Turning:** a pinch in the air takes the workpiece's points into the room's frame and turns them about its middle:
+  `Ry(10π·dx) · Rx(−10π·dy)`.
 - **Holding:** at the grab the object's points are taken into the room's frame; every frame they are carried by
   `wrist(now) · wrist(grab)⁻¹` and put back into the scene. One undo step per hold.
-- **Cutting:** the plane is fixed before the cut, and shown (`sectionSegments`): the V points' plane, or the palm's plane
-  (its middle and its normal from the middle metacarpal's frame, both smoothed against the tracking's tremble) at the moment
-  the palm's centre enters the object. Leaving the object cuts there: `saw()` splits the mesh into closed solids and the
-  biggest by volume stays. Cutting a convex block by planes keeps it convex, so "inside" is "behind every face plane" and the
+- **Carving:** while the palm's centre is in an object and has moved 2 mm since the last cut (at most every 30 ms), the
+  object is cut by the palm's plane through it (the normal from the middle metacarpal's frame, smoothed against the
+  tracking's tremble, turned to face the way the hand moves). `saw()` splits the mesh into closed solids; the biggest stays,
+  but only when it lies ahead of the hand (else nothing is cut, so pulling the fist back out leaves the work alone). Cutting a convex block by planes keeps it convex, so "inside" is "behind every face plane" and the
   pointing ray's hit is the plane test of a convex body; all of it is a few microseconds for a block, so no worker is needed.
 - **Pointing:** the index's tip over its knuckle against the wrist (straight > 1.7) with the other three curled (< 1.15);
   the click is the thumb's tip within 3 cm of the middle finger.
