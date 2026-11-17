@@ -71,3 +71,8 @@ the last row, a corner out of the way); the others fill the free cells in order.
 The first use is a left-hand test in the VR workshop scene (`VR-WORKSHOP.md`): the left hand takes 8 materials (shown as
 little cubes of the material, so glass looks like glass), grab and cube; the right hand has grab, and exit in the far
 corner of its grid.
+
+In space (a starship) the hands get another set: the left hand's **ship** function (two-handed: left fist = the stick's
+yaw, right flat fist = the throttle, right aim + left pinch = target) and exit on the right; a floating dashboard carries
+Space, Esc, Tab, 0, [ and ]. See VR-WORKSHOP.md, "The starship".
+

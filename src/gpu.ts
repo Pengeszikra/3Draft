@@ -154,6 +154,8 @@ export interface GpuXrEye {
   projection: ArrayLike<number>;
   view: ArrayLike<number>;
   eye: Vec3;
+  /** over what is already in this eye's part of the framebuffer: only the depth is cleared (a ship's cockpit over the sky) */
+  overlay?: boolean;
 }
 /** a × b for column-major 4×4 matrices */
 export const mul4 = (a: ArrayLike<number>, b: ArrayLike<number>): Float32Array => {

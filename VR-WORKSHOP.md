@@ -40,6 +40,37 @@ Every step is one undo (a cube, a move, a paint). When VR ends (and a moment aft
 
 The hands are drawn as their bones: cream open, teal for a fist or a pinch, orange while holding an object.
 
+## The starship: flying with bare hands (Lark in the Deep Sky)
+
+Open **Lark in the Deep Sky** (+ scene → games, `game:lark`): `examples/lark.game.json`, the LARK-4 lander
+(`examples/lark-4.scene.json`) as the starship, in `examples/deepsky-lark.scene.json`, a copy of the Deep Sky that this game
+will grow on. On the desktop the Lark is drawn over the universe from its left pilot seat (C: walk on board).
+
+In VR, in space, the hands get the starship set instead of the workshop's:
+
+| Hand | Function |
+|---|---|
+| left | **ship** (two-handed, taken at once) |
+| right | **exit** (far corner: hold a fist) |
+
+With the ship function:
+
+| Gesture | Does |
+|---|---|
+| **left fist**, tilted left / right like a joystick | the ship turns left / right in its own horizontal plane (yaw; up to 0.7 rad/s at 26° tilt) |
+| **right fist held flat** (back of the hand up), pushed ahead | **W**: the throttle (smooth within speed level ±1, then the exponential steps; 3 cm dead zone, full at 12 cm) |
+| the same, pulled back | **S** |
+| **right index aims, left pinch** | **T**: the target is what the right hand points at (the ray turns gold on an object, its name beside it); pointing at nothing: the target ahead |
+
+**The dashboard** floats in front of you (40 cm ahead of where your eyes were when the flight began, 36 cm lower, tilted to
+you): **space** (stop), **esc** (free the target), **tab** (next target), **0** (orbit), **[** and **]** (roll, while the
+fingertip stays on the key). Poke a key with either index fingertip.
+
+**The cockpit:** the game's ship is drawn round you in metres, over the sky: its helm eye (`helm.eye`, the left pilot seat
+of the Lark) is where your eyes were when the flight began, its nose ahead (the room's −z, the way the rig turns the
+universe with the ship). A second renderer on the same WebGL2 context draws it; it clears only the depth
+(`xr.overlay` in `GpuXrEye`). The flight readout stays in view.
+
 ## The VR tape: recording, playing, the live link
 
 What is recorded is exactly what the workshop gets each frame: the head's pose and the 25 joints of each hand (in the room,
