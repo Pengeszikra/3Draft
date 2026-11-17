@@ -5,7 +5,7 @@
 // shading yet.
 
 export const name = '3draft' as const;
-export const version = '26.11.17009';
+export const version = '26.11.17010';
 
 export type { Vec3, Face, Mesh, Axes, ViewName, ViewSpec, Fit, Camera, Hit, Mark } from './types.js';
 export { box, extrude, merge, rotate, bounds, faceNormal, faceCenter } from './mesh.js';
@@ -28,6 +28,8 @@ export { pick, crosshair } from './pick.js';
 export { instantiate, lodLevel } from './instances.js';
 export type { Prototype, Placement } from './instances.js';
 export { standOn } from './place.js';
+export { createTsh, readHands, handGestures, TSH_JOINTS, TSH_BONES } from './vrtsh.js';
+export type { TshFunction, TshHand, TshGestures, TshIcon, TshEvent, TshFrame, TshHandState, TshOptions } from './vrtsh.js';
 export { makeJoint, jointNow, hingeTo, pivotTo, pivotTurn, railTo, railNear, springStep, springMesh, carried, holderOf, moveMesh, applyRigid, frameOf, toWorld, toLocal, closestOnPath, pathLength, pointAlong, axisAngle, pickFrame, ID3 } from './joints.js';
 export type { Joint as MechJoint, JointSpec, JointType, JointNow, Rigid, M3 } from './joints.js';
 export type { StandOptions, Frame } from './place.js';
