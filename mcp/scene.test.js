@@ -175,7 +175,10 @@ test('export and import round-trip, in memory and through a file', () => {
 
     assert.match(a.call('export', { path: '../evil.json' }).text, /inside the server working directory/);
     assert.match(a.call('export', { path: '/etc/evil.json' }).text, /inside the server working directory/);
-    assert.match(a.call('export', { path: 'scene.txt' }).text, /\.json/);
+    assert.match(a.call('export', { path: 'scene.txt' }).text, /\.3draft/);
+    ok(a, 'export', { path: 'scene.3draft' });
+    assert.ok(existsSync(join(dir, 'scene.3draft')));
+    assert.equal(json(ok(createScene({ root: dir }), 'import', { path: 'scene.3draft' })).objects > 0, true);
     assert.match(c.call('import', { json: '{"format":"nope"}' }).text, /not a 3draft scene/);
     assert.match(c.call('import', {}).text, /exactly one/);
     assert.equal(json(ok(c, 'list')).objects.length, 5, 'a failed import leaves the scene alone');

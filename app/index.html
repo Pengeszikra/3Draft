@@ -871,12 +871,12 @@
           <input id="sceneName" type="text" placeholder="name" maxlength="40" spellcheck="false" autocapitalize="off" aria-label="Name of the scene to save" title="The name a scene is saved under here (empty: a dated name)">
           <button id="sceneSave" type="button" class="cream" title="Save the scene on this computer (this browser) under that name; it then shows in the list">save</button>
           <button id="sceneCloud" type="button" class="teal" hidden title="Save the scene online, in the store, under that name: then every device opens it from the list (online). The first time it asks for the store's key. Shift+click: take that name out of the store">☁</button>
-          <button id="sceneDown" type="button" class="cream" title="Download the scene as a .json file">f↓</button>
+          <button id="sceneDown" type="button" class="cream" title="Download the scene as a .3draft file (3Draft scene JSON)">f↓</button>
           <button id="sceneOpen" type="button" class="cream" title="Add a scene from a .json file">f↑</button>
           <button id="sceneForget" type="button" class="slate" title="Forget the saved scene with the name in the box">✕</button>
           <button id="boolBtn" type="button" class="slate" title="Boolean: select two objects (B), then this; the first taken is A, the second B">bool</button>
           <button id="charBtn" type="button" class="teal" title="Assets: the character builder. Make a figure from a few sliders, hair, clothes and a prop (presets: scientist, mechanic, space crew, astronaut; every part a palette material), then place it at the cross; edit a placed one">char</button>
-          <input id="sceneFile" type="file" accept=".json,application/json" hidden>
+          <input id="sceneFile" type="file" accept=".3draft,.json,application/json" hidden>
         </span>
       </span>
       <span class="grp rows" data-label="sys">
@@ -4907,10 +4907,10 @@
       if (!t) return '';
       return /^https?:\/\//i.test(t) ? t : /^[a-z][a-z0-9+.-]*:/i.test(t) ? '' : `https://${t}`; // only http(s): no javascript: or data:
     };
-    // a .json address is a scene screen (a 3Draft scene played on the face, relative to the page is fine); anything else a page
+    // a .3draft (or .json) address is a scene screen (a 3Draft scene played on the face, relative to the page is fine); anything else a page
     const sceneAddr = (v) => {
       const t = v.trim();
-      if (!/\.json(?:[?#].*)?$/i.test(t)) return '';
+      if (!/\.(?:3draft|json)(?:[?#].*)?$/i.test(t)) return '';
       return /^[a-z][a-z0-9+.-]*:/i.test(t) && !/^https?:\/\//i.test(t) ? '' : t;
     };
     // a picture's address (.png .jpg .jpeg .webp .gif .avif .svg; relative to the page is fine) is an image screen
@@ -9148,7 +9148,7 @@
       if (!allObjects().length) return sceneNote('nothing to save: the scene is empty');
       const name = nameOrDate();
       const url = URL.createObjectURL(new Blob([JSON.stringify(sceneFile(name))], { type: 'application/json' }));
-      const a = Object.assign(document.createElement('a'), { href: url, download: `${name.replace(/[^\w.-]+/g, '-')}.json` });
+      const a = Object.assign(document.createElement('a'), { href: url, download: `${name.replace(/[^\w.-]+/g, '-')}.3draft` });
       document.body.append(a);
       a.click();
       a.remove();
