@@ -32,7 +32,7 @@ The **right hand** (the left index fingertip chooses on the back of it):
 | **type** (two-handed) | first a point on a surface: the right hand aims at it, a left pinch takes it. Then a **plain keyboard** (QWERTZ, as in Hungary: digits and del, Q–P and +, A–L and enter, Y–M and , . - /, then esc, ? !, a wide space, : ' _ and exit) lies in front of you at hand height, tilted toward you. A **fingertip on a key** types it. The words stand out of the surface at the point (8 cm letters, the material chosen last); what you have typed shows over the keyboard. **enter** a new line, **del** the last letter, **esc** the words go (take a new point), **exit** the words stay and both hands get back their own functions |
 | **move** | on the ground: a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). An **upright hand** (in a wall's plane, fingers straight and together, like a blade): you turn toward where it points (the farther off, the faster; straight ahead: still) |
 | **fly** | the same as move, and up and down too: a **fist moved nearly straight down** lifts you, **straight up** lowers you, as fast as the hand goes (× 1.5) |
-| **record** (a red dot) | **hold a fist** for 0.7 s: recording starts (the label shows ● rec and the time); again: it stops and the recording is downloaded as a `.vr.json` file |
+| **debug** (a bug) | **hold a fist** for 0.7 s: a debug report goes to the online store (`debug/`, no key needed): a quarter-size picture of the left eye and the state (the rig, the pilot, the ship, the objects and render parts round the eye, the log). Read them with `/api/store?debug=list` and `?debug=<name>`. (It took the record function's place; recording is still the sys group's rec / play on the desktop.) |
 | **exit** (a door, in the far corner) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
 
 Every step is one undo (a cube, a move, a paint). When VR ends (and a moment after every change) the scene is saved here as
@@ -46,8 +46,10 @@ Open **Lark in the Deep Sky** (+ scene → games, `game:lark`): `examples/lark.g
 (`examples/lark-4.scene.json`) as the starship, in `examples/deepsky-lark.scene.json`, a copy of the Deep Sky that this game
 will grow on. On the desktop the Lark is drawn over the universe from its left pilot seat (C: walk on board).
 
-In VR, in space, the hands keep all their VRTSH functions, and the left hand gets one more, last in its grid: **ship**
-(two-handed). Take it like any other function (poke its icon); choosing anything else puts it down, and the ship **keeps
+In VR, in space, the hands keep the VRTSH functions that make sense in a star map (the materials, grab, debug, exit; the
+tools that make things in metres, cube, block, walls, type, saw, move and fly, are left out there: the scene's unit is the
+light year), and the left hand gets one more, last in its grid: **ship** (two-handed). The material icons are flat swatches
+there. Take it like any other function (poke its icon); choosing anything else puts it down, and the ship **keeps
 its speed and its course**.
 
 With the ship function:
