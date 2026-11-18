@@ -141,6 +141,8 @@ export interface TshOptions {
     bigOut?: number;
     /** how close the other hand's fingertip must come to an icon's middle to choose it (m) */
     reach?: number;
+    /** while the other index tip is this near the grid (m), the grid stays put (default 0.12) */
+    hold?: number;
 }
 /**
  * A VRTSH: the functions of each hand and the choice between them. Call `update` every frame with the hands (readHands) and

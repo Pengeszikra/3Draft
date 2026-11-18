@@ -11192,6 +11192,8 @@
         // so a 5 cm cube would be a cube 5 cm × 9.5e15 big round the head: see the debug report of 18 Nov; with a ship they work in
         // its cabin, in metres)
         ...(space() && !cabinOn() ? [] : [{ id: 'cube', label: 'cube', kind: 'cube' }, { id: 'block', label: 'block between the hands', kind: 'block', both: true }]),
+        // fly (walk, turn, and up / down when armed) on this hand too
+        ...(space() && !cabinOn() ? [] : [{ id: 'fly', label: 'fly', kind: 'fly' }]),
         // delete an object (where things are made in metres) and undo (everywhere)
         ...(space() && !cabinOn() ? [] : [{ id: 'delete', label: 'delete object', kind: 'delete' }]),
         { id: 'undo', label: 'undo', kind: 'undo' },
@@ -11728,7 +11730,9 @@
     // straight ahead: still). The rig keeps where it left you (xrState.walk).
     const WALK_PER_RAD = 0.25; // m per radian of circling
     const xrMove = (ws, st, hands, head, now, done) => {
-      const R = st.right, g = R.g;
+      // (fly on either hand; the right one wins when both have it)
+      const flies = (x) => x.fn?.kind === 'move' || x.fn?.kind === 'fly';
+      const R = flies(st.right) ? st.right : st.left, g = R.g;
       ws.moving = null;
       if ((R.fn?.kind !== 'move' && R.fn?.kind !== 'fly') || !g || !head) {
         ws.circle = [];

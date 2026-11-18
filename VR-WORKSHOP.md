@@ -21,6 +21,7 @@ The bench puts you at it: its front edge is 25 cm in front of where you stand.
 | **grab** (a fist) | a **fist or a pinch** on (or within 4 cm of) an object takes it: it moves and turns with the hand until you let go |
 | **block between the hands** (two-handed) | put the two open hands together, pull them apart: a block grows between them (the palms its opposite corners, in the frame you face); as soon as the hands nearly stop (both slower than 12 cm/s for a quarter second) it stays. Hands back together before that: it is gone |
 | **cube** | **close the fist and open it**: a 5 cm cube appears there, on the palm's side, in the last material chosen |
+| **fly** | the same as the right hand's fly (below): walk, turn, and up / down when armed; the right hand wins when both have it |
 | **delete object** (a cube crossed out) | a **fist or a pinch** on an object (or within 4 cm of it) takes it away; undo brings it back |
 | **undo** (a bent arrow; in a star map too) | **every fist closed** takes back one step: a cube, a block, a cut, a paint, a move, a stroke, a delete… |
 
@@ -28,7 +29,9 @@ The bench puts you at it: its front edge is 25 cm in front of where you stand.
 else (or exit on the keyboard) gives the other hand back its own function.
 
 The right index fingertip on an icon of the left hand chooses it (and the left one on the right hand's). The icons hang on
-the wrist's tracked pose only, so the other hand coming near does not turn them. The chosen function stands bigger over the fingers, tilted toward you (only a sign:
+the wrist's tracked pose only, so the other hand coming near does not turn them; and while the other index tip is within
+12 cm of the grid, the grid stays where it was (the tracking trembles when the hands come close), until the hand really moves
+(the wrist 6 cm away). The chosen function stands bigger over the fingers, tilted toward you (only a sign:
 touching it does nothing), with its name and the last thing that happened.
 
 The **right hand** (the left index fingertip chooses on the back of it):
