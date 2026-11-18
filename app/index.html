@@ -635,6 +635,7 @@
       body.pal:not(.pwa) footer.console .read, body.pal #editbar { left: calc(50% - var(--palR) / 2); }
       body.split.pal:not(.pwa) footer.console .read, body.split.pal #editbar { left: calc(50% + (var(--splitW) - var(--palR)) / 2); }
     }
+    #sceneCloud.cloud-err { background: #8a2a14; color: #ffe2d6; }
 </style>
 </head>
 <body>
@@ -8869,8 +8870,20 @@
     };
     const storeList = async () => {
       if (!STORE) return [];
-      const r = await fetch(STORE, { cache: 'no-store' });
-      if (!r.ok) throw new Error(`the store: HTTP ${r.status}`);
+      let r;
+      try {
+        r = await fetch(STORE, { cache: 'no-store' });
+      } catch (err) {
+        throw new Error(`cannot reach ${STORE} (${err.message})`);
+      }
+      if (!r.ok) {
+        // (the store's own words, e.g. a missing Blob token)
+        let why = '';
+        try {
+          why = (await r.json()).error ?? '';
+        } catch {}
+        throw new Error(`HTTP ${r.status}${why ? `: ${why}` : ''}`);
+      }
       return (await r.json()).items ?? [];
     };
     const storeLoad = async (name) => {
@@ -8901,21 +8914,38 @@
       }
       throw new Error('the store refused the key');
     };
+    // the online list; the ☁ button is always there where there is a store, and says what is wrong when the store does not answer
+    let cloudError = '';
     const showCloud = async () => {
-      const group = document.getElementById('cloudGroup');
+      const group = document.getElementById('cloudGroup'), btn = document.getElementById('sceneCloud');
+      btn.hidden = false;
       try {
         const items = await storeList();
-        group.hidden = !items.length;
+        cloudError = '';
+        btn.classList.remove('cloud-err');
+        btn.textContent = '☁';
+        group.hidden = false;
+        group.label = items.length ? 'online (the store: from anywhere)' : 'online: empty (☁ saves the scene there)';
         group.replaceChildren(...items.map((it) => Object.assign(document.createElement('option'), { value: `cloud:${it.name}`, textContent: it.name })));
-        document.getElementById('sceneCloud').hidden = false;
       } catch (err) {
-        group.hidden = true;
+        cloudError = err.message;
+        btn.classList.add('cloud-err');
+        btn.textContent = '☁!';
+        group.hidden = false;
+        group.label = `online: the store does not answer (${err.message})`;
+        group.replaceChildren();
+        sceneNote(`the online store: ${err.message}`);
         xrLog?.(`store: ${err.message}`);
       }
     };
     if (STORE) showCloud();
     document.getElementById('sceneCloud').addEventListener('click', async (e) => {
       const name = nameOrDate();
+      if (cloudError) {
+        // (first ask the store again: it may be back)
+        await showCloud();
+        if (cloudError) return void sceneNote(`the online store does not answer: ${cloudError}`);
+      }
       try {
         if (e.shiftKey) {
           await storeWrite(name, null);
