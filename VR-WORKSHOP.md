@@ -78,7 +78,7 @@ where you like; the other tools (paint, saw, grab…) do not touch it. On its fa
 
 - the keys **space** (stop), **esc** (free the target), **tab** (next target), **0** (orbit), **[** and **]** (roll, while
   the fingertip stays on the key): poke them with an index fingertip;
-- **⌕ find**: opens the dashboard's own keyboard (QWERTZ, as light, in the dashboard's plane above it; there is no system
+- **⌕ find**: opens the dashboard's own keyboard (QWERTZ, as light, in the dashboard's plane under it, so the line with the text stays in view; there is no system
   keyboard inside an immersive VR session). Type a name with a fingertip: the line under the keys shows what is typed and
   what it would find (the desktop's Enter search: case and accents do not matter, kinds like `black hole` too); **enter**
   targets it (and closes the keyboard), **del** takes the last letter, **esc** / **exit** close it. (The sky FOV slider is
