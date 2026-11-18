@@ -21,6 +21,8 @@ The bench puts you at it: its front edge is 25 cm in front of where you stand.
 | **grab** (a fist) | a **fist or a pinch** on (or within 4 cm of) an object takes it: it moves and turns with the hand until you let go |
 | **block between the hands** (two-handed) | put the two open hands together, pull them apart: a block grows between them (the palms its opposite corners, in the frame you face); as soon as the hands nearly stop (both slower than 12 cm/s for a quarter second) it stays. Hands back together before that: it is gone |
 | **cube** | **close the fist and open it**: a 5 cm cube appears there, on the palm's side, in the last material chosen |
+| **delete object** (a cube crossed out) | a **fist or a pinch** on an object (or within 4 cm of it) takes it away; undo brings it back |
+| **undo** (a bent arrow; in a star map too) | **every fist closed** takes back one step: a cube, a block, a cut, a paint, a move, a stroke, a delete… |
 
 **Two-handed skills** (build walls, erase walls, type, block): chosen on either hand, they take the other hand too; choosing anything
 else (or exit on the keyboard) gives the other hand back its own function.
@@ -40,8 +42,6 @@ The **right hand** (the left index fingertip chooses on the back of it):
 | **type** (two-handed) | first a point on a surface: the right hand aims at it, a left pinch takes it. Then a **plain keyboard** (QWERTZ, as in Hungary: digits and del, Q–P and +, A–L and enter, Y–M and , . - /, then esc, ? !, a wide space, : ' _ and exit) lies in front of you at hand height, tilted toward you. A **fingertip on a key** types it. The words stand out of the surface at the point (8 cm letters, the material chosen last); what you have typed shows over the keyboard. **enter** a new line, **del** the last letter, **esc** the words go (take a new point), **exit** the words stay and both hands get back their own functions |
 | **fly** | on the ground: a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). An **upright hand** (in a wall's plane, fingers straight and together, like a blade): you turn toward where it points (the farther off, the faster; straight ahead: still). Up and down too, **armed first** so it does not mix with walking: move the **open hand up** (8 cm), then close the fist and **pull it down**: you rise (like pulling a rope); move the **open hand down**, then the fist **pushed up**: you sink (× 1.5 the hand's speed). The fist keeps that mode until it opens, and does not walk meanwhile; a fist moved up or down without arming does nothing vertical |
 | **graffiti sketch** (two-handed; a spray can) | the desktop's sketch (5) with bare hands, in **straight lines**, so the faces stay simple: the **right index aims** at a surface (a pink ray, a cross where it meets it), **every left pinch puts a point** there; the outline goes from point to point (a rubber line to the aim), in the plane of the first point's surface. Aiming back at the first point (within 2.5 cm, after at least 3 points; the cross turns green) and pinching **closes it: the outline becomes a face**, its own object, 2 mm above the surface, in the material chosen last. Then **extrude**: a **right fist moved along the face's normal** pulls it out into a prism (or pushes it in), live, with the depth in the note; opening the fist fixes it (each pull one undo step; pull again to change it). The next left pinch starts a new outline. While an outline is open, a right fist takes its last point back |
-| **delete object** (a cube crossed out) | a **fist or a pinch** on an object (or within 4 cm of it) takes it away; undo brings it back |
-| **undo** (a bent arrow; in a star map too) | **every fist closed** takes back one step: a cube, a block, a cut, a paint, a move, a stroke, a delete… |
 | **debug** (a bug) | **hold a fist** for 0.7 s: a debug report goes to the online store (`debug/`, no key needed): a quarter-size picture of the left eye and the state (the rig, the pilot, the ship, the objects and render parts round the eye, the log). Read them with `/api/store?debug=list` and `?debug=<name>`. (It took the record function's place; recording is still the sys group's rec / play on the desktop.) |
 | **exit** (a door, in the far corner) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
 
@@ -80,6 +80,8 @@ With the ship function:
 | **right fist held flat** (back of the hand up), pushed ahead | **W**: the throttle (smooth within speed level ±1, then the exponential steps; 3 cm dead zone, full at 12 cm) |
 | the same, pulled back | **S** |
 | **right index aims, left pinch** | **T**: the target is what the right hand points at (the ray turns gold on an object, its name beside it); pointing at nothing: the target ahead |
+
+**The floating readout** (speed, levels) and the frame meter show only at the helm: while the ship function is in hand.
 
 **The dashboard** comes with the controls: it appears when you take the ship function and is gone when you put it down.
 Take the controls somewhere else in the ship and it appears there, in front of you (40 cm ahead of your eyes, 36 cm lower,
