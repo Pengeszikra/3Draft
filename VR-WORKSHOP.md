@@ -78,8 +78,11 @@ where you like; the other tools (paint, saw, grab…) do not touch it. On its fa
 
 - the keys **space** (stop), **esc** (free the target), **tab** (next target), **0** (orbit), **[** and **]** (roll, while
   the fingertip stays on the key): poke them with an index fingertip;
-- the **sky FOV slider**: the star map's field of view (its zoom, ×1 … ×8, from the headset's ~100° down to ~17°); only the
-  sky is zoomed, not the cockpit, the hands or the panels. Aiming at a star is corrected for the zoom.
+- **⌕ find**: opens the dashboard's own keyboard (QWERTZ, as light, in the dashboard's plane above it; there is no system
+  keyboard inside an immersive VR session). Type a name with a fingertip: the line under the keys shows what is typed and
+  what it would find (the desktop's Enter search: case and accents do not matter, kinds like `black hole` too); **enter**
+  targets it (and closes the keyboard), **del** takes the last letter, **esc** / **exit** close it. (The sky FOV slider is
+  gone: the headset's own field of view is right.)
 
 **The target in the headset:** four ticks round it on the sky (as wide as it looks, at least 1°), gold; green and turned
 45° while orbiting it, as on the screen.
