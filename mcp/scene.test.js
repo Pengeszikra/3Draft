@@ -440,3 +440,30 @@ test('connect: a hinged door with a limit, carried by its frame; a rail; a pivot
   assert.equal(json(ok(s2, 'joints', {})).joints.length, json(ok(s, 'joints', {})).joints.length);
   assert.equal(s.call('connect', { type: 'hinge', a: 'frame', b: 'door', name: 'x' }).isError, true); // no line
 });
+
+test('set_screen: an image, a scene or a page on four-cornered faces, kept in the palette', () => {
+  const s = createScene();
+  ok(s, 'add_box', { name: 'tv', size: [1.6, 0.9, 0.05], at: [0, 1.2, 0], color: '#222222' });
+  const r = json(ok(s, 'set_screen', { name: 'tv', face: 4, image: 'https://example.org/poster.png' }));
+  assert.equal(r.material, 'screen-tv');
+  assert.equal(r.fourCornered, 1);
+  let d = json(ok(s, 'export', {}));
+  assert.deepEqual(d.palette, [{ name: 'screen-tv', color: '#222222', image: 'https://example.org/poster.png' }]);
+  assert.equal(d.objects[0].mesh.faces.filter((f) => f.mat === 'screen-tv').length, 1);
+  // import keeps it
+  const s2 = createScene();
+  assert.equal(json(ok(s2, 'import', { json: JSON.stringify(d) })).screens, 1);
+  assert.equal(json(ok(s2, 'export', {})).palette[0].image, 'https://example.org/poster.png');
+  // a scene on every side, then plain again
+  ok(s, 'set_screen', { name: 'tv', scene: 'models/globe.scene.json', material: 'globe' });
+  d = json(ok(s, 'export', {}));
+  assert.equal(d.palette.find((m) => m.name === 'globe').scene, 'models/globe.scene.json');
+  ok(s, 'set_screen', { name: 'tv', material: 'globe' });
+  ok(s, 'set_screen', { name: 'tv', material: 'screen-tv' });
+  assert.equal(json(ok(s, 'export', {})).palette, undefined);
+  // wrong kinds
+  assert.equal(s.call('set_screen', { name: 'tv', image: 'https://example.org/page.html' }).isError, true);
+  assert.equal(s.call('set_screen', { name: 'tv', url: 'https://example.org/a.jpg' }).isError, true);
+  assert.equal(s.call('set_screen', { name: 'tv', image: 'javascript:alert(1).png' }).isError, true);
+  assert.equal(s.call('set_screen', { name: 'tv', image: 'a.png', scene: 'b.json' }).isError, true);
+});
