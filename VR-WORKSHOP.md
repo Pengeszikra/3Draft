@@ -93,7 +93,8 @@ where you like; the other tools (paint, saw, grab…) do not touch it. On its fa
 **Planets and black holes in the headset:** the stars and glows are drawn at the far end with the depth test on, so a planet
 or a black hole hides what lies behind it (until 18 Nov the stars showed through them). A black hole is drawn by the desktop's
 ray tracer, in each eye: the shadow, the bent accretion disc above and below it, the photon ring (the two biggest on view,
-only in the square round each). `?dbghole=0` leaves it out (a debugging switch, as `dbgsky`).
+only in the square round each, at half the eye's resolution into a layer of its own, then upscaled onto the eye, so it
+costs a quarter of the pixels). `?dbghole=0` leaves it out (a debugging switch, as `dbgsky`).
 
 **The target in the headset:** four ticks round it on the sky (as wide as it looks, at least 1°), gold; green and turned
 45° while orbiting it, as on the screen.
