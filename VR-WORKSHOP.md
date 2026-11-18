@@ -5,6 +5,14 @@ each hand always has one function; its icons are on the back of the hand and the
 Pick **VR workshop** in the scene list (a floor, a workbench, the LARK-4C lander 10 m ahead, the deep sky far behind it all), press **VR**, put the controllers down and show your hands.
 The bench puts you at it: its front edge is 25 cm in front of where you stand.
 
+## Page switches for a headset
+
+- `?handsonly`: in VR only the tracked hands count; controllers are ignored (no sticks, no buttons, no controller cockpit).
+- `?autovr`: on a headset's browser (Quest, Pico, Wolvic, by the user agent) VR starts by itself: the browser is offered the
+  session at once (`navigator.xr.offerSession`, its own Enter VR, as three.js's VRButton does), and the page shows a
+  full-screen **ENTER VR** (a tap or a pinch; `requestSession` needs a gesture). After VR ends, only the browser's offer comes
+  back. (Fifth Percent turns both on.)
+
 ## The hands
 
 | Function (icon on the back of the left hand) | What the left hand does with it |
