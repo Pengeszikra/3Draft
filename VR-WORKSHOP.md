@@ -31,7 +31,7 @@ The **right hand** (the left index fingertip chooses on the back of it):
 | **saw** | a **fist**: its blade is the plane of the hand through the middle of the fist. Where it meets an object (the fist within 12 cm of it) the cut line shows red and it cuts there at once (the bigger piece stays); moving on it keeps cutting, taking away what the hand has come through. One fist = one undo step; a cut that would leave a broken solid is not made |
 | **type** (two-handed) | first a point on a surface: the right hand aims at it, a left pinch takes it. Then a **plain keyboard** (QWERTZ, as in Hungary: digits and del, Q–P and +, A–L and enter, Y–M and , . - /, then esc, ? !, a wide space, : ' _ and exit) lies in front of you at hand height, tilted toward you. A **fingertip on a key** types it. The words stand out of the surface at the point (8 cm letters, the material chosen last); what you have typed shows over the keyboard. **enter** a new line, **del** the last letter, **esc** the words go (take a new point), **exit** the words stay and both hands get back their own functions |
 | **move** | on the ground: a **fist drawing upright circles**: rolling forward walks forward, backward walks back, as fast as the circles go (a round a second ≈ 1.6 m/s). An **upright hand** (in a wall's plane, fingers straight and together, like a blade): you turn toward where it points (the farther off, the faster; straight ahead: still) |
-| **fly** | the same as move, and up and down too: a **fist moved nearly straight down** lifts you, **straight up** lowers you, as fast as the hand goes (× 1.5) |
+| **fly** | the same as move, and up and down too, **armed first** so it does not mix with walking: move the **open hand up** (8 cm), then close the fist and **pull it down**: you rise (like pulling a rope); move the **open hand down**, then the fist **pushed up**: you sink (× 1.5 the hand's speed). The fist keeps that mode until it opens, and does not walk meanwhile; a fist moved up or down without arming does nothing vertical |
 | **debug** (a bug) | **hold a fist** for 0.7 s: a debug report goes to the online store (`debug/`, no key needed): a quarter-size picture of the left eye and the state (the rig, the pilot, the ship, the objects and render parts round the eye, the log). Read them with `/api/store?debug=list` and `?debug=<name>`. (It took the record function's place; recording is still the sys group's rec / play on the desktop.) |
 | **exit** (a door, in the far corner) | **hold a fist** for 0.7 s: out of VR (the icon fills up red while you hold) |
 
@@ -65,6 +65,7 @@ With the ship function:
 | Gesture | Does |
 |---|---|
 | **left fist**, tilted left / right like a joystick | the ship turns left / right in its own horizontal plane (yaw; up to 0.7 rad/s at 26° tilt) |
+| the same, tilted forward / back | **R / F, the nod**: the nose goes down / up (up to 0.7 rad/s), as the controller's stick does |
 | **right fist held flat** (back of the hand up), pushed ahead | **W**: the throttle (smooth within speed level ±1, then the exponential steps; 3 cm dead zone, full at 12 cm) |
 | the same, pulled back | **S** |
 | **right index aims, left pinch** | **T**: the target is what the right hand points at (the ray turns gold on an object, its name beside it); pointing at nothing: the target ahead |
