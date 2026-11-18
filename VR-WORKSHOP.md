@@ -46,12 +46,9 @@ Open **Lark in the Deep Sky** (+ scene → games, `game:lark`): `examples/lark.g
 (`examples/lark-4.scene.json`) as the starship, in `examples/deepsky-lark.scene.json`, a copy of the Deep Sky that this game
 will grow on. On the desktop the Lark is drawn over the universe from its left pilot seat (C: walk on board).
 
-In VR, in space, the hands get the starship set instead of the workshop's:
-
-| Hand | Function |
-|---|---|
-| left | **ship** (two-handed, taken at once) |
-| right | **exit** (far corner: hold a fist) |
+In VR, in space, the hands keep all their VRTSH functions, and the left hand gets one more, last in its grid: **ship**
+(two-handed). Take it like any other function (poke its icon); choosing anything else puts it down, and the ship **keeps
+its speed and its course**.
 
 With the ship function:
 
@@ -62,9 +59,17 @@ With the ship function:
 | the same, pulled back | **S** |
 | **right index aims, left pinch** | **T**: the target is what the right hand points at (the ray turns gold on an object, its name beside it); pointing at nothing: the target ahead |
 
-**The dashboard** floats in front of you (40 cm ahead of where your eyes were when the flight began, 36 cm lower, tilted to
-you): **space** (stop), **esc** (free the target), **tab** (next target), **0** (orbit), **[** and **]** (roll, while the
-fingertip stays on the key). Poke a key with either index fingertip.
+**The dashboard** is a little console in the air (a box 50 × 17 × 3.5 cm), first 40 cm ahead of where your eyes were when
+the flight began, 36 cm lower, tilted to you. **Take it with a pinch or a fist** (whatever the hand's function: it glows
+orange while carried) and put it where you like; the other tools (paint, saw, grab…) do not touch it. On its face:
+
+- the keys **space** (stop), **esc** (free the target), **tab** (next target), **0** (orbit), **[** and **]** (roll, while
+  the fingertip stays on the key): poke them with an index fingertip;
+- the **sky FOV slider**: the star map's field of view (its zoom, ×1 … ×8, from the headset's ~100° down to ~17°); only the
+  sky is zoomed, not the cockpit, the hands or the panels. Aiming at a star is corrected for the zoom.
+
+**The target in the headset:** four ticks round it on the sky (as wide as it looks, at least 1°), gold; green and turned
+45° while orbiting it, as on the screen.
 
 **The cockpit:** the game's ship is drawn round you in metres, over the sky: its helm eye (`helm.eye`, the left pilot seat
 of the Lark) is where your eyes were when the flight began, its nose ahead (the room's −z, the way the rig turns the

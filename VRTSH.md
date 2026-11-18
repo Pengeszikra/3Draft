@@ -72,7 +72,7 @@ The first use is a left-hand test in the VR workshop scene (`VR-WORKSHOP.md`): t
 little cubes of the material, so glass looks like glass), grab and cube; the right hand has grab, and exit in the far
 corner of its grid.
 
-In space (a starship) the hands get another set: the left hand's **ship** function (two-handed: left fist = the stick's
-yaw, right flat fist = the throttle, right aim + left pinch = target) and exit on the right; a floating dashboard carries
-Space, Esc, Tab, 0, [ and ]. See VR-WORKSHOP.md, "The starship".
-
+In space (a starship) the left hand gets one more function, **ship** (two-handed: left fist = the stick's yaw, right flat
+fist = the throttle, right aim + left pinch = target); putting it down leaves the ship on its course. A floating dashboard,
+a body to carry with either hand, carries Space, Esc, Tab, 0, [ and ] and the sky's FOV slider. See VR-WORKSHOP.md, "The
+starship".
