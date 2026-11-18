@@ -66,6 +66,7 @@ With the ship function:
 |---|---|
 | **left fist**, tilted left / right like a joystick | the ship turns left / right in its own horizontal plane (yaw; up to 0.7 rad/s at 26° tilt) |
 | the same, tilted forward / back | **R / F, the nod**: the nose goes down / up (up to 0.7 rad/s), as the controller's stick does |
+| the same, **with a target** (in space) | the ship goes **round the target on the sphere of its distance**, the nose kept on it: tilted left / right it goes left / right, forward / back it goes down / up (up to 0.7 rad/s round the target); the distance only changes with the throttle |
 | **right fist held flat** (back of the hand up), pushed ahead | **W**: the throttle (smooth within speed level ±1, then the exponential steps; 3 cm dead zone, full at 12 cm) |
 | the same, pulled back | **S** |
 | **right index aims, left pinch** | **T**: the target is what the right hand points at (the ray turns gold on an object, its name beside it); pointing at nothing: the target ahead |
