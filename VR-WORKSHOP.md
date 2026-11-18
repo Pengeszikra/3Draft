@@ -84,6 +84,8 @@ where you like; the other tools (paint, saw, grab…) do not touch it. On its fa
   what it would find (the desktop's Enter search: case and accents do not matter, kinds like `black hole` too); **enter**
   targets it (and closes the keyboard), **del** takes the last letter, **esc** / **exit** close it. (The sky FOV slider is
   gone: the headset's own field of view is right.)
+- **bug report**: sends a debug report (the left eye's picture, perf, the rig, the log) to the online store, as the right
+  hand's debug function does, without leaving the helm.
 
 **The target in the headset:** four ticks round it on the sky (as wide as it looks, at least 1°), gold; green and turned
 45° while orbiting it, as on the screen.
