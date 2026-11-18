@@ -69,9 +69,12 @@ With the ship function:
 | the same, pulled back | **S** |
 | **right index aims, left pinch** | **T**: the target is what the right hand points at (the ray turns gold on an object, its name beside it); pointing at nothing: the target ahead |
 
-**The dashboard** is a little console in the air (a box 50 × 17 × 3.5 cm), first 40 cm ahead of where your eyes were when
-the flight began, 36 cm lower, tilted to you. **Take it with a pinch or a fist** (whatever the hand's function: it glows
-orange while carried) and put it where you like; the other tools (paint, saw, grab…) do not touch it. On its face:
+**The dashboard** comes with the controls: it appears when you take the ship function and is gone when you put it down.
+Take the controls somewhere else in the ship and it appears there, in front of you (40 cm ahead of your eyes, 36 cm lower,
+tilted to you), like a desk in an open office: the experimental starship's controls are wireless, so UP's engineers made it
+so for the tests. It is a **hologram** (a see-through cyan slab, 50 × 17 × 3.5 cm, glowing edges, scan lines and a sweeping
+line of light); **take it with a pinch or a fist** (whatever the hand's function: it turns amber while carried) and put it
+where you like; the other tools (paint, saw, grab…) do not touch it. On its face:
 
 - the keys **space** (stop), **esc** (free the target), **tab** (next target), **0** (orbit), **[** and **]** (roll, while
   the fingertip stays on the key): poke them with an index fingertip;
