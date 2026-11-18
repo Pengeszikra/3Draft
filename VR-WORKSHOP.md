@@ -46,11 +46,19 @@ Open **Lark in the Deep Sky** (+ scene → games, `game:lark`): `examples/lark.g
 (`examples/lark-4.scene.json`) as the starship, in `examples/deepsky-lark.scene.json`, a copy of the Deep Sky that this game
 will grow on. On the desktop the Lark is drawn over the universe from its left pilot seat (C: walk on board).
 
-In VR, in space, the hands keep the VRTSH functions that make sense in a star map (the materials, grab, debug, exit; the
-tools that make things in metres, cube, block, walls, type, saw, move and fly, are left out there: the scene's unit is the
-light year), and the left hand gets one more, last in its grid: **ship** (two-handed). The material icons are flat swatches
-there. Take it like any other function (poke its icon); choosing anything else puts it down, and the ship **keeps
-its speed and its course**.
+In VR, in flight, **the whole workshop is on board**: every VRTSH function works in the ship's cabin, in metres, while the
+universe goes by outside, and the left hand gets one more, last in its grid: **ship** (two-handed). Take it like any other
+function (poke its icon); choosing anything else puts it down, and the ship **keeps its speed and its course**: the starship
+flies on to its target while you stand up and do something else on board (there is no jump or teleport in the game, only
+a very fast starship).
+
+**On board (the cabin).** The ship's objects (the LARK-4's parts) are the workshop's scene in flight: you can paint, grab,
+saw them, build walls, type, make cubes and blocks, all in the ship's own frame (metres), drawn round you by the ship's
+renderer. Walking in your room walks you in the ship; **move** and **fly** take you farther (the cabin rig), and turning
+with them turns the universe with the ship, so the nose and the sky ahead stay together. What you make or change is in the
+ship (the desktop's bridge view shows it too); it is not saved yet when the game ends. In a star map without a ship the
+tools that make things in metres are left out (there the unit is the light year), and the material icons are flat swatches
+in space.
 
 With the ship function:
 
