@@ -18,7 +18,10 @@ export interface Placement {
   mats?: Record<string, string>;
   /** Turn of the instance about its own centre: [tilt about x, turn about y] in radians (a galaxy disc seen from any side). */
   rot?: [number, number];
-  /** Colour of every face (a tint on top of the material). */
+  /**
+   * Colour of every face: the faces' fallback colour. A face whose slot names a palette material keeps that material,
+   * which is what is drawn (a star: its spectral material, `color` its glow); a face without one shows this colour.
+   */
   color?: string;
 }
 

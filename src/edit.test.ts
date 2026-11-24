@@ -77,3 +77,20 @@ test('moveVertices: shear the top of a box, planarity is reported by validate', 
   assert.ok(validate(warped).nonPlanarFaces.length > 0);
   assert.throws(() => moveVertices(b, [99], [0, 0, 0]), /vertex 99/);
 });
+
+test('extrudeFace: the cap and the new sides keep the face material, take mat, or a plain colour without one', () => {
+  const b = box({ mat: 'wood', color: '#8a5a36' });
+  const kept = extrudeFace(b, 4, { distance: 0.5 });
+  for (const i of [kept.cap, ...kept.sides]) assert.deepEqual([kept.mesh.faces[i].mat, kept.mesh.faces[i].color], ['wood', '#8a5a36']);
+  const brick = extrudeFace(b, 4, { distance: 0.5, mat: 'brick' });
+  for (const i of [brick.cap, ...brick.sides]) assert.equal(brick.mesh.faces[i].mat, 'brick');
+  const plain = extrudeFace(b, 4, { distance: 0.5, color: '#ff0000' });
+  for (const i of [plain.cap, ...plain.sides]) assert.deepEqual([plain.mesh.faces[i].mat, plain.mesh.faces[i].color], [undefined, '#ff0000']);
+  assert.equal(plain.mesh.faces[0].mat, 'wood', 'the other faces stay');
+});
+
+test('box and extrude take a palette material for every face', () => {
+  assert.ok(box({ mat: 'glass' }).faces.every((f) => f.mat === 'glass' && f.color === '#c8c8c8'));
+  assert.ok(box().faces.every((f) => !('mat' in f)));
+  assert.ok(extrude({ polygon: [[0, 0], [1, 0], [0, 1]], mat: 'concrete' }).faces.every((f) => f.mat === 'concrete'));
+});

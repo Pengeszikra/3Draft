@@ -90,3 +90,9 @@ test('merge keeps a placed prism pickable: the next ray hits its top', () => {
   assert.equal(again.face, 6 + 4, 'the prism top face (local +y), not the cube');
   assert.ok(near(again.point[1], 0.95));
 });
+
+test('standOn: the prism takes a palette material', () => {
+  const hit = topHit();
+  if (!hit) throw new Error('no hit');
+  assert.ok(standOn(cube, hit, { mat: 'steel' }).faces.every((f) => f.mat === 'steel'));
+});

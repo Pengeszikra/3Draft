@@ -5,6 +5,8 @@ export interface StandOptions {
     /** Height (default 3 x base). */
     height?: number;
     color?: string;
+    /** A palette material (material.ts); `color` stays its fallback. */
+    mat?: string;
 }
 /** Where and how an instanced renderer draws the prism. */
 export interface Frame {
@@ -18,6 +20,6 @@ export interface Frame {
  * line up with the first edge of the face. The height is `3 * base` unless given.
  * Returns a new mesh; merge() it into the scene.
  */
-export declare const standOn: (mesh: Mesh, hit: Hit, { base, height, color }?: StandOptions) => Mesh & {
+export declare const standOn: (mesh: Mesh, hit: Hit, { base, height, color, mat }?: StandOptions) => Mesh & {
     frame: Frame;
 };

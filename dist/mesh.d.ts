@@ -3,11 +3,13 @@ export interface BoxOptions {
     size?: Vec3;
     at?: Vec3;
     color?: string;
+    /** A palette material for every face (material.ts); `color` stays its fallback. */
+    mat?: string;
     /** Orthonormal local x/y/z axes (default: the world axes). */
     axes?: Axes;
 }
 /** Box: 8 points, 12 edges, 6 quad faces. Axis-aligned unless `axes` turns it. */
-export declare const box: ({ size, at, color, axes }?: BoxOptions) => Mesh;
+export declare const box: ({ size, at, color, mat, axes }?: BoxOptions) => Mesh;
 /** Concatenate meshes into one, re-indexing the faces. */
 export declare const merge: (...meshes: Mesh[]) => Mesh;
 /** Bounding box center and bounding sphere radius around that center. */
@@ -32,9 +34,10 @@ export declare const faceCenter: (pts: Vec3[]) => Vec3;
  * winding), it is extruded up from `y` by `height`. Faces: top, bottom, then one
  * quad per footprint edge, all CCW from outside.
  */
-export declare const extrude: ({ polygon, height, y, color }: {
+export declare const extrude: ({ polygon, height, y, color, mat }: {
     polygon: [number, number][];
     height?: number;
     y?: number;
     color?: string;
+    mat?: string;
 }) => Mesh;
