@@ -208,7 +208,7 @@ npm run build:check  # fails when dist/ is out of date
 npm run app          # the viewer
 ```
 
-Edit `src/*.ts`, never `dist/`. Versions are date based, `YY.MM.DD.NNN`, published as semver `YY.M.DNNN` (`26.11.01.002` is `26.11.1002`); `npm run bump` sets the next one.
+Edit `src/*.ts`, never `dist/`. Versions are date based, `YY.MM.DD.NNN`, published as semver `YY.M.DNNN` (`26.11.01.002` is `26.11.1002`); `npm run bump` sets the next one. Publish with `npm run release` (never a bare `npm publish`): from a clean, up-to-date `main` it bumps, builds, tests, publishes, then commits the version (package.json, src/index.ts, dist/) and pushes it; `npm run release -- --dry-run` only shows the next version.
 
 MIT
 
